@@ -133,9 +133,9 @@ export async function POST(request: NextRequest) {
 
 async function processOrder(supabase: any, order: any, webhookEventId: string) {
   // Check if this is a custom order based on detection rules
-  const isCustomOrder = detectCustomOrder(order)
+  const orderType = detectOrderType(order)
 
-  if (!isCustomOrder) {
+  if (!orderType) {
     // Mark webhook as completed (non-custom order, no action needed)
     await supabase
       .from('webhook_events')
@@ -148,22 +148,65 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
     return
   }
 
-  // Check if work item already exists (idempotency)
-  const { data: existingWorkItem } = await supabase
-    .from('work_items')
-    .select('id')
-    .eq('shopify_order_id', order.id.toString())
-    .single()
+  const customerEmail = order.customer?.email
+  const customerName = order.customer ? `${order.customer.first_name || ''} ${order.customer.last_name || ''}`.trim() : null
+
+  // For Custom Design Service, try to find existing work item by email
+  let existingWorkItem = null
+  if (orderType === 'custom_design_service') {
+    const { data: foundWorkItem } = await supabase
+      .from('work_items')
+      .select('id, status')
+      .eq('customer_email', customerEmail)
+      .eq('type', 'assisted_project')
+      .in('status', ['new_inquiry', 'design_fee_sent', 'info_sent'])
+      .is('closed_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    existingWorkItem = foundWorkItem
+  } else {
+    // For Customify orders, check by Shopify order ID
+    const { data: foundWorkItem } = await supabase
+      .from('work_items')
+      .select('id, status')
+      .eq('shopify_order_id', order.id.toString())
+      .single()
+
+    existingWorkItem = foundWorkItem
+  }
 
   if (existingWorkItem) {
-    // Update existing work item with latest Shopify data
+    // Update existing work item
+    const updateData: any = {
+      shopify_order_id: order.id.toString(),
+      shopify_order_number: order.name,
+      shopify_financial_status: order.financial_status,
+      shopify_fulfillment_status: order.fulfillment_status,
+      customer_name: customerName,
+    }
+
+    // If it's a Custom Design Service order, update status
+    if (orderType === 'custom_design_service') {
+      updateData.status = 'design_fee_paid'
+    }
+
     await supabase
       .from('work_items')
-      .update({
-        shopify_financial_status: order.financial_status,
-        shopify_fulfillment_status: order.fulfillment_status,
-      })
+      .update(updateData)
       .eq('id', existingWorkItem.id)
+
+    // Create status event if status changed
+    if (orderType === 'custom_design_service' && existingWorkItem.status !== 'design_fee_paid') {
+      await supabase.from('work_item_status_events').insert({
+        work_item_id: existingWorkItem.id,
+        from_status: existingWorkItem.status,
+        to_status: 'design_fee_paid',
+        changed_by_user_id: null,
+        note: `Design fee paid via Shopify order #${order.name}`,
+      })
+    }
 
     // Mark webhook as completed
     await supabase
@@ -177,54 +220,98 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
     return
   }
 
-  // Extract design URLs from line items (Customify)
+  // Extract data from line items
   let designPreviewUrl = null
   let designDownloadUrl = null
   let quantity = 0
   let gripColor = null
+  const customifyFiles: Array<{ kind: string; url: string; filename: string }> = []
 
   for (const item of order.line_items || []) {
     if (item.properties) {
       const props = Array.isArray(item.properties) ? item.properties : []
       for (const prop of props) {
-        if (prop.name === 'design_preview' || prop.name === '_design_preview_url') {
-          designPreviewUrl = prop.value
+        const propName = prop.name?.toLowerCase() || ''
+        const propValue = prop.value
+
+        // Extract URLs
+        if (propName === 'design_preview' || propName === '_design_preview_url' || propName === 'preview') {
+          designPreviewUrl = propValue
         }
-        if (prop.name === 'design_download' || prop.name === '_design_download_url') {
-          designDownloadUrl = prop.value
+        if (propName === 'design_download' || propName === '_design_download_url') {
+          designDownloadUrl = propValue
         }
-        if (prop.name === 'grip_color' || prop.name === 'Grip Color') {
-          gripColor = prop.value
+        if (propName === 'grip_color' || propName === 'grip color') {
+          gripColor = propValue
+        }
+
+        // Collect Customify file URLs
+        if (propName.includes('final design') && propValue?.includes('http')) {
+          customifyFiles.push({ kind: 'design', url: propValue, filename: `final-design-${propName}` })
+        } else if (propName.includes('design ') && !propName.includes('final') && propValue?.includes('http')) {
+          customifyFiles.push({ kind: 'preview', url: propValue, filename: `design-${propName}` })
+        } else if (propName.includes('cst-original-image') && propValue?.includes('http')) {
+          customifyFiles.push({ kind: 'other', url: propValue, filename: `original-${propName}` })
+        } else if (propName.includes('preview') && propValue?.includes('http')) {
+          customifyFiles.push({ kind: 'preview', url: propValue, filename: `preview-${propName}` })
         }
       }
     }
     quantity += item.quantity
   }
 
+  // Determine work item type and status
+  const workItemType = orderType === 'custom_design_service' ? 'assisted_project' : 'customify_order'
+  const workItemStatus = orderType === 'custom_design_service' ? 'design_fee_paid' : 'needs_design_review'
+
   // Create new work item
-  const { error: insertError } = await supabase.from('work_items').insert({
-    type: 'customify_order',
-    source: 'shopify',
-    status: 'needs_design_review',
-    shopify_order_id: order.id.toString(),
-    shopify_order_number: order.name,
-    shopify_financial_status: order.financial_status,
-    shopify_fulfillment_status: order.fulfillment_status,
-    customer_name: order.customer ? `${order.customer.first_name || ''} ${order.customer.last_name || ''}`.trim() : null,
-    customer_email: order.customer?.email,
-    quantity,
-    grip_color: gripColor,
-    design_preview_url: designPreviewUrl,
-    design_download_url: designDownloadUrl,
-    reason_included: {
-      detected_via: 'shopify_webhook',
-      order_tags: order.tags,
-      has_customify_properties: !!designPreviewUrl || !!designDownloadUrl,
-    },
-  })
+  const { data: newWorkItem, error: insertError } = await supabase
+    .from('work_items')
+    .insert({
+      type: workItemType,
+      source: 'shopify',
+      status: workItemStatus,
+      shopify_order_id: order.id.toString(),
+      shopify_order_number: order.name,
+      shopify_financial_status: order.financial_status,
+      shopify_fulfillment_status: order.fulfillment_status,
+      customer_name: customerName,
+      customer_email: customerEmail,
+      quantity,
+      grip_color: gripColor,
+      design_preview_url: designPreviewUrl,
+      design_download_url: designDownloadUrl,
+      reason_included: {
+        detected_via: 'shopify_webhook',
+        order_type: orderType,
+        order_tags: order.tags,
+        has_customify_properties: !!designPreviewUrl || !!designDownloadUrl,
+      },
+    })
+    .select()
+    .single()
 
   if (insertError) {
     throw new Error(`Failed to create work item: ${insertError.message}`)
+  }
+
+  // Create file records for Customify files
+  if (customifyFiles.length > 0 && newWorkItem) {
+    const fileRecords = customifyFiles.map((file, index) => ({
+      work_item_id: newWorkItem.id,
+      kind: file.kind,
+      version: index + 1,
+      original_filename: file.filename,
+      normalized_filename: file.filename,
+      storage_bucket: 'customify',
+      storage_path: file.url,
+      mime_type: 'image/png',
+      size_bytes: null,
+      uploaded_by_user_id: null,
+      note: 'Imported from Customify',
+    }))
+
+    await supabase.from('files').insert(fileRecords)
   }
 
   // Mark webhook as completed
@@ -274,35 +361,46 @@ async function processFulfillment(supabase: any, fulfillment: any, webhookEventI
     .eq('id', webhookEventId)
 }
 
-function detectCustomOrder(order: any): boolean {
+function detectOrderType(order: any): 'customify_order' | 'custom_design_service' | null {
+  // Check for Custom Design Service product first (higher priority)
+  for (const item of order.line_items || []) {
+    const title = item.title?.toLowerCase() || ''
+    if (
+      title.includes('professional custom fan design service') ||
+      title.includes('custom fan design service') ||
+      title.includes('design service & credit')
+    ) {
+      return 'custom_design_service'
+    }
+  }
+
   // Check line item properties for Customify markers
   for (const item of order.line_items || []) {
     if (item.properties) {
       const props = Array.isArray(item.properties) ? item.properties : []
       for (const prop of props) {
-        if (
-          prop.name.toLowerCase().includes('design') ||
-          prop.name.toLowerCase().includes('customify')
-        ) {
-          return true
+        const propName = prop.name?.toLowerCase() || ''
+        if (propName.includes('customify')) {
+          return 'customify_order'
         }
       }
     }
 
-    // Check product title
-    if (
-      item.title?.toLowerCase().includes('custom') ||
-      item.title?.toLowerCase().includes('customify')
-    ) {
-      return true
+    // Check product title for Customify
+    const title = item.title?.toLowerCase() || ''
+    if (title.includes('customify')) {
+      return 'customify_order'
     }
   }
 
   // Check order tags
   const tags = order.tags?.toLowerCase() || ''
-  if (tags.includes('custom') || tags.includes('customify')) {
-    return true
+  if (tags.includes('customify')) {
+    return 'customify_order'
+  }
+  if (tags.includes('custom design')) {
+    return 'custom_design_service'
   }
 
-  return false
+  return null
 }
