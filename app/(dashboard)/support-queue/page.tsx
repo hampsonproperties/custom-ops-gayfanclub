@@ -77,7 +77,7 @@ export default function SupportQueuePage() {
       customer_name: leadForm.customerName,
       customer_email: leadForm.customerEmail,
       event_date: leadForm.eventDate || null,
-      description: leadForm.notes,
+      title: leadForm.notes.substring(0, 100), // Use notes as title
       last_contact_at: selectedEmail.received_at,
       next_follow_up_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
     })
