@@ -78,6 +78,11 @@ export async function POST(request: NextRequest) {
       webhookEventId = webhookEvent.id
     }
 
+    // Should never be null at this point, but TypeScript doesn't know that
+    if (!webhookEventId) {
+      return NextResponse.json({ error: 'Failed to create webhook event' }, { status: 500 })
+    }
+
     // Mark as processing
     await supabase
       .from('webhook_events')
@@ -86,13 +91,13 @@ export async function POST(request: NextRequest) {
         retry_count: existingEvent ? (existingEvent.retry_count || 0) + 1 : 0,
         last_retry_at: existingEvent ? new Date().toISOString() : null,
       })
-      .eq('id', webhookEventId)
+      .eq('id', webhookEventId!)
 
     // Process based on topic
     if (topic === 'orders/create' || topic === 'orders/updated') {
-      await processOrder(supabase, payload, webhookEventId)
+      await processOrder(supabase, payload, webhookEventId!)
     } else if (topic === 'fulfillments/create' || topic === 'orders/fulfilled') {
-      await processFulfillment(supabase, payload, webhookEventId)
+      await processFulfillment(supabase, payload, webhookEventId!)
     } else {
       // Unknown topic - mark as skipped
       await supabase
@@ -101,7 +106,7 @@ export async function POST(request: NextRequest) {
           processing_status: 'skipped',
           processed_at: new Date().toISOString(),
         })
-        .eq('id', webhookEventId)
+        .eq('id', webhookEventId!)
     }
 
     return NextResponse.json({ received: true })
