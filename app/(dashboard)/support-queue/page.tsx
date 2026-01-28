@@ -143,7 +143,7 @@ export default function SupportQueuePage() {
                         {email.from_email}
                       </span>
                       <span className="text-xs">
-                        {new Date(email.received_at).toLocaleString()}
+                        {email.received_at && new Date(email.received_at).toLocaleString()}
                       </span>
                     </CardDescription>
                   </div>
