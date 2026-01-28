@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     // Check for duplicate webhook (idempotency)
     const { data: existingEvent } = await supabase
       .from('webhook_events')
-      .select('id, processing_status')
+      .select('id, processing_status, retry_count')
       .eq('provider', 'shopify')
       .eq('external_event_id', externalEventId)
       .single()
