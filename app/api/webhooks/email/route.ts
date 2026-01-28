@@ -74,7 +74,7 @@ async function processEmailNotification(notification: any, supabase: any) {
     const message = await client
       .api(`/users/${mailboxEmail}/messages/${messageId}`)
       .select(
-        'internetMessageId,subject,from,toRecipients,body,receivedDateTime,conversationId,inReplyTo'
+        'internetMessageId,subject,from,toRecipients,body,receivedDateTime,conversationId'
       )
       .get()
 

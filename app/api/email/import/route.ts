@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     // Fetch recent emails
     const messages = await client
       .api(`/users/${mailboxEmail}/messages`)
-      .select('internetMessageId,subject,from,toRecipients,body,receivedDateTime,conversationId,inReplyTo')
+      .select('internetMessageId,subject,from,toRecipients,body,receivedDateTime,conversationId')
       .top(limit)
       .orderby('receivedDateTime desc')
       .get()
