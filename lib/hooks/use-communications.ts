@@ -175,29 +175,20 @@ export function useSendEmail() {
       subject: string
       body: string
     }) => {
-      // Create communication record
-      const { data, error } = await supabase
-        .from('communications')
-        .insert({
-          work_item_id: workItemId,
-          direction: 'outbound',
-          from_email: 'custom@thegayfanclub.com',
-          to_emails: [to],
-          subject,
-          body_html: body,
-          body_preview: body.substring(0, 200),
-          sent_at: new Date().toISOString(),
-          triage_status: 'triaged',
-        })
-        .select()
-        .single()
+      // Send email via API endpoint (which calls Microsoft Graph)
+      const response = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workItemId, to, subject, body }),
+      })
 
-      if (error) throw error
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to send email')
+      }
 
-      // TODO: Actually send via Microsoft Graph API
-      // For now, just log to database
-
-      return data
+      const result = await response.json()
+      return result.data
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['communications'] })
