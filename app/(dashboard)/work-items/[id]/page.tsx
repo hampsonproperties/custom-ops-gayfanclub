@@ -13,6 +13,9 @@ import { useWorkItem } from '@/lib/hooks/use-work-items'
 import { useCommunications, useSendEmail } from '@/lib/hooks/use-communications'
 import { useFiles, useUploadFile, useDeleteFile, getFileUrl } from '@/lib/hooks/use-files'
 import { ArrowLeft, Mail, FileText, Info, Send, Upload, File as FileIcon, Trash2, Download, Image as ImageIcon } from 'lucide-react'
+import type { Database } from '@/types/database'
+
+type FileRecord = Database['public']['Tables']['files']['Row']
 import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
 import { toast } from 'sonner'

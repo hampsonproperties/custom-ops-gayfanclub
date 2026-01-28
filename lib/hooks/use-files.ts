@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/types/database'
 
-type File = Database['public']['Tables']['files']['Row']
+type FileRecord = Database['public']['Tables']['files']['Row']
 type FileInsert = Database['public']['Tables']['files']['Insert']
 
 export function useFiles(workItemId?: string) {
@@ -25,7 +25,7 @@ export function useFiles(workItemId?: string) {
       const { data, error } = await query
 
       if (error) throw error
-      return data as File[]
+      return data as FileRecordRecord[]
     },
     enabled: !!workItemId,
     staleTime: 1000 * 60, // 1 minute
@@ -92,7 +92,7 @@ export function useUploadFile() {
         .single()
 
       if (error) throw error
-      return data as File
+      return data as FileRecord
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['files', variables.workItemId] })
@@ -134,7 +134,7 @@ export function useDeleteFile() {
   })
 }
 
-export function getFileUrl(file: File): string {
+export function getFileUrl(file: FileRecord): string {
   // If it's an external URL (Customify), return as-is
   if (file.storage_bucket === 'customify' || file.storage_bucket === 'external') {
     return file.storage_path
