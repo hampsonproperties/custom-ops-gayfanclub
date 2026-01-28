@@ -1,36 +1,102 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Custom Ops
 
-## Getting Started
+Internal operations platform for The Gay Fan Club - managing custom fan orders and design-assisted projects.
 
-First, run the development server:
+## Quick Start
+
+### 1. Install Dependencies
+
+```bash
+npm install
+```
+
+### 2. Set Up Supabase
+
+1. Create a new Supabase project at [supabase.com](https://supabase.com)
+2. Copy `.env.example` to `.env.local`
+3. Fill in your Supabase credentials:
+   ```
+   NEXT_PUBLIC_SUPABASE_URL=your-project-url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+   ```
+
+### 3. Run Database Migrations
+
+In your Supabase project dashboard:
+
+1. Go to **SQL Editor**
+2. Run each migration file in order:
+   - `supabase/migrations/20260127000001_initial_schema.sql`
+   - `supabase/migrations/20260127000002_seed_data.sql`
+   - `supabase/migrations/20260127000003_rls_policies.sql`
+
+### 4. Create Your First User
+
+1. Go to **Authentication** in Supabase dashboard
+2. Create a new user with email/password
+3. Go to **SQL Editor** and run:
+
+```sql
+-- Get the admin role ID
+SELECT id FROM roles WHERE key = 'admin';
+
+-- Insert user record (replace USER_ID with auth user ID, ROLE_ID with admin role ID)
+INSERT INTO users (id, email, full_name, role_id)
+VALUES (
+  'USER_ID_FROM_AUTH',
+  'your-email@example.com',
+  'Your Name',
+  'ROLE_ID_FROM_ROLES'
+);
+```
+
+### 5. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tech Stack
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Next.js 14** - React framework with App Router
+- **Supabase** - Database, Auth, Storage
+- **Tailwind CSS** - Styling with pride color system
+- **shadcn/ui** - Component primitives
+- **Tanstack Query** - Server state management
 
-## Learn More
+## Project Structure
 
-To learn more about Next.js, take a look at the following resources:
+```
+custom-ops/
+├── app/                    # Next.js app directory
+│   ├── (auth)/            # Auth routes (login)
+│   ├── (dashboard)/       # Protected dashboard routes
+│   └── api/               # API routes
+├── components/
+│   ├── ui/                # shadcn components
+│   └── custom/            # Custom components
+├── lib/
+│   ├── supabase/          # Supabase clients
+│   ├── hooks/             # React hooks
+│   └── utils/             # Utilities
+├── types/                 # TypeScript types
+└── supabase/
+    └── migrations/        # Database migrations
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Key Features
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Email Intake Queue** - Triage incoming emails, create leads
+- **Design Review Queue** - Approve/request fixes for Customify orders
+- **Work Item Management** - Track custom orders and assisted projects
+- **Batch Builder** - Group orders for production
+- **Follow-Up Automation** - Auto-calculated follow-up dates
+- **Shopify Integration** - Webhook-driven order sync
+- **Microsoft 365 Integration** - Send/receive emails
 
-## Deploy on Vercel
+## License
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Proprietary - The Gay Fan Club

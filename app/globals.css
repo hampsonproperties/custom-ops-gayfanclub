@@ -1,26 +1,97 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@layer base {
+  :root {
+    /* Pride Rainbow Colors */
+    --pride-red: #E40303;
+    --pride-orange: #FF8C00;
+    --pride-yellow: #FFED00;
+    --pride-green: #008026;
+    --pride-blue: #24408E;
+    --pride-purple: #732982;
+
+    /* Status Colors */
+    --status-overdue: #E91E63;
+    --status-warning: #FF9800;
+    --status-expiring: #FFC107;
+    --status-on-track: #4CAF50;
+    --status-new: #9C27B0;
+    --status-complete: #00BCD4;
+
+    /* Base Colors */
+    --background: #FAFAFA;
+    --foreground: #212121;
+    --card: #FFFFFF;
+    --card-foreground: #212121;
+    --border: #E0E0E0;
+    --input: #E0E0E0;
+    --ring: #E91E63;
+
+    /* Primary (Pink) */
+    --primary: #E91E63;
+    --primary-foreground: #FFFFFF;
+
+    /* Secondary */
+    --secondary: #F5F5F5;
+    --secondary-foreground: #212121;
+
+    /* Muted */
+    --muted: #F5F5F5;
+    --muted-foreground: #757575;
+
+    /* Accent */
+    --accent: #F5F5F5;
+    --accent-foreground: #212121;
+
+    /* Destructive */
+    --destructive: #F44336;
+    --destructive-foreground: #FFFFFF;
+
+    --radius: 0.5rem;
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-ring: var(--ring);
+
+  /* Pride colors */
+  --color-pride-red: var(--pride-red);
+  --color-pride-orange: var(--pride-orange);
+  --color-pride-yellow: var(--pride-yellow);
+  --color-pride-green: var(--pride-green);
+  --color-pride-blue: var(--pride-blue);
+  --color-pride-purple: var(--pride-purple);
+
+  /* Status colors */
+  --color-status-overdue: var(--status-overdue);
+  --color-status-warning: var(--status-warning);
+  --color-status-expiring: var(--status-expiring);
+  --color-status-on-track: var(--status-on-track);
+  --color-status-new: var(--status-new);
+  --color-status-complete: var(--status-complete);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  body {
+    @apply bg-background text-foreground;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
 }
