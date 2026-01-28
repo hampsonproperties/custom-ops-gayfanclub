@@ -61,6 +61,10 @@ export async function POST(request: NextRequest) {
       // Extract sender email
       const fromEmail = message.from?.emailAddress?.address || 'unknown@unknown.com'
 
+      // Determine direction - if from sales@, it's outbound
+      const isOutbound = fromEmail.toLowerCase() === mailboxEmail.toLowerCase()
+      const direction = isOutbound ? 'outbound' : 'inbound'
+
       // Extract body content
       const bodyContent = message.body?.content || ''
       const bodyPreview = bodyContent.replace(/<[^>]*>/g, '').substring(0, 200)
@@ -69,7 +73,7 @@ export async function POST(request: NextRequest) {
       const { error: insertError } = await supabase
         .from('communications')
         .insert({
-          direction: 'inbound',
+          direction: direction,
           from_email: fromEmail,
           to_emails: message.toRecipients?.map((r: any) => r.emailAddress.address) || [],
           subject: message.subject || '(no subject)',
@@ -77,7 +81,8 @@ export async function POST(request: NextRequest) {
           body_preview: bodyPreview,
           received_at: message.receivedDateTime,
           internet_message_id: message.internetMessageId,
-          triage_status: 'untriaged',
+          // Only mark as untriaged if it's inbound from a customer
+          triage_status: isOutbound ? 'archived' : 'untriaged',
         })
 
       if (insertError) {
