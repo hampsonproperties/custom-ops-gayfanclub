@@ -12,7 +12,8 @@ import {
   Flag,
   Package,
   Settings,
-  LogOut
+  LogOut,
+  Palette
 } from 'lucide-react'
 
 export default async function DashboardLayout({
@@ -73,6 +74,12 @@ export default async function DashboardLayout({
               <Button variant="ghost" size="sm" className="gap-2">
                 <ClipboardCheck className="h-4 w-4" />
                 Design Queue
+              </Button>
+            </Link>
+            <Link href="/custom-design-queue">
+              <Button variant="ghost" size="sm" className="gap-2">
+                <Palette className="h-4 w-4" />
+                Custom Designs
               </Button>
             </Link>
             <Link href="/approved-designs">

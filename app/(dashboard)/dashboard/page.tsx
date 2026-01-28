@@ -6,10 +6,11 @@ import {
   useFollowUpToday,
   useOverdueFollowUps,
   useDesignReviewQueue,
-  useReadyForBatch
+  useReadyForBatch,
+  useCustomDesignProjects
 } from '@/lib/hooks/use-work-items'
 import { useUntriagedEmails } from '@/lib/hooks/use-communications'
-import { ArrowRight, AlertCircle, Clock, ClipboardCheck, Mail, Package } from 'lucide-react'
+import { ArrowRight, AlertCircle, Clock, ClipboardCheck, Mail, Package, Palette } from 'lucide-react'
 import Link from 'next/link'
 
 export default function DashboardPage() {
@@ -18,6 +19,7 @@ export default function DashboardPage() {
   const { data: designReviewQueue } = useDesignReviewQueue()
   const { data: readyForBatch } = useReadyForBatch()
   const { data: untriagedEmails } = useUntriagedEmails()
+  const { data: customDesignProjects } = useCustomDesignProjects()
 
   const stats = [
     {
@@ -43,6 +45,14 @@ export default function DashboardPage() {
       link: '/design-queue',
       color: 'text-[#9C27B0]',
       bgColor: 'bg-[#9C27B0]/10'
+    },
+    {
+      title: 'Custom Designs Active',
+      count: customDesignProjects?.length || 0,
+      icon: Palette,
+      link: '/custom-design-queue',
+      color: 'text-[#E91E63]',
+      bgColor: 'bg-[#E91E63]/10'
     },
     {
       title: 'Untriaged Emails',

@@ -243,3 +243,83 @@ export function useReadyForBatch() {
     },
   })
 }
+
+// Custom Design Projects hooks
+export function useCustomDesignProjects() {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['work-items', 'custom-design-all'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_items')
+        .select('*, customer:customers(*)')
+        .eq('type', 'assisted_project')
+        .is('closed_at', null)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return data as WorkItem[]
+    },
+  })
+}
+
+export function useCustomDesignDesigning() {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['work-items', 'custom-design-designing'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_items')
+        .select('*, customer:customers(*)')
+        .eq('type', 'assisted_project')
+        .in('status', ['design_fee_paid', 'in_design'])
+        .is('closed_at', null)
+        .order('created_at', { ascending: true })
+
+      if (error) throw error
+      return data as WorkItem[]
+    },
+  })
+}
+
+export function useCustomDesignAwaitingApproval() {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['work-items', 'custom-design-awaiting-approval'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_items')
+        .select('*, customer:customers(*)')
+        .eq('type', 'assisted_project')
+        .in('status', ['proof_sent', 'awaiting_approval'])
+        .is('closed_at', null)
+        .order('created_at', { ascending: true })
+
+      if (error) throw error
+      return data as WorkItem[]
+    },
+  })
+}
+
+export function useCustomDesignAwaitingPayment() {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['work-items', 'custom-design-awaiting-payment'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_items')
+        .select('*, customer:customers(*)')
+        .eq('type', 'assisted_project')
+        .eq('status', 'invoice_sent')
+        .is('closed_at', null)
+        .order('created_at', { ascending: true })
+
+      if (error) throw error
+      return data as WorkItem[]
+    },
+  })
+}
