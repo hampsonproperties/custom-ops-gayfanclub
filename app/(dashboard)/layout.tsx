@@ -49,90 +49,111 @@ export default async function DashboardLayout({
     <div className="min-h-screen flex flex-col bg-background">
       <RainbowHeader />
 
-      {/* Top Navigation */}
-      <header className="border-b bg-card">
-        <div className="flex items-center justify-between h-16 px-6">
-          <div className="flex items-center gap-2">
+      <div className="flex flex-1">
+        {/* Sidebar Navigation */}
+        <aside className="w-64 border-r bg-card flex flex-col">
+          {/* Logo */}
+          <div className="h-16 flex items-center gap-2 px-6 border-b">
             <span className="text-2xl">🌈</span>
             <h1 className="text-xl font-bold">Custom Ops</h1>
           </div>
 
-          <nav className="flex items-center gap-1">
+          {/* Navigation Links */}
+          <nav className="flex-1 p-4 space-y-1">
             <Link href="/dashboard">
-              <Button variant="ghost" size="sm" className="gap-2">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <LayoutDashboard className="h-4 w-4" />
                 Dashboard
               </Button>
             </Link>
             <Link href="/work-items">
-              <Button variant="ghost" size="sm" className="gap-2">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <Inbox className="h-4 w-4" />
                 Work Items
               </Button>
             </Link>
+
+            <div className="pt-4 pb-2">
+              <p className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Queues
+              </p>
+            </div>
+
             <Link href="/design-queue">
-              <Button variant="ghost" size="sm" className="gap-2">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <ClipboardCheck className="h-4 w-4" />
-                Design Queue
+                Design Review
               </Button>
             </Link>
             <Link href="/custom-design-queue">
-              <Button variant="ghost" size="sm" className="gap-2">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <Palette className="h-4 w-4" />
                 Custom Designs
               </Button>
             </Link>
             <Link href="/approved-designs">
-              <Button variant="ghost" size="sm" className="gap-2">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <CheckCircle2 className="h-4 w-4" />
                 Approved Designs
               </Button>
             </Link>
             <Link href="/email-intake">
-              <Button variant="ghost" size="sm" className="gap-2">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <Mail className="h-4 w-4" />
                 Email Intake
               </Button>
             </Link>
             <Link href="/support-queue">
-              <Button variant="ghost" size="sm" className="gap-2">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <Flag className="h-4 w-4" />
                 Support Queue
               </Button>
             </Link>
             <Link href="/batches">
-              <Button variant="ghost" size="sm" className="gap-2">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <Package className="h-4 w-4" />
                 Batches
               </Button>
             </Link>
+
+            <div className="pt-4 pb-2">
+              <p className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                System
+              </p>
+            </div>
+
             <Link href="/settings">
-              <Button variant="ghost" size="sm" className="gap-2">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <Settings className="h-4 w-4" />
                 Settings
               </Button>
             </Link>
           </nav>
 
-          <div className="flex items-center gap-3">
-            <div className="text-right">
-              <p className="text-sm font-medium">{userData?.full_name || 'User'}</p>
-              <p className="text-xs text-muted-foreground">{userData?.email}</p>
+          {/* User Section */}
+          <div className="border-t p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{userData?.full_name || 'User'}</p>
+                <p className="text-xs text-muted-foreground truncate">{userData?.email}</p>
+              </div>
             </div>
             <form action={handleSignOut}>
-              <Button variant="ghost" size="sm" className="gap-2">
+              <Button variant="outline" size="sm" className="w-full gap-2">
                 <LogOut className="h-4 w-4" />
                 Sign Out
               </Button>
             </form>
           </div>
-        </div>
-      </header>
+        </aside>
 
-      {/* Main Content */}
-      <main className="flex-1">
-        {children}
-      </main>
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col">
+          <main className="flex-1 overflow-auto">
+            {children}
+          </main>
+        </div>
+      </div>
     </div>
   )
 }
