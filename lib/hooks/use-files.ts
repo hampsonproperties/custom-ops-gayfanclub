@@ -25,7 +25,7 @@ export function useFiles(workItemId?: string) {
       const { data, error } = await query
 
       if (error) throw error
-      return data as FileRecordRecord[]
+      return data as FileRecord[]
     },
     enabled: !!workItemId,
     staleTime: 1000 * 60, // 1 minute
