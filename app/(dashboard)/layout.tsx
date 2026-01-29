@@ -13,7 +13,8 @@ import {
   Package,
   Settings,
   LogOut,
-  Palette
+  Palette,
+  Download
 } from 'lucide-react'
 
 export default async function DashboardLayout({
@@ -122,6 +123,12 @@ export default async function DashboardLayout({
               </p>
             </div>
 
+            <Link href="/admin/import-orders">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
+                <Download className="h-4 w-4" />
+                Import Orders
+              </Button>
+            </Link>
             <Link href="/settings">
               <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <Settings className="h-4 w-4" />
