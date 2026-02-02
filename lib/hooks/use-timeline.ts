@@ -83,7 +83,7 @@ export function useTimeline(workItemId: string) {
             metadata: {
               direction: comm.direction,
               from: comm.from_email,
-              to: comm.to_email,
+              to: comm.to_emails,
               preview: comm.body_preview,
             },
           })
