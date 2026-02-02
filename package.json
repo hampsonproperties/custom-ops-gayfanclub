@@ -31,6 +31,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dompurify": "^3.3.1",
+    "html-to-text": "^9.0.5",
     "isomorphic-fetch": "^3.0.0",
     "jsonwebtoken": "^9.0.3",
     "jszip": "^3.10.1",

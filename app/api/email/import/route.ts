@@ -3,7 +3,7 @@ import { Client } from '@microsoft/microsoft-graph-client'
 import { ClientSecretCredential } from '@azure/identity'
 import { createClient } from '@supabase/supabase-js'
 import 'isomorphic-fetch'
-import { htmlToPlainText } from '@/lib/utils/html-entities'
+import { htmlToPlainText, smartTruncate } from '@/lib/utils/html-entities'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -95,7 +95,21 @@ export async function POST(request: NextRequest) {
 
       // Extract body content
       const bodyContent = message.body?.content || ''
-      const bodyPreview = htmlToPlainText(bodyContent).substring(0, 200)
+      const plainText = htmlToPlainText(bodyContent)
+      const bodyPreview = smartTruncate(plainText, 200)
+
+      // Apply email filters to determine category (for inbound emails only)
+      let category = 'primary' // Default category
+      if (!isOutbound) {
+        const { data: filterResult } = await supabase
+          .rpc('apply_email_filters', { p_from_email: fromEmail })
+          .single()
+
+        if (filterResult?.matched_category) {
+          category = filterResult.matched_category
+          console.log(`Applied filter: ${fromEmail} → ${category}`)
+        }
+      }
 
       // Try to auto-link to existing work item based on thread
       let workItemId = null
@@ -135,6 +149,8 @@ export async function POST(request: NextRequest) {
           provider_thread_id: message.conversationId,
           work_item_id: workItemId,
           triage_status: triageStatus,
+          category: category,
+          is_read: false,
         })
 
       if (insertError) {

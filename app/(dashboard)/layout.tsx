@@ -15,7 +15,8 @@ import {
   Settings,
   LogOut,
   Palette,
-  Download
+  Download,
+  Beaker
 } from 'lucide-react'
 
 export default async function DashboardLayout({
@@ -129,6 +130,12 @@ export default async function DashboardLayout({
               <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <Download className="h-4 w-4" />
                 Import Orders
+              </Button>
+            </Link>
+            <Link href="/test-tools">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
+                <Beaker className="h-4 w-4" />
+                Test Tools
               </Button>
             </Link>
             <Link href="/settings">

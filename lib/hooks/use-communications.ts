@@ -7,6 +7,10 @@ import type { Database } from '@/types/database'
 type Communication = Database['public']['Tables']['communications']['Row']
 type CommunicationInsert = Database['public']['Tables']['communications']['Insert']
 type CommunicationUpdate = Database['public']['Tables']['communications']['Update']
+type EmailFilter = Database['public']['Tables']['email_filters']['Row']
+type EmailFilterInsert = Database['public']['Tables']['email_filters']['Insert']
+type EmailFilterUpdate = Database['public']['Tables']['email_filters']['Update']
+type EmailCategory = Database['public']['Tables']['communications']['Row']['category']
 
 export function useCommunications(workItemId?: string) {
   const supabase = createClient()
@@ -228,6 +232,224 @@ export function useSendEmail() {
         queryClient.invalidateQueries({ queryKey: ['communications', data.work_item_id] })
       }
       queryClient.invalidateQueries({ queryKey: ['work-items'] })
+    },
+  })
+}
+
+// ============================================================================
+// EMAIL CATEGORIZATION HOOKS
+// ============================================================================
+
+/**
+ * Query emails by category (primary, promotional, spam, notifications)
+ * Optionally filter by triage_status
+ */
+export function useEmailsByCategory(
+  category: EmailCategory,
+  triageStatus?: 'untriaged' | 'triaged' | 'created_lead' | 'attached' | 'flagged_support' | 'archived'
+) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['communications', 'category', category, triageStatus],
+    queryFn: async () => {
+      let query = supabase
+        .from('communications')
+        .select('*')
+        .eq('direction', 'inbound')
+        .eq('category', category)
+        .order('received_at', { ascending: false })
+
+      if (triageStatus) {
+        query = query.eq('triage_status', triageStatus)
+      }
+
+      const { data, error } = await query
+
+      if (error) throw error
+      return data as Communication[]
+    },
+  })
+}
+
+/**
+ * Mark email as read or unread
+ */
+export function useMarkEmailAsRead() {
+  const queryClient = useQueryClient()
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async ({ id, isRead }: { id: string; isRead: boolean }) => {
+      const { data, error } = await supabase
+        .from('communications')
+        .update({ is_read: isRead })
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['communications'] })
+    },
+  })
+}
+
+/**
+ * Move email to a different category
+ * Optionally creates a filter rule for the sender
+ */
+export function useMoveEmailToCategory() {
+  const queryClient = useQueryClient()
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async ({
+      emailId,
+      category,
+      createFilter,
+      fromEmail,
+    }: {
+      emailId: string
+      category: EmailCategory
+      createFilter?: boolean
+      fromEmail?: string
+    }) => {
+      // Update the email category
+      const { data: email, error: emailError } = await supabase
+        .from('communications')
+        .update({ category })
+        .eq('id', emailId)
+        .select()
+        .single()
+
+      if (emailError) throw emailError
+
+      // Optionally create a filter rule
+      if (createFilter && fromEmail) {
+        const domain = fromEmail.split('@')[1]
+
+        const { error: filterError } = await supabase
+          .from('email_filters')
+          .insert({
+            sender_email: fromEmail,
+            sender_domain: domain,
+            category,
+            notes: `Auto-created from email categorization on ${new Date().toLocaleDateString()}`,
+          })
+
+        if (filterError) {
+          console.error('Failed to create filter:', filterError)
+          // Don't throw - email was moved successfully
+        }
+      }
+
+      return email
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['communications'] })
+      queryClient.invalidateQueries({ queryKey: ['email_filters'] })
+    },
+  })
+}
+
+// ============================================================================
+// EMAIL FILTER HOOKS
+// ============================================================================
+
+/**
+ * Query all active email filters
+ */
+export function useEmailFilters() {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['email_filters'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('email_filters')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return data as EmailFilter[]
+    },
+  })
+}
+
+/**
+ * Create a new email filter
+ */
+export function useCreateEmailFilter() {
+  const queryClient = useQueryClient()
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async (filter: EmailFilterInsert) => {
+      const { data, error } = await supabase
+        .from('email_filters')
+        .insert(filter)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['email_filters'] })
+    },
+  })
+}
+
+/**
+ * Update an existing email filter
+ */
+export function useUpdateEmailFilter() {
+  const queryClient = useQueryClient()
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: EmailFilterUpdate }) => {
+      const { data, error } = await supabase
+        .from('email_filters')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['email_filters'] })
+    },
+  })
+}
+
+/**
+ * Delete (deactivate) an email filter
+ */
+export function useDeleteEmailFilter() {
+  const queryClient = useQueryClient()
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase
+        .from('email_filters')
+        .update({ is_active: false })
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['email_filters'] })
     },
   })
 }

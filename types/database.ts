@@ -12,6 +12,7 @@ export type Priority = 'low' | 'normal' | 'high'
 export type DesignReviewStatus = 'pending' | 'approved' | 'needs_fix'
 export type CommunicationDirection = 'inbound' | 'outbound'
 export type TriageStatus = 'untriaged' | 'triaged' | 'created_lead' | 'attached' | 'flagged_support' | 'archived'
+export type EmailCategory = 'primary' | 'promotional' | 'spam' | 'notifications'
 export type FileKind = 'preview' | 'design' | 'proof' | 'other'
 export type BatchStatus = 'draft' | 'confirmed' | 'exported'
 export type IntegrationProvider = 'shopify' | 'm365'
@@ -307,6 +308,8 @@ export interface Database {
           has_attachments: boolean
           attachments_meta: Json | null
           triage_status: TriageStatus
+          category: EmailCategory
+          is_read: boolean
           sent_at: string | null
           received_at: string | null
           created_at: string
@@ -330,6 +333,8 @@ export interface Database {
           has_attachments?: boolean
           attachments_meta?: Json | null
           triage_status?: TriageStatus
+          category?: EmailCategory
+          is_read?: boolean
           sent_at?: string | null
           received_at?: string | null
           created_at?: string
@@ -353,8 +358,54 @@ export interface Database {
           has_attachments?: boolean
           attachments_meta?: Json | null
           triage_status?: TriageStatus
+          category?: EmailCategory
+          is_read?: boolean
           sent_at?: string | null
           received_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      email_filters: {
+        Row: {
+          id: string
+          sender_email: string | null
+          sender_domain: string | null
+          category: EmailCategory
+          auto_archive: boolean
+          created_by_user_id: string | null
+          is_active: boolean
+          match_count: number
+          last_matched_at: string | null
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          sender_email?: string | null
+          sender_domain?: string | null
+          category: EmailCategory
+          auto_archive?: boolean
+          created_by_user_id?: string | null
+          is_active?: boolean
+          match_count?: number
+          last_matched_at?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          sender_email?: string | null
+          sender_domain?: string | null
+          category?: EmailCategory
+          auto_archive?: boolean
+          created_by_user_id?: string | null
+          is_active?: boolean
+          match_count?: number
+          last_matched_at?: string | null
+          notes?: string | null
           created_at?: string
           updated_at?: string
         }
