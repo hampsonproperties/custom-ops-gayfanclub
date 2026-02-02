@@ -233,7 +233,7 @@ export function useReadyForBatch() {
       const { data, error } = await supabase
         .from('work_items')
         .select('*, customer:customers(*)')
-        .in('status', ['ready_for_batch', 'paid_ready_for_batch'])
+        .in('status', ['approved', 'ready_for_batch', 'paid_ready_for_batch'])
         .is('batch_id', null)
         .or('status.eq.paid_ready_for_batch,shopify_financial_status.eq.paid')
         .order('created_at', { ascending: true })
