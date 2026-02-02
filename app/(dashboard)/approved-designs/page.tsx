@@ -86,7 +86,7 @@ export default function ApprovedDesignsPage() {
                   {grouped.approved.length}
                 </Badge>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                 {grouped.approved.map((item) => (
                   <Card key={item.id} className="hover:shadow-lg transition-shadow">
                     <CardHeader className="pb-3">
@@ -184,7 +184,7 @@ export default function ApprovedDesignsPage() {
                   {grouped.ready_for_batch.length}
                 </Badge>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                 {grouped.ready_for_batch.map((item) => (
                   <Card key={item.id} className="hover:shadow-lg transition-shadow border-[#00BCD4]">
                     <CardHeader className="pb-3">
