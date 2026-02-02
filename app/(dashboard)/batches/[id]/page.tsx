@@ -1,10 +1,13 @@
 'use client'
 
-import { use } from 'react'
+import { use, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, FileDown, CheckCircle, Package } from 'lucide-react'
-import { useBatch, useConfirmBatch, useExportBatch } from '@/lib/hooks/use-batches'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { ArrowLeft, FileDown, CheckCircle, Package, Truck } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { useBatch, useConfirmBatch, useExportBatch, useUpdateBatchTracking } from '@/lib/hooks/use-batches'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
@@ -15,6 +18,10 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
   const { data: batch, isLoading } = useBatch(id)
   const confirmBatch = useConfirmBatch()
   const exportBatch = useExportBatch()
+  const updateTracking = useUpdateBatchTracking()
+
+  const [showTrackingDialog, setShowTrackingDialog] = useState(false)
+  const [trackingNumber, setTrackingNumber] = useState('')
 
   const handleConfirm = async () => {
     try {
@@ -27,7 +34,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
 
   const handleExport = async () => {
     try {
-      // Export batch data as CSV
+      // Export batch data as ZIP with designs
       const response = await fetch(`/api/batches/${id}/export`)
       if (!response.ok) {
         throw new Error('Export failed')
@@ -37,7 +44,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${batch?.name || 'batch'}.csv`
+      a.download = `${batch?.name || 'batch'}_supplier_package.zip`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -45,9 +52,25 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
 
       // Mark batch as exported
       await exportBatch.mutateAsync(id)
-      toast.success('Batch exported successfully')
+      toast.success('Supplier package exported successfully')
     } catch (error) {
       toast.error('Failed to export batch')
+    }
+  }
+
+  const handleAddTracking = async () => {
+    if (!trackingNumber.trim()) {
+      toast.error('Please enter a tracking number')
+      return
+    }
+
+    try {
+      await updateTracking.mutateAsync({ batchId: id, trackingNumber })
+      toast.success('Tracking number added')
+      setShowTrackingDialog(false)
+      setTrackingNumber('')
+    } catch (error) {
+      toast.error('Failed to add tracking number')
     }
   }
 
@@ -98,14 +121,32 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             </Button>
           )}
           {batch.status === 'confirmed' && (
-            <Button
-              onClick={handleExport}
-              disabled={exportBatch.isPending}
-              className="gap-2"
-            >
-              <FileDown className="h-4 w-4" />
-              Export CSV
-            </Button>
+            <>
+              <Button
+                onClick={handleExport}
+                disabled={exportBatch.isPending}
+                className="gap-2"
+              >
+                <FileDown className="h-4 w-4" />
+                Export Supplier Package
+              </Button>
+              {!batch.tracking_number && (
+                <Button
+                  onClick={() => setShowTrackingDialog(true)}
+                  variant="outline"
+                  className="gap-2"
+                >
+                  <Truck className="h-4 w-4" />
+                  Add Tracking
+                </Button>
+              )}
+            </>
+          )}
+          {batch.tracking_number && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+              <Truck className="h-4 w-4" />
+              <span className="text-sm font-medium">{batch.tracking_number}</span>
+            </div>
           )}
         </div>
       </div>
@@ -179,6 +220,40 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         </CardContent>
       </Card>
+
+      {/* Tracking Number Dialog */}
+      <Dialog open={showTrackingDialog} onOpenChange={setShowTrackingDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Tracking Number</DialogTitle>
+            <DialogDescription>
+              Enter the shipping tracking number for this batch
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="tracking">Tracking Number</Label>
+              <Input
+                id="tracking"
+                value={trackingNumber}
+                onChange={(e) => setTrackingNumber(e.target.value)}
+                placeholder="e.g., 1Z999AA10123456784"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTrackingDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddTracking}
+              disabled={!trackingNumber.trim() || updateTracking.isPending}
+            >
+              Add Tracking Number
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

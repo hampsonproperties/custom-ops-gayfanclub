@@ -452,6 +452,8 @@ export interface Database {
           created_by_user_id: string | null
           confirmed_at: string | null
           exported_at: string | null
+          tracking_number: string | null
+          shipped_at: string | null
           notes: string | null
           created_at: string
           updated_at: string
@@ -463,6 +465,8 @@ export interface Database {
           created_by_user_id?: string | null
           confirmed_at?: string | null
           exported_at?: string | null
+          tracking_number?: string | null
+          shipped_at?: string | null
           notes?: string | null
           created_at?: string
           updated_at?: string
@@ -474,6 +478,8 @@ export interface Database {
           created_by_user_id?: string | null
           confirmed_at?: string | null
           exported_at?: string | null
+          tracking_number?: string | null
+          shipped_at?: string | null
           notes?: string | null
           created_at?: string
           updated_at?: string

@@ -164,3 +164,29 @@ export function useExportBatch() {
     },
   })
 }
+
+export function useUpdateBatchTracking() {
+  const queryClient = useQueryClient()
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async ({ batchId, trackingNumber }: { batchId: string; trackingNumber: string }) => {
+      const { data, error } = await supabase
+        .from('batches')
+        .update({
+          tracking_number: trackingNumber,
+          shipped_at: new Date().toISOString(),
+        })
+        .eq('id', batchId)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['batches'] })
+      queryClient.invalidateQueries({ queryKey: ['batch', data.id] })
+    },
+  })
+}
