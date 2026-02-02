@@ -440,7 +440,7 @@ export default function EmailIntakePage() {
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {(email.sent_at || email.received_at) &&
-                                  formatDistanceToNow(new Date(email.sent_at || email.received_at), { addSuffix: true })}
+                                  formatDistanceToNow(new Date((email.sent_at || email.received_at)!), { addSuffix: true })}
                               </p>
                             </div>
                           </div>
