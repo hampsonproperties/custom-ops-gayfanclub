@@ -88,86 +88,63 @@ export default function ApprovedDesignsPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                 {grouped.approved.map((item) => (
-                  <Card key={item.id} className="hover:shadow-lg transition-shadow">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-lg mb-1">
-                            {item.customer_name || 'Unknown Customer'}
-                          </CardTitle>
-                          <CardDescription className="text-xs">
-                            {item.shopify_order_id ? `Order #${item.shopify_order_id.slice(-8)}` : 'Assisted Project'}
-                          </CardDescription>
-                        </div>
-                        <Badge variant="outline" className="bg-[#4CAF50] text-white">
+                  <Card key={item.id} className="hover:shadow-lg transition-shadow overflow-hidden">
+                    {item.design_preview_url && (
+                      <div className="relative h-48 bg-muted">
+                        <Image
+                          src={item.design_preview_url}
+                          alt="Design preview"
+                          fill
+                          className="object-cover"
+                        />
+                        <Badge className="absolute top-2 right-2 bg-[#4CAF50] text-white">
                           <CheckCircle2 className="h-3 w-3 mr-1" />
                           Approved
                         </Badge>
                       </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {item.design_preview_url && (
-                        <div className="relative aspect-square rounded-lg overflow-hidden bg-muted">
-                          <Image
-                            src={item.design_preview_url}
-                            alt="Design preview"
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                      )}
-                      <div className="space-y-1 text-sm">
+                    )}
+                    <CardContent className="p-4 space-y-3">
+                      <div>
+                        <h3 className="font-semibold text-base truncate">
+                          {item.customer_name || 'Unknown Customer'}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          {item.shopify_order_number ? `Order #${item.shopify_order_number}` : 'Assisted Project'}
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
                         {item.quantity && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Quantity:</span>
-                            <span className="font-medium">{item.quantity}</span>
+                          <div>
+                            <span className="text-muted-foreground">Qty:</span>
+                            <span className="ml-1 font-medium">{item.quantity}</span>
                           </div>
                         )}
                         {item.grip_color && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Grip Color:</span>
-                            <span className="font-medium">{item.grip_color}</span>
-                          </div>
-                        )}
-                        {item.event_date && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Event Date:</span>
-                            <span className="font-medium">
-                              {new Date(item.event_date).toLocaleDateString()}
-                            </span>
+                          <div>
+                            <span className="text-muted-foreground">Color:</span>
+                            <span className="ml-1 font-medium">{item.grip_color}</span>
                           </div>
                         )}
                       </div>
-                      <div className="flex gap-2 pt-2">
-                        {item.design_download_url && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex-1"
-                            onClick={() => window.open(item.design_download_url!, '_blank')}
-                          >
-                            <Download className="h-4 w-4 mr-1" />
-                            Download
-                          </Button>
-                        )}
+                      <div className="flex gap-2">
                         <Link href={`/work-items/${item.id}`} className="flex-1">
-                          <Button size="sm" variant="outline" className="w-full">
-                            <Eye className="h-4 w-4 mr-1" />
+                          <Button size="sm" variant="outline" className="w-full h-8">
+                            <Eye className="h-3 w-3 mr-1" />
                             View
                           </Button>
                         </Link>
+                        <Button
+                          size="sm"
+                          className="flex-1 h-8"
+                          onClick={() => {
+                            setSelectedItem(item)
+                            setShowMoveDialog(true)
+                          }}
+                        >
+                          <Package className="h-3 w-3 mr-1" />
+                          Batch
+                        </Button>
                       </div>
-                      <Button
-                        size="sm"
-                        className="w-full"
-                        onClick={() => {
-                          setSelectedItem(item)
-                          setShowMoveDialog(true)
-                        }}
-                      >
-                        <Package className="h-4 w-4 mr-2" />
-                        Move to Ready for Batch
-                      </Button>
                     </CardContent>
                   </Card>
                 ))}
@@ -186,75 +163,50 @@ export default function ApprovedDesignsPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
                 {grouped.ready_for_batch.map((item) => (
-                  <Card key={item.id} className="hover:shadow-lg transition-shadow border-[#00BCD4]">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <CardTitle className="text-lg mb-1">
-                            {item.customer_name || 'Unknown Customer'}
-                          </CardTitle>
-                          <CardDescription className="text-xs">
-                            {item.shopify_order_id ? `Order #${item.shopify_order_id.slice(-8)}` : 'Assisted Project'}
-                          </CardDescription>
-                        </div>
-                        <Badge variant="outline" className="bg-[#00BCD4] text-white">
+                  <Card key={item.id} className="hover:shadow-lg transition-shadow border-[#00BCD4] overflow-hidden">
+                    {item.design_preview_url && (
+                      <div className="relative h-48 bg-muted">
+                        <Image
+                          src={item.design_preview_url}
+                          alt="Design preview"
+                          fill
+                          className="object-cover"
+                        />
+                        <Badge className="absolute top-2 right-2 bg-[#00BCD4] text-white">
                           <Package className="h-3 w-3 mr-1" />
                           Ready
                         </Badge>
                       </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {item.design_preview_url && (
-                        <div className="relative aspect-square rounded-lg overflow-hidden bg-muted">
-                          <Image
-                            src={item.design_preview_url}
-                            alt="Design preview"
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                      )}
-                      <div className="space-y-1 text-sm">
+                    )}
+                    <CardContent className="p-4 space-y-3">
+                      <div>
+                        <h3 className="font-semibold text-base truncate">
+                          {item.customer_name || 'Unknown Customer'}
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          {item.shopify_order_number ? `Order #${item.shopify_order_number}` : 'Assisted Project'}
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
                         {item.quantity && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Quantity:</span>
-                            <span className="font-medium">{item.quantity}</span>
+                          <div>
+                            <span className="text-muted-foreground">Qty:</span>
+                            <span className="ml-1 font-medium">{item.quantity}</span>
                           </div>
                         )}
                         {item.grip_color && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Grip Color:</span>
-                            <span className="font-medium">{item.grip_color}</span>
-                          </div>
-                        )}
-                        {item.event_date && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Event Date:</span>
-                            <span className="font-medium">
-                              {new Date(item.event_date).toLocaleDateString()}
-                            </span>
+                          <div>
+                            <span className="text-muted-foreground">Color:</span>
+                            <span className="ml-1 font-medium">{item.grip_color}</span>
                           </div>
                         )}
                       </div>
-                      <div className="flex gap-2 pt-2">
-                        {item.design_download_url && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex-1"
-                            onClick={() => window.open(item.design_download_url!, '_blank')}
-                          >
-                            <Download className="h-4 w-4 mr-1" />
-                            Download
-                          </Button>
-                        )}
-                        <Link href={`/work-items/${item.id}`} className="flex-1">
-                          <Button size="sm" variant="outline" className="w-full">
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
-                        </Link>
-                      </div>
+                      <Link href={`/work-items/${item.id}`} className="block">
+                        <Button size="sm" variant="outline" className="w-full h-8">
+                          <Eye className="h-3 w-3 mr-1" />
+                          View Details
+                        </Button>
+                      </Link>
                     </CardContent>
                   </Card>
                 ))}
