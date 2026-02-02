@@ -106,7 +106,7 @@ async function processEmailNotification(notification: any, supabase: any) {
     let category = 'primary' // Default category
     const { data: filterResult } = await supabase
       .rpc('apply_email_filters', { p_from_email: fromEmail })
-      .single()
+      .maybeSingle() as { data: { matched_category: string; filter_id: string } | null }
 
     if (filterResult?.matched_category) {
       category = filterResult.matched_category
