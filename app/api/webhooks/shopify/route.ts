@@ -151,9 +151,11 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
   const customerEmail = order.customer?.email
   const customerName = order.customer ? `${order.customer.first_name || ''} ${order.customer.last_name || ''}`.trim() : null
 
-  // For Custom Design Service, try to find existing work item by email
+  // Try to find existing work item
   let existingWorkItem = null
+
   if (orderType === 'custom_design_service') {
+    // Link design fee orders to existing inquiries
     const { data: foundWorkItem } = await supabase
       .from('work_items')
       .select('id, status')
@@ -166,13 +168,28 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
       .single()
 
     existingWorkItem = foundWorkItem
+  } else if (orderType === 'custom_bulk_order' && customerEmail) {
+    // Link bulk/invoice orders to existing assisted projects awaiting payment
+    const { data: foundWorkItem } = await supabase
+      .from('work_items')
+      .select('id, status, quantity, grip_color')
+      .eq('customer_email', customerEmail)
+      .eq('type', 'assisted_project')
+      .in('status', ['design_fee_paid', 'in_design', 'proof_sent', 'awaiting_approval', 'invoice_sent'])
+      .is('closed_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    existingWorkItem = foundWorkItem
   } else {
-    // For Customify orders, check by Shopify order ID
+    // For other orders, check by Shopify order ID (check both production and design fee order IDs)
+    const orderId = order.id.toString()
     const { data: foundWorkItem } = await supabase
       .from('work_items')
       .select('id, status')
-      .eq('shopify_order_id', order.id.toString())
-      .single()
+      .or(`shopify_order_id.eq.${orderId},design_fee_order_id.eq.${orderId}`)
+      .maybeSingle()
 
     existingWorkItem = foundWorkItem
   }
@@ -180,16 +197,66 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
   if (existingWorkItem) {
     // Update existing work item
     const updateData: any = {
-      shopify_order_id: order.id.toString(),
-      shopify_order_number: order.name,
       shopify_financial_status: order.financial_status,
       shopify_fulfillment_status: order.fulfillment_status,
       customer_name: customerName,
     }
 
-    // If it's a Custom Design Service order, update status
+    // For design fee orders, update design_fee_order fields
     if (orderType === 'custom_design_service') {
+      updateData.design_fee_order_id = order.id.toString()
+      updateData.design_fee_order_number = order.name
       updateData.status = 'design_fee_paid'
+    } else {
+      // For production/bulk orders, update main shopify_order fields
+      updateData.shopify_order_id = order.id.toString()
+      updateData.shopify_order_number = order.name
+    }
+
+    // Extract quantity and grip color for bulk orders
+    if (orderType === 'custom_bulk_order') {
+      let quantity = 0
+      let gripColor = null
+
+      for (const item of order.line_items || []) {
+        // Check if this line item is custom work (not standard inventory)
+        const title = item.title?.toLowerCase() || ''
+        const hasCustomifyProps = item.properties && Array.isArray(item.properties) &&
+          item.properties.some((prop: any) => prop.name?.toLowerCase().includes('customify'))
+
+        const isCustomItem = hasCustomifyProps ||
+          title.includes('customify') ||
+          title.includes('custom') ||
+          title.includes('bulk')
+
+        // Only process custom items, skip standard inventory
+        if (!isCustomItem) {
+          continue
+        }
+
+        // Extract quantity from product title first
+        // Matches formats like: "(230 units/$12 unit)" or "(200 fans at $10/fan)"
+        const match = item.title?.match(/\((\d+)\s+(?:units?|fans?)/i)
+        if (match) {
+          quantity += parseInt(match[1], 10)
+        } else {
+          quantity += item.quantity
+        }
+
+        if (item.properties) {
+          const props = Array.isArray(item.properties) ? item.properties : []
+          for (const prop of props) {
+            const propName = prop.name?.toLowerCase() || ''
+            if (propName === 'grip_color' || propName === 'grip color') {
+              gripColor = prop.value
+            }
+          }
+        }
+      }
+
+      updateData.quantity = quantity || existingWorkItem.quantity
+      updateData.grip_color = gripColor || existingWorkItem.grip_color
+      updateData.status = 'paid_ready_for_batch'
     }
 
     await supabase
@@ -205,6 +272,16 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
         to_status: 'design_fee_paid',
         changed_by_user_id: null,
         note: `Design fee paid via Shopify order #${order.name}`,
+      })
+    }
+
+    if (orderType === 'custom_bulk_order' && existingWorkItem.status !== 'paid_ready_for_batch') {
+      await supabase.from('work_item_status_events').insert({
+        work_item_id: existingWorkItem.id,
+        from_status: existingWorkItem.status,
+        to_status: 'paid_ready_for_batch',
+        changed_by_user_id: null,
+        note: `Production order paid via Shopify order #${order.name}`,
       })
     }
 
@@ -228,6 +305,21 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
   const customifyFiles: Array<{ kind: string; url: string; filename: string }> = []
 
   for (const item of order.line_items || []) {
+    // Check if this line item is custom work (not standard inventory)
+    const title = item.title?.toLowerCase() || ''
+    const hasCustomifyProps = item.properties && Array.isArray(item.properties) &&
+      item.properties.some((prop: any) => prop.name?.toLowerCase().includes('customify'))
+
+    const isCustomItem = hasCustomifyProps ||
+      title.includes('customify') ||
+      title.includes('custom') ||
+      title.includes('bulk')
+
+    // Only process custom items, skip standard inventory
+    if (!isCustomItem) {
+      continue
+    }
+
     if (item.properties) {
       const props = Array.isArray(item.properties) ? item.properties : []
       for (const prop of props) {
@@ -257,37 +349,60 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
         }
       }
     }
-    quantity += item.quantity
+
+    // Extract quantity for custom items
+    // Try to extract from product title first
+    // Matches formats like: "(230 units/$12 unit)" or "(200 fans at $10/fan)"
+    const match = item.title?.match(/\((\d+)\s+(?:units?|fans?)/i)
+    if (match) {
+      quantity += parseInt(match[1], 10)
+    } else {
+      // Use line item quantity if not in title
+      quantity += item.quantity
+    }
   }
 
   // Determine work item type and status
-  const workItemType = orderType === 'custom_design_service' ? 'assisted_project' : 'customify_order'
-  const workItemStatus = orderType === 'custom_design_service' ? 'design_fee_paid' : 'needs_design_review'
+  const workItemType = (orderType === 'custom_design_service' || orderType === 'custom_bulk_order') ? 'assisted_project' : 'customify_order'
+  const workItemStatus = orderType === 'custom_design_service' ? 'design_fee_paid' :
+                         orderType === 'custom_bulk_order' ? 'paid_ready_for_batch' :
+                         'needs_design_review'
+
+  // For design fee orders, store in design_fee_order_id. For others, use shopify_order_id
+  const insertData: any = {
+    type: workItemType,
+    source: 'shopify',
+    status: workItemStatus,
+    shopify_financial_status: order.financial_status,
+    shopify_fulfillment_status: order.fulfillment_status,
+    customer_name: customerName,
+    customer_email: customerEmail,
+    quantity,
+    grip_color: gripColor,
+    design_preview_url: designPreviewUrl,
+    design_download_url: designDownloadUrl,
+    reason_included: {
+      detected_via: 'shopify_webhook',
+      order_type: orderType,
+      order_tags: order.tags,
+      has_customify_properties: !!designPreviewUrl || !!designDownloadUrl,
+    },
+  }
+
+  if (orderType === 'custom_design_service') {
+    // Design fee order - store separately
+    insertData.design_fee_order_id = order.id.toString()
+    insertData.design_fee_order_number = order.name
+  } else {
+    // Production/Customify order - use main fields
+    insertData.shopify_order_id = order.id.toString()
+    insertData.shopify_order_number = order.name
+  }
 
   // Create new work item
   const { data: newWorkItem, error: insertError } = await supabase
     .from('work_items')
-    .insert({
-      type: workItemType,
-      source: 'shopify',
-      status: workItemStatus,
-      shopify_order_id: order.id.toString(),
-      shopify_order_number: order.name,
-      shopify_financial_status: order.financial_status,
-      shopify_fulfillment_status: order.fulfillment_status,
-      customer_name: customerName,
-      customer_email: customerEmail,
-      quantity,
-      grip_color: gripColor,
-      design_preview_url: designPreviewUrl,
-      design_download_url: designDownloadUrl,
-      reason_included: {
-        detected_via: 'shopify_webhook',
-        order_type: orderType,
-        order_tags: order.tags,
-        has_customify_properties: !!designPreviewUrl || !!designDownloadUrl,
-      },
-    })
+    .insert(insertData)
     .select()
     .single()
 
@@ -361,7 +476,7 @@ async function processFulfillment(supabase: any, fulfillment: any, webhookEventI
     .eq('id', webhookEventId)
 }
 
-function detectOrderType(order: any): 'customify_order' | 'custom_design_service' | null {
+function detectOrderType(order: any): 'customify_order' | 'custom_design_service' | 'custom_bulk_order' | null {
   // Check for Custom Design Service product first (higher priority)
   for (const item of order.line_items || []) {
     const title = item.title?.toLowerCase() || ''
@@ -375,12 +490,14 @@ function detectOrderType(order: any): 'customify_order' | 'custom_design_service
   }
 
   // Check line item properties for Customify markers
+  let hasCustomifyProperties = false
   for (const item of order.line_items || []) {
     if (item.properties) {
       const props = Array.isArray(item.properties) ? item.properties : []
       for (const prop of props) {
         const propName = prop.name?.toLowerCase() || ''
         if (propName.includes('customify')) {
+          hasCustomifyProperties = true
           return 'customify_order'
         }
       }
@@ -393,10 +510,21 @@ function detectOrderType(order: any): 'customify_order' | 'custom_design_service
     }
   }
 
+  // Check for bulk orders (customer-provided artwork)
+  for (const item of order.line_items || []) {
+    const title = item.title?.toLowerCase() || ''
+    if (title.includes('bulk order') || title.includes('bulk fan') || title.includes('custom bulk')) {
+      return 'custom_bulk_order'
+    }
+  }
+
   // Check order tags
   const tags = order.tags?.toLowerCase() || ''
   if (tags.includes('customify')) {
     return 'customify_order'
+  }
+  if (tags.includes('custom bulk')) {
+    return 'custom_bulk_order'
   }
   if (tags.includes('custom design')) {
     return 'custom_design_service'

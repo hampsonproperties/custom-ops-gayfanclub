@@ -17,10 +17,13 @@ import { SLAIndicator } from '@/components/custom/sla-indicator'
 import { CheckCircle, AlertCircle, ExternalLink } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import Image from 'next/image'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 export default function DesignQueuePage() {
   const { data: queue, isLoading } = useDesignReviewQueue()
   const updateStatus = useUpdateWorkItemStatus()
+  const router = useRouter()
 
   const [selectedItem, setSelectedItem] = useState<any>(null)
   const [showFixDialog, setShowFixDialog] = useState(false)
@@ -115,11 +118,12 @@ export default function DesignQueuePage() {
             return (
               <Card
                 key={item.id}
-                className={`hover:shadow-lg transition-all ${
+                className={`hover:shadow-lg transition-all cursor-pointer ${
                   slaState === 'overdue' ? 'border-l-4 border-l-[#E91E63]' :
                   slaState === 'expiring' ? 'border-l-4 border-l-[#FFC107]' :
                   slaState === 'new' ? 'border-l-4 border-l-[#9C27B0]' : ''
                 }`}
+                onClick={() => router.push(`/work-items/${item.id}`)}
               >
                 <CardContent className="p-6">
                   <div className="flex gap-6">
@@ -188,7 +192,7 @@ export default function DesignQueuePage() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex-shrink-0 flex flex-col gap-2">
+                    <div className="flex-shrink-0 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
                       {item.design_download_url && (
                         <Button
                           variant="outline"

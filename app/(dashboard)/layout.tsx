@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { RainbowHeader } from '@/components/custom/rainbow-header'
+import { EmailSubscriptionManager } from '@/components/email/subscription-manager'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import {
@@ -48,6 +49,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      <EmailSubscriptionManager />
       <RainbowHeader />
 
       <div className="flex flex-1">

@@ -152,6 +152,8 @@ export interface Database {
           shopify_order_id: string | null
           shopify_draft_order_id: string | null
           shopify_order_number: string | null
+          design_fee_order_id: string | null
+          design_fee_order_number: string | null
           shopify_financial_status: string | null
           shopify_fulfillment_status: string | null
           status: WorkItemStatus
@@ -188,6 +190,8 @@ export interface Database {
           shopify_order_id?: string | null
           shopify_draft_order_id?: string | null
           shopify_order_number?: string | null
+          design_fee_order_id?: string | null
+          design_fee_order_number?: string | null
           shopify_financial_status?: string | null
           shopify_fulfillment_status?: string | null
           status: WorkItemStatus
@@ -224,6 +228,8 @@ export interface Database {
           shopify_order_id?: string | null
           shopify_draft_order_id?: string | null
           shopify_order_number?: string | null
+          design_fee_order_id?: string | null
+          design_fee_order_number?: string | null
           shopify_financial_status?: string | null
           shopify_fulfillment_status?: string | null
           status?: WorkItemStatus

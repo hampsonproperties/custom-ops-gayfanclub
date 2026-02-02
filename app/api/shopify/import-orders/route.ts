@@ -118,8 +118,10 @@ export async function POST(request: NextRequest) {
           quantity += item.quantity
         }
 
-        const workItemType = orderType === 'custom_design_service' ? 'assisted_project' : 'customify_order'
-        const workItemStatus = orderType === 'custom_design_service' ? 'design_fee_paid' : 'approved'
+        const workItemType = (orderType === 'custom_design_service' || orderType === 'custom_bulk_order') ? 'assisted_project' : 'customify_order'
+        const workItemStatus = orderType === 'custom_design_service' ? 'design_fee_paid' :
+                               orderType === 'custom_bulk_order' ? 'paid_ready_for_batch' :
+                               'approved'
 
         // Create work item
         const { data: newWorkItem, error: insertError } = await supabase
@@ -187,7 +189,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function detectOrderType(order: any): 'customify_order' | 'custom_design_service' | null {
+function detectOrderType(order: any): 'customify_order' | 'custom_design_service' | 'custom_bulk_order' | null {
   // Check for Custom Design Service
   for (const item of order.line_items || []) {
     const title = item.title?.toLowerCase() || ''
@@ -200,13 +202,15 @@ function detectOrderType(order: any): 'customify_order' | 'custom_design_service
     }
   }
 
-  // Check for Customify
+  // Check for Customify (has Customify properties)
+  let hasCustomifyProperties = false
   for (const item of order.line_items || []) {
     if (item.properties) {
       const props = Array.isArray(item.properties) ? item.properties : []
       for (const prop of props) {
         const propName = prop.name?.toLowerCase() || ''
         if (propName.includes('customify')) {
+          hasCustomifyProperties = true
           return 'customify_order'
         }
       }
@@ -218,9 +222,21 @@ function detectOrderType(order: any): 'customify_order' | 'custom_design_service
     }
   }
 
+  // Check for bulk orders (customer-provided artwork)
+  for (const item of order.line_items || []) {
+    const title = item.title?.toLowerCase() || ''
+    if (title.includes('bulk order') || title.includes('bulk fan') || title.includes('custom bulk')) {
+      return 'custom_bulk_order'
+    }
+  }
+
+  // Check order tags
   const tags = order.tags?.toLowerCase() || ''
   if (tags.includes('customify')) {
     return 'customify_order'
+  }
+  if (tags.includes('custom bulk')) {
+    return 'custom_bulk_order'
   }
   if (tags.includes('custom design')) {
     return 'custom_design_service'

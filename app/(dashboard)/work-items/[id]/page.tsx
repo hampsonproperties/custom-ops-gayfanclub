@@ -9,32 +9,32 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { StatusBadge } from '@/components/custom/status-badge'
+import { ChangeStatusDialog } from '@/components/work-items/change-status-dialog'
+import { SendApprovalDialog } from '@/components/email/send-approval-dialog'
+import { ConversationThread } from '@/components/email/conversation-thread'
+import { InlineEmailComposer } from '@/components/email/inline-email-composer'
 import { useWorkItem } from '@/lib/hooks/use-work-items'
-import { useCommunications, useSendEmail } from '@/lib/hooks/use-communications'
+import { useCommunications } from '@/lib/hooks/use-communications'
 import { useFiles, useUploadFile, useDeleteFile, getFileUrl } from '@/lib/hooks/use-files'
-import { ArrowLeft, Mail, FileText, Info, Send, Upload, File as FileIcon, Trash2, Download, Image as ImageIcon } from 'lucide-react'
+import { useTimeline } from '@/lib/hooks/use-timeline'
+import { ArrowLeft, Mail, FileText, Info, Send, Upload, File as FileIcon, Trash2, Download, Image as ImageIcon, Clock, CheckCircle, FileUp, Activity, ExternalLink, MailCheck } from 'lucide-react'
 import type { Database } from '@/types/database'
 
 type FileRecord = Database['public']['Tables']['files']['Row']
 import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import DOMPurify from 'dompurify'
 
 export default function WorkItemDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const { data: workItem, isLoading } = useWorkItem(id)
   const { data: communications } = useCommunications(id)
   const { data: files } = useFiles(id)
-  const sendEmail = useSendEmail()
+  const { data: timeline } = useTimeline(id)
   const uploadFile = useUploadFile()
   const deleteFile = useDeleteFile()
 
-  const [showEmailDialog, setShowEmailDialog] = useState(false)
-  const [emailForm, setEmailForm] = useState({
-    to: '',
-    subject: '',
-    body: '',
-  })
 
   const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [uploadForm, setUploadForm] = useState({
@@ -43,39 +43,9 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
     note: '',
   })
 
-  const handleOpenEmailDialog = () => {
-    // Pre-fill with customer email and last subject
-    const lastEmail = communications?.[0]
-    setEmailForm({
-      to: workItem?.customer_email || '',
-      subject: lastEmail?.subject ? `RE: ${lastEmail.subject}` : '',
-      body: '',
-    })
-    setShowEmailDialog(true)
-  }
+  const [showStatusDialog, setShowStatusDialog] = useState(false)
+  const [showApprovalDialog, setShowApprovalDialog] = useState(false)
 
-  const handleSendEmail = async () => {
-    if (!emailForm.to || !emailForm.subject || !emailForm.body) {
-      toast.error('Please fill in all email fields')
-      return
-    }
-
-    try {
-      await sendEmail.mutateAsync({
-        workItemId: id,
-        to: emailForm.to,
-        subject: emailForm.subject,
-        body: emailForm.body,
-      })
-
-      toast.success('Email sent successfully')
-
-      setShowEmailDialog(false)
-      setEmailForm({ to: '', subject: '', body: '' })
-    } catch (error) {
-      toast.error('Failed to send email')
-    }
-  }
 
   const handleUploadFile = async () => {
     if (!uploadForm.file) {
@@ -150,7 +120,16 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
           <p className="text-muted-foreground">{workItem.title || workItem.customer_email}</p>
         </div>
 
-        <StatusBadge status={workItem.status} />
+        <div className="flex items-center gap-2">
+          <StatusBadge status={workItem.status} />
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setShowStatusDialog(true)}
+          >
+            Change Status
+          </Button>
+        </div>
       </div>
 
       {/* Key Details */}
@@ -213,27 +192,71 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
               <CardTitle>Activity Timeline</CardTitle>
             </CardHeader>
             <CardContent>
-              {communications && communications.length > 0 ? (
-                <div className="space-y-4">
-                  {communications.map((comm) => (
-                    <div key={comm.id} className="flex gap-4 border-l-2 border-muted pl-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <Mail className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium text-sm">
-                            {comm.direction === 'inbound' ? 'Received' : 'Sent'} Email
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {comm.received_at && formatDistanceToNow(new Date(comm.received_at), { addSuffix: true })}
-                          </span>
+              {timeline && timeline.length > 0 ? (
+                <div className="space-y-6">
+                  {timeline.map((event) => {
+                    const getIcon = () => {
+                      switch (event.type) {
+                        case 'status_change':
+                          return <CheckCircle className="h-5 w-5 text-[#4CAF50]" />
+                        case 'email':
+                          return <Mail className="h-5 w-5 text-[#2196F3]" />
+                        case 'file_upload':
+                          return <FileUp className="h-5 w-5 text-[#9C27B0]" />
+                        case 'work_item_created':
+                          return <Activity className="h-5 w-5 text-[#FF9800]" />
+                        default:
+                          return <Clock className="h-5 w-5 text-muted-foreground" />
+                      }
+                    }
+
+                    const getBorderColor = () => {
+                      switch (event.type) {
+                        case 'status_change':
+                          return 'border-l-[#4CAF50]'
+                        case 'email':
+                          return 'border-l-[#2196F3]'
+                        case 'file_upload':
+                          return 'border-l-[#9C27B0]'
+                        case 'work_item_created':
+                          return 'border-l-[#FF9800]'
+                        default:
+                          return 'border-l-muted'
+                      }
+                    }
+
+                    return (
+                      <div
+                        key={event.id}
+                        className={`flex gap-4 border-l-4 ${getBorderColor()} pl-4 py-2`}
+                      >
+                        <div className="flex-shrink-0 mt-1">{getIcon()}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-sm">{event.title}</span>
+                            {event.user && (
+                              <span className="text-xs text-muted-foreground">
+                                by {event.user}
+                              </span>
+                            )}
+                            <span className="text-xs text-muted-foreground">
+                              {formatDistanceToNow(new Date(event.timestamp), {
+                                addSuffix: true,
+                              })}
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {event.description}
+                          </p>
+                          {event.metadata?.preview && (
+                            <p className="text-sm text-muted-foreground mt-2 p-3 bg-muted rounded-md line-clamp-3">
+                              {event.metadata.preview}
+                            </p>
+                          )}
                         </div>
-                        <p className="text-sm mt-1">{comm.subject}</p>
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                          {comm.body_preview}
-                        </p>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-8">
@@ -244,46 +267,44 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
           </Card>
         </TabsContent>
 
-        <TabsContent value="communication">
-          <Card>
-            <CardHeader>
-              <CardTitle>Email Communication</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <Button className="w-full" onClick={handleOpenEmailDialog}>
-                  <Send className="h-4 w-4 mr-2" />
-                  Send Email
-                </Button>
+        <TabsContent value="communication" className="space-y-6">
+          {/* Conversation Thread */}
+          {communications && communications.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Email History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ConversationThread communications={communications} />
+              </CardContent>
+            </Card>
+          )}
 
-                {communications && communications.length > 0 ? (
-                  <div className="space-y-3 mt-6">
-                    {communications.map((comm) => (
-                      <Card key={comm.id}>
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <p className="font-medium text-sm">{comm.subject}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {comm.direction === 'inbound' ? `From: ${comm.from_email}` : `To: ${comm.to_emails.join(', ')}`}
-                              </p>
-                            </div>
-                            <span className="text-xs text-muted-foreground">
-                              {comm.received_at && formatDistanceToNow(new Date(comm.received_at), { addSuffix: true })}
-                            </span>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    No emails yet
-                  </p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          {/* No emails message with link option */}
+          {(!communications || communications.length === 0) && workItem.customer_email && (
+            <Card>
+              <CardContent className="p-6 text-center space-y-4">
+                <p className="text-sm text-muted-foreground">No email history yet</p>
+                <Link href={`/work-items/${id}/link-emails`}>
+                  <Button variant="outline" size="sm">
+                    Find & Link Emails for {workItem.customer_email}
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Inline Email Composer */}
+          <InlineEmailComposer
+            workItemId={id}
+            workItem={workItem}
+            defaultTo={workItem.customer_email || ''}
+            defaultSubject={
+              communications && communications.length > 0
+                ? `RE: ${communications[0].subject}`
+                : ''
+            }
+          />
         </TabsContent>
 
         <TabsContent value="files">
@@ -293,10 +314,23 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <Button className="w-full" onClick={() => setShowUploadDialog(true)}>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload File
-                </Button>
+                <div className="flex gap-2">
+                  <Button className="flex-1" onClick={() => setShowUploadDialog(true)}>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload File
+                  </Button>
+                  {workItem.type === 'customify_order' && (
+                    <Button
+                      className="flex-1"
+                      variant="secondary"
+                      onClick={() => setShowApprovalDialog(true)}
+                      disabled={!workItem.customer_email}
+                    >
+                      <MailCheck className="h-4 w-4 mr-2" />
+                      Send Approval Email
+                    </Button>
+                  )}
+                </div>
 
                 {files && files.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
@@ -370,7 +404,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
           </Card>
         </TabsContent>
 
-        <TabsContent value="details">
+        <TabsContent value="details" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Order Details</CardTitle>
@@ -391,7 +425,19 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
                 </div>
                 <div>
                   <span className="text-sm text-muted-foreground">Shopify Order</span>
-                  <p className="font-medium">{workItem.shopify_order_number || '-'}</p>
+                  {workItem.shopify_order_number && workItem.shopify_order_id ? (
+                    <a
+                      href={`https://admin.shopify.com/store/gayfanclub/orders/${workItem.shopify_order_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                    >
+                      {workItem.shopify_order_number}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : (
+                    <p className="font-medium">{workItem.shopify_order_number || '-'}</p>
+                  )}
                 </div>
                 {workItem.design_preview_url && (
                   <div className="col-span-2">
@@ -406,60 +452,73 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
               </div>
             </CardContent>
           </Card>
+
+          {/* Related Orders - show for assisted projects with both design fee and production orders */}
+          {workItem.type === 'assisted_project' && (workItem.design_fee_order_number || workItem.shopify_order_number) && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Related Orders</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {workItem.design_fee_order_number && (
+                    <div className="flex items-start justify-between p-4 border rounded-lg">
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">Design Fee Order</p>
+                        <p className="text-sm text-muted-foreground">
+                          Initial payment for custom design work
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {workItem.design_fee_order_id ? (
+                          <a
+                            href={`https://admin.shopify.com/store/gayfanclub/orders/${workItem.design_fee_order_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                          >
+                            {workItem.design_fee_order_number}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : (
+                          <p className="font-medium">{workItem.design_fee_order_number}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {workItem.shopify_order_number && (
+                    <div className="flex items-start justify-between p-4 border rounded-lg">
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium">Production Order</p>
+                        <p className="text-sm text-muted-foreground">
+                          Final invoice for manufacturing and shipping
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {workItem.shopify_order_id ? (
+                          <a
+                            href={`https://admin.shopify.com/store/gayfanclub/orders/${workItem.shopify_order_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                          >
+                            {workItem.shopify_order_number}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : (
+                          <p className="font-medium">{workItem.shopify_order_number}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
 
-      {/* Email Dialog */}
-      <Dialog open={showEmailDialog} onOpenChange={setShowEmailDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Send Email</DialogTitle>
-            <DialogDescription>
-              Send an email to the customer about this work item
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="email-to">To</Label>
-              <Input
-                id="email-to"
-                type="email"
-                value={emailForm.to}
-                onChange={(e) => setEmailForm({ ...emailForm, to: e.target.value })}
-                placeholder="customer@example.com"
-              />
-            </div>
-            <div>
-              <Label htmlFor="email-subject">Subject</Label>
-              <Input
-                id="email-subject"
-                value={emailForm.subject}
-                onChange={(e) => setEmailForm({ ...emailForm, subject: e.target.value })}
-                placeholder="Email subject"
-              />
-            </div>
-            <div>
-              <Label htmlFor="email-body">Message</Label>
-              <Textarea
-                id="email-body"
-                rows={12}
-                value={emailForm.body}
-                onChange={(e) => setEmailForm({ ...emailForm, body: e.target.value })}
-                placeholder="Type your message here..."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEmailDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSendEmail} disabled={sendEmail.isPending}>
-              <Send className="h-4 w-4 mr-2" />
-              {sendEmail.isPending ? 'Sending...' : 'Send Email'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Upload File Dialog */}
       <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
@@ -521,6 +580,24 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Change Status Dialog */}
+      <ChangeStatusDialog
+        workItem={workItem}
+        isOpen={showStatusDialog}
+        onOpenChange={setShowStatusDialog}
+      />
+
+      {/* Send Approval Email Dialog */}
+      <SendApprovalDialog
+        open={showApprovalDialog}
+        onOpenChange={setShowApprovalDialog}
+        workItem={workItem}
+        onSuccess={() => {
+          // Refresh the work item and communications after successful send
+          toast.success('Work item updated to awaiting approval')
+        }}
+      />
     </div>
   )
 }

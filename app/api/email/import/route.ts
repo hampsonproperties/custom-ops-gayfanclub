@@ -3,6 +3,7 @@ import { Client } from '@microsoft/microsoft-graph-client'
 import { ClientSecretCredential } from '@azure/identity'
 import { createClient } from '@supabase/supabase-js'
 import 'isomorphic-fetch'
+import { htmlToPlainText } from '@/lib/utils/html-entities'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -26,16 +27,22 @@ function getGraphClient() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { limit = 25 } = await request.json()
+    const { limit = 100, daysBack = 60 } = await request.json()
     const mailboxEmail = process.env.MICROSOFT_MAILBOX_EMAIL || 'sales@thegayfanclub.com'
 
     const client = getGraphClient()
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Fetch recent emails
+    // Calculate date filter (emails received after this date)
+    const dateFilter = new Date()
+    dateFilter.setDate(dateFilter.getDate() - daysBack)
+    const dateFilterISO = dateFilter.toISOString()
+
+    // Fetch recent emails with date filter
     const messages = await client
       .api(`/users/${mailboxEmail}/messages`)
-      .select('internetMessageId,subject,from,toRecipients,body,receivedDateTime,conversationId')
+      .select('internetMessageId,subject,from,toRecipients,body,receivedDateTime,conversationId,sentDateTime')
+      .filter(`receivedDateTime ge ${dateFilterISO}`)
       .top(limit)
       .orderby('receivedDateTime desc')
       .get()
@@ -44,8 +51,32 @@ export async function POST(request: NextRequest) {
 
     let imported = 0
     let skipped = 0
+    let filtered = 0
+
+    // Junk email patterns to skip
+    const junkPatterns = [
+      /^noreply@/i,
+      /^no-reply@/i,
+      /^donotreply@/i,
+      /^do-not-reply@/i,
+      /^automated@/i,
+      /^notifications@/i,
+      /^bounce@/i,
+      /^mailer-daemon@/i,
+    ]
 
     for (const message of messages.value) {
+      // Extract sender email early for filtering
+      const fromEmail = message.from?.emailAddress?.address || 'unknown@unknown.com'
+
+      // Skip obvious junk emails
+      const isJunk = junkPatterns.some(pattern => pattern.test(fromEmail))
+      if (isJunk) {
+        filtered++
+        console.log(`Filtered junk email from: ${fromEmail}`)
+        continue
+      }
+
       // Check for duplicate
       const { data: existingEmail } = await supabase
         .from('communications')
@@ -58,16 +89,33 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      // Extract sender email
-      const fromEmail = message.from?.emailAddress?.address || 'unknown@unknown.com'
-
       // Determine direction - if from sales@, it's outbound
       const isOutbound = fromEmail.toLowerCase() === mailboxEmail.toLowerCase()
       const direction = isOutbound ? 'outbound' : 'inbound'
 
       // Extract body content
       const bodyContent = message.body?.content || ''
-      const bodyPreview = bodyContent.replace(/<[^>]*>/g, '').substring(0, 200)
+      const bodyPreview = htmlToPlainText(bodyContent).substring(0, 200)
+
+      // Try to auto-link to existing work item based on thread
+      let workItemId = null
+      let triageStatus = isOutbound ? 'archived' : 'untriaged'
+
+      if (message.conversationId) {
+        const { data: threadEmail } = await supabase
+          .from('communications')
+          .select('work_item_id')
+          .eq('provider_thread_id', message.conversationId)
+          .not('work_item_id', 'is', null)
+          .limit(1)
+          .single()
+
+        if (threadEmail?.work_item_id) {
+          workItemId = threadEmail.work_item_id
+          triageStatus = 'attached'
+          console.log(`Auto-linked email to work item ${workItemId} based on thread ${message.conversationId}`)
+        }
+      }
 
       // Create communication record
       const { error: insertError } = await supabase
@@ -80,9 +128,13 @@ export async function POST(request: NextRequest) {
           body_html: bodyContent,
           body_preview: bodyPreview,
           received_at: message.receivedDateTime,
+          sent_at: isOutbound ? message.sentDateTime : null,
           internet_message_id: message.internetMessageId,
-          // Only mark as untriaged if it's inbound from a customer
-          triage_status: isOutbound ? 'archived' : 'untriaged',
+          provider: 'm365',
+          provider_message_id: message.id,
+          provider_thread_id: message.conversationId,
+          work_item_id: workItemId,
+          triage_status: triageStatus,
         })
 
       if (insertError) {
@@ -97,6 +149,7 @@ export async function POST(request: NextRequest) {
       success: true,
       imported,
       skipped,
+      filtered,
       total: messages.value.length,
     })
   } catch (error) {

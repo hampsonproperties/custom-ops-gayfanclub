@@ -3,6 +3,7 @@ import { Client } from '@microsoft/microsoft-graph-client'
 import { ClientSecretCredential } from '@azure/identity'
 import { createClient } from '@supabase/supabase-js'
 import 'isomorphic-fetch'
+import { htmlToPlainText } from '@/lib/utils/html-entities'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -98,7 +99,7 @@ async function processEmailNotification(notification: any, supabase: any) {
 
     // Extract body content
     const bodyContent = message.body?.content || ''
-    const bodyPreview = bodyContent.replace(/<[^>]*>/g, '').substring(0, 200) // Strip HTML for preview
+    const bodyPreview = htmlToPlainText(bodyContent).substring(0, 200) // Strip HTML and decode entities
 
     // Create communication record
     const { data: communication, error: insertError } = await supabase
@@ -112,6 +113,9 @@ async function processEmailNotification(notification: any, supabase: any) {
         body_preview: bodyPreview,
         received_at: message.receivedDateTime,
         internet_message_id: message.internetMessageId,
+        provider: 'm365',
+        provider_message_id: message.id,
+        provider_thread_id: message.conversationId,
         triage_status: 'untriaged', // Goes to intake queue
         // Note: work_item_id is null - will be set during triage
       })

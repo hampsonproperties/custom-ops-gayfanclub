@@ -51,6 +51,27 @@ export function useUntriagedEmails() {
   })
 }
 
+export function useEmailThread(threadId: string | null) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['communications', 'thread', threadId],
+    queryFn: async () => {
+      if (!threadId) return []
+
+      const { data, error } = await supabase
+        .from('communications')
+        .select('*')
+        .eq('provider_thread_id', threadId)
+        .order('received_at', { ascending: true })
+
+      if (error) throw error
+      return data as Communication[]
+    },
+    enabled: !!threadId,
+  })
+}
+
 export function useFlaggedSupportEmails() {
   const supabase = createClient()
 
@@ -169,17 +190,28 @@ export function useSendEmail() {
       to,
       subject,
       body,
+      attachments,
+      includeApprovalLink,
     }: {
       workItemId: string
       to: string
       subject: string
       body: string
+      attachments?: string[]
+      includeApprovalLink?: boolean
     }) => {
       // Send email via API endpoint (which calls Microsoft Graph)
       const response = await fetch('/api/email/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workItemId, to, subject, body }),
+        body: JSON.stringify({
+          workItemId,
+          to,
+          subject,
+          body,
+          attachments,
+          includeApprovalLink,
+        }),
       })
 
       if (!response.ok) {
@@ -195,6 +227,7 @@ export function useSendEmail() {
       if (data.work_item_id) {
         queryClient.invalidateQueries({ queryKey: ['communications', data.work_item_id] })
       }
+      queryClient.invalidateQueries({ queryKey: ['work-items'] })
     },
   })
 }

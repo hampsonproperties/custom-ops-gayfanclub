@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import { getShopifyCredentials } from '@/lib/shopify/get-credentials'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,15 +13,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Query is required' }, { status: 400 })
     }
 
-    const shopifyDomain = process.env.SHOPIFY_STORE_DOMAIN!
-    const shopifyToken = process.env.SHOPIFY_ADMIN_API_TOKEN!
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    if (!shopifyDomain || !shopifyToken) {
-      return NextResponse.json(
-        { error: 'Shopify credentials not configured' },
-        { status: 500 }
-      )
-    }
+    // Get stored credentials from database
+    const { shop: shopifyDomain, accessToken: shopifyToken } = await getShopifyCredentials()
 
     // Search by order number or customer email
     const params = new URLSearchParams()
@@ -48,14 +48,26 @@ export async function POST(request: NextRequest) {
     const data = await response.json()
     const orders = data.orders || []
 
+    // Check which orders are already imported
+    const orderIds = orders.map((o: any) => o.id.toString())
+    const { data: importedOrders } = await supabase
+      .from('work_items')
+      .select('shopify_order_id, id')
+      .in('shopify_order_id', orderIds)
+
+    const importedOrderIds = new Set(importedOrders?.map(w => w.shopify_order_id) || [])
+
     // Detect which orders are custom (Customify or Custom Design Service)
     const enrichedOrders = orders.map((order: any) => {
       const orderType = detectOrderType(order)
       const isCustom = !!orderType
+      const isImported = importedOrderIds.has(order.id.toString())
 
-      // Extract preview if available
+      // Extract preview and calculate total quantity
       let previewUrl = null
+      let totalQuantity = 0
       for (const item of order.line_items || []) {
+        totalQuantity += item.quantity || 0
         if (item.properties) {
           const props = Array.isArray(item.properties) ? item.properties : []
           for (const prop of props) {
@@ -81,7 +93,8 @@ export async function POST(request: NextRequest) {
         isCustom,
         orderType,
         previewUrl,
-        lineItemsCount: order.line_items?.length || 0,
+        lineItemsCount: totalQuantity,
+        isImported,
       }
     })
 
@@ -98,7 +111,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function detectOrderType(order: any): 'customify_order' | 'custom_design_service' | null {
+function detectOrderType(order: any): 'customify_order' | 'custom_design_service' | 'custom_bulk_order' | null {
   // Check for Custom Design Service
   for (const item of order.line_items || []) {
     const title = item.title?.toLowerCase() || ''
@@ -111,13 +124,15 @@ function detectOrderType(order: any): 'customify_order' | 'custom_design_service
     }
   }
 
-  // Check for Customify
+  // Check for Customify (has Customify properties)
+  let hasCustomifyProperties = false
   for (const item of order.line_items || []) {
     if (item.properties) {
       const props = Array.isArray(item.properties) ? item.properties : []
       for (const prop of props) {
         const propName = prop.name?.toLowerCase() || ''
         if (propName.includes('customify')) {
+          hasCustomifyProperties = true
           return 'customify_order'
         }
       }
@@ -129,9 +144,21 @@ function detectOrderType(order: any): 'customify_order' | 'custom_design_service
     }
   }
 
+  // Check for bulk orders (customer-provided artwork)
+  for (const item of order.line_items || []) {
+    const title = item.title?.toLowerCase() || ''
+    if (title.includes('bulk order') || title.includes('bulk fan') || title.includes('custom bulk')) {
+      return 'custom_bulk_order'
+    }
+  }
+
+  // Check order tags
   const tags = order.tags?.toLowerCase() || ''
   if (tags.includes('customify')) {
     return 'customify_order'
+  }
+  if (tags.includes('custom bulk')) {
+    return 'custom_bulk_order'
   }
   if (tags.includes('custom design')) {
     return 'custom_design_service'

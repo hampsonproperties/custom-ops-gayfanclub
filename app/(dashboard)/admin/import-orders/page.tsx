@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -20,9 +22,10 @@ type ShopifyOrder = {
   currency: string
   createdAt: string
   isCustom: boolean
-  orderType: 'customify_order' | 'custom_design_service' | null
+  orderType: 'customify_order' | 'custom_design_service' | 'custom_bulk_order' | null
   previewUrl: string | null
   lineItemsCount: number
+  isImported?: boolean
 }
 
 export default function ImportOrdersPage() {
@@ -171,6 +174,8 @@ export default function ImportOrdersPage() {
                               className={
                                 order.orderType === 'custom_design_service'
                                   ? 'bg-[#E91E63]/10 text-[#E91E63]'
+                                  : order.orderType === 'custom_bulk_order'
+                                  ? 'bg-[#FF9800]/10 text-[#FF9800]'
                                   : 'bg-[#9C27B0]/10 text-[#9C27B0]'
                               }
                             >
@@ -178,6 +183,11 @@ export default function ImportOrdersPage() {
                                 <>
                                   <Palette className="h-3 w-3 mr-1" />
                                   Custom Design Service
+                                </>
+                              ) : order.orderType === 'custom_bulk_order' ? (
+                                <>
+                                  <ClipboardCheck className="h-3 w-3 mr-1" />
+                                  Assisted Project
                                 </>
                               ) : (
                                 <>

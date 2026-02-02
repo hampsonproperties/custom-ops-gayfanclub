@@ -37,7 +37,7 @@ export default function ApprovedDesignsPage() {
   const groupByStatus = () => {
     const groups = {
       approved: approvedItems.filter(item => item.status === 'approved'),
-      ready_for_batch: approvedItems.filter(item => item.status === 'ready_for_batch'),
+      ready_for_batch: approvedItems.filter(item => item.status === 'ready_for_batch' || item.status === 'paid_ready_for_batch'),
     }
     return groups
   }
