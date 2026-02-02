@@ -170,7 +170,7 @@ ${batch.tracking_number ? `Tracking Number: ${batch.tracking_number}` : ''}
     // Generate zip as blob
     const zipBlob = await zip.generateAsync({ type: 'nodebuffer' })
 
-    return new NextResponse(zipBlob, {
+    return new NextResponse(new Uint8Array(zipBlob), {
       headers: {
         'Content-Type': 'application/zip',
         'Content-Disposition': `attachment; filename="${batch.name}_supplier_package.zip"`,
