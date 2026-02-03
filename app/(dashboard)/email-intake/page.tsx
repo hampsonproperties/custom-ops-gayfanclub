@@ -494,15 +494,15 @@ export default function EmailIntakePage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-4">
               {emailGroups.map((group) => (
                 <Card
                   key={group.sender}
-                  className={`hover:shadow-md transition-shadow ${
-                    group.hasUnread ? 'border-l-4 border-l-blue-500' : ''
+                  className={`hover:shadow-lg transition-all ${
+                    group.hasUnread ? 'border-l-4 border-l-blue-500 bg-blue-50/30' : ''
                   }`}
                 >
-                  <CardContent className="p-4">
+                  <CardContent className="p-5">
                     <div className="flex items-start gap-3">
                       {/* Selection Checkbox */}
                       <Checkbox
@@ -531,12 +531,12 @@ export default function EmailIntakePage() {
 
                       {/* Email Content */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start justify-between gap-2 mb-3">
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
                               <p
-                                className={`text-sm ${
-                                  group.hasUnread ? 'font-bold' : 'font-medium'
+                                className={`text-base ${
+                                  group.hasUnread ? 'font-bold' : 'font-semibold'
                                 }`}
                               >
                                 {group.sender}
@@ -550,25 +550,25 @@ export default function EmailIntakePage() {
                                 <div className="h-2 w-2 rounded-full bg-blue-500" />
                               )}
                             </div>
-                            <p className="text-xs text-muted-foreground">
-                              {group.latestEmail.received_at &&
-                                formatDistanceToNow(new Date(group.latestEmail.received_at), {
-                                  addSuffix: true,
-                                })}
-                            </p>
                           </div>
+                          <p className="text-xs text-muted-foreground whitespace-nowrap">
+                            {group.latestEmail.received_at &&
+                              formatDistanceToNow(new Date(group.latestEmail.received_at), {
+                                addSuffix: true,
+                              })}
+                          </p>
                         </div>
 
                         {/* Latest Email Preview */}
-                        <div className="mt-2 cursor-pointer" onClick={() => openEmailDetail(group.latestEmail)}>
+                        <div className="cursor-pointer" onClick={() => openEmailDetail(group.latestEmail)}>
                           <p
-                            className={`text-sm hover:text-[#9C27B0] transition-colors ${
-                              group.hasUnread ? 'font-semibold' : ''
+                            className={`text-base hover:text-[#9C27B0] transition-colors mb-2 ${
+                              group.hasUnread ? 'font-semibold' : 'font-medium'
                             }`}
                           >
                             {group.latestEmail.subject || '(no subject)'}
                           </p>
-                          <p className="text-sm text-muted-foreground line-clamp-6 mt-1 whitespace-pre-wrap">
+                          <p className="text-sm text-muted-foreground/80 line-clamp-6 leading-relaxed whitespace-pre-wrap">
                             {group.latestEmail.body_preview}
                           </p>
                         </div>
@@ -596,29 +596,31 @@ export default function EmailIntakePage() {
                                 )}
                               </Button>
                             </CollapsibleTrigger>
-                            <CollapsibleContent className="space-y-2 mt-2">
+                            <CollapsibleContent className="space-y-3 mt-3">
                               {group.emails.slice(1).map((email) => (
                                 <div
                                   key={email.id}
-                                  className="pl-4 border-l-2 border-muted cursor-pointer hover:border-[#9C27B0] transition-colors"
+                                  className="pl-4 py-2 border-l-2 border-muted cursor-pointer hover:border-[#9C27B0] hover:bg-muted/30 transition-all rounded-r"
                                   onClick={() => openEmailDetail(email)}
                                 >
-                                  <div className="flex items-start gap-2">
-                                    {!email.is_read && <div className="h-2 w-2 rounded-full bg-blue-500 mt-1" />}
-                                    <div className="flex-1">
-                                      <p className={`text-sm ${!email.is_read ? 'font-semibold' : ''}`}>
-                                        {email.subject || '(no subject)'}
-                                      </p>
-                                      <p className="text-xs text-muted-foreground line-clamp-2">
-                                        {email.body_preview}
-                                      </p>
-                                      <p className="text-xs text-muted-foreground">
-                                        {email.received_at &&
-                                          formatDistanceToNow(new Date(email.received_at), {
-                                            addSuffix: true,
-                                          })}
-                                      </p>
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex items-start gap-2 flex-1">
+                                      {!email.is_read && <div className="h-2 w-2 rounded-full bg-blue-500 mt-1.5" />}
+                                      <div className="flex-1 min-w-0">
+                                        <p className={`text-sm ${!email.is_read ? 'font-semibold' : 'font-medium'}`}>
+                                          {email.subject || '(no subject)'}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground/80 line-clamp-2 mt-1 leading-relaxed">
+                                          {email.body_preview}
+                                        </p>
+                                      </div>
                                     </div>
+                                    <p className="text-xs text-muted-foreground whitespace-nowrap">
+                                      {email.received_at &&
+                                        formatDistanceToNow(new Date(email.received_at), {
+                                          addSuffix: true,
+                                        })}
+                                    </p>
                                   </div>
                                 </div>
                               ))}
@@ -627,7 +629,7 @@ export default function EmailIntakePage() {
                         )}
 
                         {/* Actions */}
-                        <div className="flex gap-2 mt-3">
+                        <div className="flex gap-2 mt-4 pt-3 border-t">
                           <Button size="sm" className="gap-1" onClick={() => openCreateLeadDialog(group.latestEmail)}>
                             <User className="h-3 w-3" />
                             Create Lead
