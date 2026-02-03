@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
                 work_item_id: workItemId,
                 triage_status: 'attached'
               })
-              .in('id', recentEmails.map(e => e.id))
+              .in('id', recentEmails.map((e: any) => e.id))
 
             console.log(`Auto-linked ${recentEmails.length} emails to work item ${workItemId}`)
           }
@@ -270,7 +270,7 @@ export async function POST(request: NextRequest) {
                 work_item_id: workItemId,
                 triage_status: 'attached'
               })
-              .in('id', recentEmails.map(e => e.id))
+              .in('id', recentEmails.map((e: any) => e.id))
 
             console.log(`Auto-linked ${recentEmails.length} emails to work item ${workItemId}`)
           }
@@ -382,7 +382,7 @@ export async function POST(request: NextRequest) {
             work_item_id: workItemId,
             triage_status: 'attached'
           })
-          .in('id', recentEmails.map(e => e.id))
+          .in('id', recentEmails.map((e: any) => e.id))
 
         console.log(`Auto-linked ${recentEmails.length} emails to new work item ${workItemId}`)
       }

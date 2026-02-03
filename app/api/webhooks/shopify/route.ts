@@ -368,7 +368,7 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
             work_item_id: existingWorkItem.id,
             triage_status: 'attached'
           })
-          .in('id', recentEmails.map(e => e.id))
+          .in('id', recentEmails.map((e: any) => e.id))
 
         console.log(`Auto-linked ${recentEmails.length} emails to work item ${existingWorkItem.id}`)
       }
@@ -586,7 +586,7 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
           work_item_id: newWorkItem.id,
           triage_status: 'attached'
         })
-        .in('id', recentEmails.map(e => e.id))
+        .in('id', recentEmails.map((e: any) => e.id))
 
       console.log(`Auto-linked ${recentEmails.length} emails to new work item ${newWorkItem.id}`)
     }
