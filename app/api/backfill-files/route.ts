@@ -77,7 +77,7 @@ export async function POST(request: Request) {
     // Get all files that are stored in 'customify' bucket (external URLs)
     const { data: customifyFiles, error: filesError } = await supabase
       .from('files')
-      .select('id, work_item_id, storage_path, original_filename, kind, version, external_url')
+      .select('id, work_item_id, storage_path, original_filename, kind, version')
       .eq('storage_bucket', 'customify')
       .order('created_at', { ascending: true })
 
@@ -111,8 +111,8 @@ export async function POST(request: Request) {
     // Process each file
     for (const file of customifyFiles) {
       try {
-        // Use external_url if available, otherwise fall back to storage_path
-        const externalUrl = file.external_url || file.storage_path
+        // storage_path contains the external Customify URL
+        const externalUrl = file.storage_path
 
         // Download and store the file
         const storedFile = await downloadAndStoreFile(
@@ -129,9 +129,8 @@ export async function POST(request: Request) {
             .update({
               storage_bucket: 'custom-ops-files',
               storage_path: storedFile.path,
-              external_url: externalUrl, // Preserve original URL
               size_bytes: storedFile.sizeBytes,
-              note: 'Backfilled from Customify to Supabase Storage'
+              note: `Backfilled from Customify (was: ${externalUrl})`
             })
             .eq('id', file.id)
 
