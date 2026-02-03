@@ -216,11 +216,14 @@ export function SendApprovalDialog({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <div className="font-medium truncate">
-                            {file.original_filename}
+                            {file.kind === 'preview' && `Preview V${file.version} (Customify)`}
+                            {file.kind === 'design' && `Design V${file.version} (Customify)`}
+                            {file.kind === 'proof' && `Proof V${file.version}`}
+                            {!['preview', 'design', 'proof'].includes(file.kind) && file.original_filename}
                           </div>
                           {file.kind === 'preview' && (
                             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 flex-shrink-0">
-                              Customify Preview
+                              Recommended
                             </span>
                           )}
                         </div>
@@ -230,8 +233,7 @@ export function SendApprovalDialog({
                           </div>
                         )}
                         <div className="text-xs text-muted-foreground">
-                          Version {file.version} •{' '}
-                          {new Date(file.created_at).toLocaleDateString()}
+                          Imported from Shopify order • {new Date(file.created_at).toLocaleDateString()}
                         </div>
                       </div>
                       {selectedFileId === file.id && (
@@ -279,19 +281,6 @@ export function SendApprovalDialog({
                     <div className="text-sm">
                       <strong>Subject:</strong> {previewData.subject}
                     </div>
-                    {previewData.proofImageUrl && (
-                      <div className="text-xs text-muted-foreground mt-1">
-                        <strong>Image URL:</strong>{' '}
-                        <a
-                          href={previewData.proofImageUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="underline"
-                        >
-                          {previewData.proofImageUrl.slice(0, 50)}...
-                        </a>
-                      </div>
-                    )}
                   </div>
                   <div className="bg-white dark:bg-slate-950 p-4 max-h-[500px] overflow-y-auto">
                     <iframe
