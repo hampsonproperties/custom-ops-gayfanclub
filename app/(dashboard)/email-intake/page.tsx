@@ -31,6 +31,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   useEmailsByCategory,
+  useEmailCategoryCounts,
   useTriageEmail,
   useSendEmail,
   useEmailThread,
@@ -101,6 +102,7 @@ export default function EmailIntakePage() {
 
   // Hooks
   const { data: emails, isLoading, refetch } = useEmailsByCategory(activeCategory, 'untriaged')
+  const { data: categoryCounts } = useEmailCategoryCounts('untriaged')
   const triageEmail = useTriageEmail()
   const createWorkItem = useCreateWorkItem()
   const sendEmail = useSendEmail()
@@ -158,14 +160,6 @@ export default function EmailIntakePage() {
           new Date(a.latestEmail.received_at || 0).getTime()
       )
   }, [filteredEmails])
-
-  // Category counts (for tab badges)
-  const categoryCounts = {
-    primary: emails?.length || 0,
-    promotional: 0,
-    spam: 0,
-    notifications: 0,
-  }
 
   // Bulk actions
   const toggleEmailSelection = (emailId: string) => {
@@ -437,23 +431,38 @@ export default function EmailIntakePage() {
           <TabsTrigger value="primary" className="gap-2">
             {getCategoryIcon('primary')}
             Primary
-            {categoryCounts.primary > 0 && (
+            {(categoryCounts?.primary || 0) > 0 && (
               <Badge variant="secondary" className="ml-1">
-                {categoryCounts.primary}
+                {categoryCounts?.primary || 0}
               </Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="promotional" className="gap-2">
             {getCategoryIcon('promotional')}
             Promotional
+            {(categoryCounts?.promotional || 0) > 0 && (
+              <Badge variant="secondary" className="ml-1">
+                {categoryCounts?.promotional || 0}
+              </Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger value="spam" className="gap-2">
             {getCategoryIcon('spam')}
             Spam
+            {(categoryCounts?.spam || 0) > 0 && (
+              <Badge variant="secondary" className="ml-1">
+                {categoryCounts?.spam || 0}
+              </Badge>
+            )}
           </TabsTrigger>
           <TabsTrigger value="notifications" className="gap-2">
             {getCategoryIcon('notifications')}
             Notifications
+            {(categoryCounts?.notifications || 0) > 0 && (
+              <Badge variant="secondary" className="ml-1">
+                {categoryCounts?.notifications || 0}
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 

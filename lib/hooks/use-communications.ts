@@ -273,6 +273,51 @@ export function useEmailsByCategory(
 }
 
 /**
+ * Get counts for all email categories
+ * Optionally filter by triage_status
+ */
+export function useEmailCategoryCounts(
+  triageStatus?: 'untriaged' | 'triaged' | 'created_lead' | 'attached' | 'flagged_support' | 'archived'
+) {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['communications', 'category_counts', triageStatus],
+    queryFn: async () => {
+      let query = supabase
+        .from('communications')
+        .select('category')
+        .eq('direction', 'inbound')
+
+      if (triageStatus) {
+        query = query.eq('triage_status', triageStatus)
+      }
+
+      const { data, error } = await query
+
+      if (error) throw error
+
+      // Count emails by category
+      const counts = {
+        primary: 0,
+        promotional: 0,
+        spam: 0,
+        notifications: 0,
+      }
+
+      data.forEach((item) => {
+        const category = item.category as EmailCategory
+        if (category in counts) {
+          counts[category]++
+        }
+      })
+
+      return counts
+    },
+  })
+}
+
+/**
  * Mark email as read or unread
  */
 export function useMarkEmailAsRead() {

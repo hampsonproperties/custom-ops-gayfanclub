@@ -50,8 +50,10 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
 
-      // Mark batch as exported
-      await exportBatch.mutateAsync(id)
+      // Mark batch as exported (only if not already exported)
+      if (batch?.status !== 'exported') {
+        await exportBatch.mutateAsync(id)
+      }
       toast.success('Supplier package exported successfully')
     } catch (error) {
       toast.error('Failed to export batch')
@@ -110,6 +112,12 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
 
         <div className="flex items-center gap-2">
           <StatusBadge status={batch.status} />
+          {batch.tracking_number && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+              <Truck className="h-4 w-4" />
+              <span className="text-sm font-medium">{batch.tracking_number}</span>
+            </div>
+          )}
           {batch.status === 'draft' && (
             <Button
               onClick={handleConfirm}
@@ -120,7 +128,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
               Confirm Batch
             </Button>
           )}
-          {batch.status === 'confirmed' && (
+          {(batch.status === 'confirmed' || batch.status === 'exported') && (
             <>
               <Button
                 onClick={handleExport}
@@ -128,7 +136,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                 className="gap-2"
               >
                 <FileDown className="h-4 w-4" />
-                Export Supplier Package
+                {batch.status === 'exported' ? 'Re-Export Package' : 'Export Supplier Package'}
               </Button>
               {!batch.tracking_number && (
                 <Button
@@ -141,12 +149,6 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                 </Button>
               )}
             </>
-          )}
-          {batch.tracking_number && (
-            <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
-              <Truck className="h-4 w-4" />
-              <span className="text-sm font-medium">{batch.tracking_number}</span>
-            </div>
           )}
         </div>
       </div>

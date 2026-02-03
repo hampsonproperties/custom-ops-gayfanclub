@@ -4,6 +4,7 @@ import { ClientSecretCredential } from '@azure/identity'
 import { createClient } from '@supabase/supabase-js'
 import 'isomorphic-fetch'
 import { htmlToPlainText, smartTruncate } from '@/lib/utils/html-entities'
+import { autoCategorizEmail } from '@/lib/utils/email-categorizer'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -98,16 +99,26 @@ export async function POST(request: NextRequest) {
       const plainText = htmlToPlainText(bodyContent)
       const bodyPreview = smartTruncate(plainText, 200)
 
-      // Apply email filters to determine category (for inbound emails only)
+      // Smart auto-categorization (for inbound emails only)
       let category = 'primary' // Default category
       if (!isOutbound) {
+        // First: Auto-categorize based on smart detection
+        category = autoCategorizEmail({
+          from: fromEmail,
+          subject: message.subject || '',
+          body: plainText,
+          htmlBody: bodyContent
+        })
+        console.log(`Auto-categorized: ${fromEmail} → ${category}`)
+
+        // Second: Check for manual filters (user overrides always win)
         const { data: filterResult } = await supabase
           .rpc('apply_email_filters', { p_from_email: fromEmail })
           .maybeSingle() as { data: { matched_category: string; filter_id: string } | null }
 
         if (filterResult?.matched_category) {
           category = filterResult.matched_category
-          console.log(`Applied filter: ${fromEmail} → ${category}`)
+          console.log(`Manual filter override: ${fromEmail} → ${category}`)
         }
       }
 
