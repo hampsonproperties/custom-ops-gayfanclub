@@ -7,12 +7,13 @@ import { NextResponse } from 'next/server'
  */
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const supabase = await createClient()
     const now = new Date().toISOString()
-    const workItemId = params.id
+    const workItemId = id
 
     // Update last_contact_at
     const { error: updateError } = await supabase

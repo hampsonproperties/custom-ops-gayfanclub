@@ -7,12 +7,13 @@ import { NextResponse } from 'next/server'
  */
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const supabase = await createClient()
     const { days } = await request.json()
-    const workItemId = params.id
+    const workItemId = id
 
     if (!days || typeof days !== 'number' || days <= 0) {
       return NextResponse.json(

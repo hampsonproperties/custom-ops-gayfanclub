@@ -8,11 +8,12 @@ import { NextResponse } from 'next/server'
  */
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const supabase = await createClient()
-    const workItemId = params.id
+    const workItemId = id
 
     // Get current waiting state
     const { data: workItem, error: fetchError } = await supabase
