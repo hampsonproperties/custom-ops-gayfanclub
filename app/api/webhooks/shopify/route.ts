@@ -318,7 +318,15 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
 
       updateData.quantity = quantity || existingWorkItem.quantity
       updateData.grip_color = gripColor || existingWorkItem.grip_color
-      updateData.status = order.financial_status === 'paid' ? 'paid_ready_for_batch' : 'invoice_sent'
+
+      // Detect payment status and set appropriate status
+      if (order.financial_status === 'paid') {
+        updateData.status = 'paid_ready_for_batch'
+      } else if (order.financial_status === 'partially_paid') {
+        updateData.status = 'deposit_paid_ready_for_batch'
+      } else {
+        updateData.status = 'invoice_sent'
+      }
     }
 
     await supabase
@@ -337,13 +345,23 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
       })
     }
 
-    if (orderType === 'custom_bulk_order' && existingWorkItem.status !== 'paid_ready_for_batch') {
+    if (orderType === 'custom_bulk_order' && existingWorkItem.status !== updateData.status) {
+      let noteText = 'Production order '
+      if (order.financial_status === 'paid') {
+        noteText += 'fully paid'
+      } else if (order.financial_status === 'partially_paid') {
+        noteText += 'partially paid (deposit received)'
+      } else {
+        noteText += 'received'
+      }
+      noteText += ` via Shopify order #${order.name}`
+
       await supabase.from('work_item_status_events').insert({
         work_item_id: existingWorkItem.id,
         from_status: existingWorkItem.status,
         to_status: updateData.status,
         changed_by_user_id: null,
-        note: `Production order ${order.financial_status === 'paid' ? 'paid' : 'received'} via Shopify order #${order.name}`,
+        note: noteText,
       })
     }
 
@@ -465,8 +483,14 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
     // Design fee order - check if actually paid
     workItemStatus = order.financial_status === 'paid' ? 'design_fee_paid' : 'design_fee_sent'
   } else if (orderType === 'custom_bulk_order') {
-    // Production order - check if actually paid
-    workItemStatus = order.financial_status === 'paid' ? 'paid_ready_for_batch' : 'invoice_sent'
+    // Production order - check payment status
+    if (order.financial_status === 'paid') {
+      workItemStatus = 'paid_ready_for_batch'
+    } else if (order.financial_status === 'partially_paid') {
+      workItemStatus = 'deposit_paid_ready_for_batch'
+    } else {
+      workItemStatus = 'invoice_sent'
+    }
   } else {
     // Customify order
     workItemStatus = 'needs_design_review'

@@ -176,6 +176,10 @@ export function FollowUpItemCard({
       return 'Follow up on payment'
     }
 
+    if (status === 'deposit_paid_ready_for_batch') {
+      return 'Ready for batch - awaiting final payment'
+    }
+
     if (status === 'on_payment_terms_ready_for_batch') {
       return 'Ready for batch - payment on terms'
     }
