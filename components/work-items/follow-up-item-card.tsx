@@ -63,31 +63,43 @@ export function FollowUpItemCard({
 
   // Fetch last communication when expanded
   useEffect(() => {
-    if (isExpanded && !lastComm && !loadingComm) {
+    if (!isExpanded) return
+
+    let isMounted = true
+    const supabase = createClient()
+
+    const fetchComm = async () => {
       setLoadingComm(true)
-      const supabase = createClient()
 
-      const fetchComm = async () => {
-        try {
-          const { data } = await supabase
-            .from('communications')
-            .select('*')
-            .eq('work_item_id', workItem.id)
-            .order('received_at', { ascending: false })
-            .limit(1)
-            .maybeSingle()
+      try {
+        const { data, error } = await supabase
+          .from('communications')
+          .select('*')
+          .eq('work_item_id', workItem.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
 
+        if (error) throw error
+
+        if (isMounted) {
           setLastComm(data)
           setLoadingComm(false)
-        } catch (error) {
-          console.error('Error fetching communication:', error)
+        }
+      } catch (error) {
+        console.error('Error fetching communication:', error)
+        if (isMounted) {
           setLoadingComm(false)
         }
       }
-
-      fetchComm()
     }
-  }, [isExpanded, workItem.id, lastComm, loadingComm])
+
+    fetchComm()
+
+    return () => {
+      isMounted = false
+    }
+  }, [isExpanded, workItem.id])
 
   const handleMarkFollowedUp = async () => {
     try {
