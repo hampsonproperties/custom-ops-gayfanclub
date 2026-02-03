@@ -41,6 +41,8 @@ interface EmailImportResult {
   success: boolean
   action: 'inserted' | 'duplicate' | 'error'
   communicationId?: string
+  workItemId?: string
+  direction?: 'inbound' | 'outbound'
   error?: string
   debug?: {
     messageId: string
@@ -234,6 +236,8 @@ export async function importEmail(
       success: true,
       action: 'inserted',
       communicationId: communication.id,
+      workItemId: workItemId || undefined,
+      direction,
       debug: {
         messageId: message.internetMessageId,
         from: fromEmail,
