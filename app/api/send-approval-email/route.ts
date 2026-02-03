@@ -62,20 +62,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate signed URL for proof image (7-day expiry)
-    const { data: signedUrlData, error: signedUrlError } = await supabase
-      .storage
-      .from(file.storage_bucket)
-      .createSignedUrl(file.storage_path, 604800) // 7 days in seconds
+    // Get proof image URL
+    let proofImageUrl: string
 
-    if (signedUrlError || !signedUrlData) {
-      return NextResponse.json(
-        { error: 'Failed to generate signed URL for proof image' },
-        { status: 500 }
-      )
+    // If it's an external file (Customify), use the URL directly
+    if (file.storage_bucket === 'customify' || file.storage_bucket === 'external') {
+      proofImageUrl = file.storage_path
+    } else {
+      // For Supabase storage files, generate signed URL (7-day expiry)
+      const { data: signedUrlData, error: signedUrlError } = await supabase
+        .storage
+        .from(file.storage_bucket)
+        .createSignedUrl(file.storage_path, 604800) // 7 days in seconds
+
+      if (signedUrlError || !signedUrlData) {
+        return NextResponse.json(
+          { error: 'Failed to generate signed URL for proof image' },
+          { status: 500 }
+        )
+      }
+
+      proofImageUrl = signedUrlData.signedUrl
     }
-
-    const proofImageUrl = signedUrlData.signedUrl
 
     // Generate JWT approval tokens (7-day expiry)
     const tokenExpiry = Math.floor(Date.now() / 1000) + 604800 // 7 days
