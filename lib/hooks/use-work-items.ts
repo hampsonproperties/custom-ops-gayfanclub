@@ -168,6 +168,17 @@ export function useUpdateWorkItemStatus() {
         note,
       })
 
+      // Recalculate next follow-up after status change
+      const { data: nextFollowUp } = await supabase
+        .rpc('calculate_next_follow_up', { work_item_id: id })
+
+      if (nextFollowUp !== undefined) {
+        await supabase
+          .from('work_items')
+          .update({ next_follow_up_at: nextFollowUp })
+          .eq('id', id)
+      }
+
       return data
     },
     onSuccess: (data) => {
@@ -333,6 +344,190 @@ export function useCustomDesignAwaitingPayment() {
 
       if (error) throw error
       return data as WorkItem[]
+    },
+  })
+}
+
+// ============================================================================
+// FOLLOW-UP MANAGEMENT HOOKS
+// ============================================================================
+
+// Inbox replies (unactioned inbound emails)
+export function useInboxReplies() {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['inbox-replies'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('communications')
+        .select('*, work_item:work_items(*)')
+        .eq('direction', 'inbound')
+        .is('actioned_at', null)
+        .not('work_item_id', 'is', null)
+        .order('received_at', { ascending: false })
+
+      if (error) throw error
+      return data
+    },
+  })
+}
+
+// Needs initial contact (Shopify-first orders)
+export function useNeedsInitialContact() {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['work-items', 'needs-initial-contact'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_items')
+        .select('*, customer:customers(*)')
+        .eq('requires_initial_contact', true)
+        .is('closed_at', null)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      return data as WorkItem[]
+    },
+  })
+}
+
+// Rush orders (event <30 days)
+export function useRushOrders() {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['work-items', 'rush-orders'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_items')
+        .select('*, customer:customers(*)')
+        .eq('rush_order', true)
+        .is('closed_at', null)
+        .order('event_date', { ascending: true })
+
+      if (error) throw error
+      return data as WorkItem[]
+    },
+  })
+}
+
+// Due this week
+export function useDueThisWeek() {
+  const supabase = createClient()
+  const today = new Date()
+  const nextWeek = new Date(today)
+  nextWeek.setDate(today.getDate() + 7)
+
+  return useQuery({
+    queryKey: ['work-items', 'due-this-week'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_items')
+        .select('*, customer:customers(*)')
+        .gt('next_follow_up_at', today.toISOString())
+        .lte('next_follow_up_at', nextWeek.toISOString())
+        .is('closed_at', null)
+        .order('next_follow_up_at', { ascending: true })
+
+      if (error) throw error
+      return data as WorkItem[]
+    },
+  })
+}
+
+// Waiting on customer
+export function useWaitingOnCustomer() {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['work-items', 'waiting-on-customer'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_items')
+        .select('*, customer:customers(*)')
+        .eq('is_waiting', true)
+        .is('closed_at', null)
+        .order('updated_at', { ascending: false })
+
+      if (error) throw error
+      return data as WorkItem[]
+    },
+  })
+}
+
+// Mark work item as followed up
+export function useMarkFollowedUp() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (workItemId: string) => {
+      const response = await fetch(`/api/work-items/${workItemId}/mark-followed-up`, {
+        method: 'POST',
+      })
+      if (!response.ok) throw new Error('Failed to mark followed up')
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['work-items'] })
+    },
+  })
+}
+
+// Snooze follow-up
+export function useSnoozeFollowUp() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ workItemId, days }: { workItemId: string; days: number }) => {
+      const response = await fetch(`/api/work-items/${workItemId}/snooze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days }),
+      })
+      if (!response.ok) throw new Error('Failed to snooze')
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['work-items'] })
+    },
+  })
+}
+
+// Toggle waiting status
+export function useToggleWaiting() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (workItemId: string) => {
+      const response = await fetch(`/api/work-items/${workItemId}/toggle-waiting`, {
+        method: 'POST',
+      })
+      if (!response.ok) throw new Error('Failed to toggle waiting')
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['work-items'] })
+    },
+  })
+}
+
+// Mark communication as actioned
+export function useMarkCommunicationActioned() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (communicationId: string) => {
+      const response = await fetch(`/api/communications/${communicationId}/mark-actioned`, {
+        method: 'POST',
+      })
+      if (!response.ok) throw new Error('Failed to mark actioned')
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['inbox-replies'] })
+      queryClient.invalidateQueries({ queryKey: ['work-items'] })
     },
   })
 }

@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Client } from '@microsoft/microsoft-graph-client'
 import { ClientSecretCredential } from '@azure/identity'
-import { createClient } from '@supabase/supabase-js'
 import 'isomorphic-fetch'
-import { htmlToPlainText, smartTruncate } from '@/lib/utils/html-entities'
-import { autoCategorizEmail, EmailCategory } from '@/lib/utils/email-categorizer'
+import { importEmail } from '@/lib/utils/email-import'
+import { createClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -35,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     // Microsoft Graph sends validation request when creating subscription
     if (validationToken) {
-      console.log('Webhook validation received')
+      console.log('[Email Webhook] Validation received')
       return new NextResponse(validationToken, {
         status: 200,
         headers: { 'Content-Type': 'text/plain' },
@@ -44,20 +43,19 @@ export async function POST(request: NextRequest) {
 
     // Process notification
     const notification = JSON.parse(body)
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-    console.log('Email notification received:', notification.value?.length || 0, 'items')
+    console.log('[Email Webhook] Notification received:', notification.value?.length || 0, 'items')
 
     // Process each notification
     for (const item of notification.value || []) {
       if (item.changeType === 'created' && item.resourceData?.id) {
-        await processEmailNotification(item, supabase)
+        await processEmailNotification(item)
       }
     }
 
     return NextResponse.json({ received: true })
   } catch (error) {
-    console.error('Email webhook error:', error)
+    console.error('[Email Webhook] Error:', error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Webhook processing failed' },
       { status: 500 }
@@ -65,7 +63,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function processEmailNotification(notification: any, supabase: any) {
+async function processEmailNotification(notification: any) {
   try {
     const messageId = notification.resourceData.id
     const mailboxEmail = process.env.MICROSOFT_MAILBOX_EMAIL || 'sales@thegayfanclub.com'
@@ -76,128 +74,61 @@ async function processEmailNotification(notification: any, supabase: any) {
     const message = await client
       .api(`/users/${mailboxEmail}/messages/${messageId}`)
       .select(
-        'internetMessageId,subject,from,toRecipients,body,receivedDateTime,conversationId'
+        'id,internetMessageId,subject,from,toRecipients,body,receivedDateTime,sentDateTime,conversationId'
       )
       .get()
 
-    console.log('Fetched email:', message.subject)
+    console.log('[Email Webhook] Fetched message:', message.subject)
 
-    // Check for duplicate using internet_message_id
-    const { data: existingEmail } = await supabase
-      .from('communications')
-      .select('id')
-      .eq('internet_message_id', message.internetMessageId)
-      .single()
+    // Use shared import function (handles deduplication, categorization, auto-linking)
+    const result = await importEmail(message, { mailboxEmail })
 
-    if (existingEmail) {
-      console.log('Duplicate email detected, skipping:', message.internetMessageId)
-      return
-    }
-
-    // Extract sender email
-    const fromEmail = message.from?.emailAddress?.address || 'unknown@unknown.com'
-    const fromName = message.from?.emailAddress?.name || fromEmail
-
-    // Extract body content
-    const bodyContent = message.body?.content || ''
-    const plainText = htmlToPlainText(bodyContent)
-    const bodyPreview = smartTruncate(plainText, 500)
-
-    // Smart auto-categorization
-    let category = autoCategorizEmail({
-      from: fromEmail,
-      subject: message.subject || '',
-      body: plainText,
-      htmlBody: bodyContent
-    })
-    console.log(`Auto-categorized: ${fromEmail} → ${category}`)
-
-    // Check for manual filters (user overrides always win)
-    const { data: filterResult } = await supabase
-      .rpc('apply_email_filters', { p_from_email: fromEmail })
-      .maybeSingle() as { data: { matched_category: string; filter_id: string } | null }
-
-    if (filterResult?.matched_category) {
-      category = filterResult.matched_category as EmailCategory
-      console.log(`Manual filter override: ${fromEmail} → ${category}`)
-    }
-
-    // Try to auto-link to existing work item
-    let workItemId = null
-    let triageStatus = 'untriaged'
-
-    // Strategy 1: Thread-based linking (always link if part of existing conversation)
-    if (message.conversationId) {
-      const { data: threadEmail } = await supabase
-        .from('communications')
-        .select('work_item_id')
-        .eq('provider_thread_id', message.conversationId)
-        .not('work_item_id', 'is', null)
-        .limit(1)
-        .single()
-
-      if (threadEmail?.work_item_id) {
-        workItemId = threadEmail.work_item_id
-        // Keep as 'untriaged' so it appears in inbox with project badge
-        console.log(`Auto-linked email to work item ${workItemId} based on thread ${message.conversationId}`)
+    if (result.success) {
+      if (result.action === 'inserted') {
+        console.log('[Email Webhook] Successfully imported:', result.communicationId)
+      } else if (result.action === 'duplicate') {
+        console.log('[Email Webhook] Duplicate detected, skipped')
       }
-    }
 
-    // Strategy 2: Email-based linking with time window (only if not already linked by thread)
-    if (!workItemId) {
-      const emailReceivedDate = new Date(message.receivedDateTime)
-      const lookbackDate = new Date(emailReceivedDate)
-      lookbackDate.setDate(lookbackDate.getDate() - 60) // 60 day window
+      // Recalculate follow-up if email is inbound and linked to a work item
+      if (result.workItemId && result.direction === 'inbound') {
+        try {
+          const supabase = createClient(supabaseUrl, supabaseServiceKey)
+          const now = new Date().toISOString()
 
-      // Check both primary email and alternate emails
-      const { data: recentWorkItem } = await supabase
-        .from('work_items')
-        .select('id')
-        .or(`customer_email.eq.${fromEmail},alternate_emails.cs.{${fromEmail}}`)
-        .is('closed_at', null)
-        .gte('updated_at', lookbackDate.toISOString())
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+          // Update last_contact_at
+          await supabase
+            .from('work_items')
+            .update({ last_contact_at: now })
+            .eq('id', result.workItemId)
 
-      if (recentWorkItem) {
-        workItemId = recentWorkItem.id
-        // Keep as 'untriaged' so it appears in inbox with project badge
-        console.log(`Auto-linked email to work item ${workItemId} based on customer email (within 60 days)`)
+          // Recalculate next_follow_up_at
+          const { data: nextFollowUp } = await supabase
+            .rpc('calculate_next_follow_up', { work_item_id: result.workItemId })
+
+          if (nextFollowUp !== undefined) {
+            await supabase
+              .from('work_items')
+              .update({ next_follow_up_at: nextFollowUp })
+              .eq('id', result.workItemId)
+          }
+
+          // Auto-remove "waiting on customer" flag if set
+          await supabase
+            .from('work_items')
+            .update({ is_waiting: false })
+            .eq('id', result.workItemId)
+            .eq('is_waiting', true)
+
+          console.log('[Email Webhook] Recalculated follow-up for work item:', result.workItemId)
+        } catch (followUpError) {
+          console.error('[Email Webhook] Error recalculating follow-up:', followUpError)
+        }
       }
+    } else {
+      console.error('[Email Webhook] Import failed:', result.error)
     }
-
-    // Create communication record
-    const { data: communication, error: insertError } = await supabase
-      .from('communications')
-      .insert({
-        direction: 'inbound',
-        from_email: fromEmail,
-        to_emails: message.toRecipients?.map((r: any) => r.emailAddress.address) || [],
-        subject: message.subject || '(no subject)',
-        body_html: bodyContent,
-        body_preview: bodyPreview,
-        received_at: message.receivedDateTime,
-        internet_message_id: message.internetMessageId,
-        provider: 'm365',
-        provider_message_id: message.id,
-        provider_thread_id: message.conversationId,
-        work_item_id: workItemId,
-        triage_status: triageStatus,
-        category: category,
-        is_read: false,
-      })
-      .select()
-      .single()
-
-    if (insertError) {
-      console.error('Failed to insert email:', insertError)
-      return
-    }
-
-    console.log('Email imported successfully:', communication.id)
-
   } catch (error) {
-    console.error('Error processing email notification:', error)
+    console.error('[Email Webhook] Error processing notification:', error)
   }
 }

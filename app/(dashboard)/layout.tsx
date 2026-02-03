@@ -16,7 +16,9 @@ import {
   LogOut,
   Palette,
   Download,
-  Beaker
+  Beaker,
+  Bell,
+  MailCheck
 } from 'lucide-react'
 
 export default async function DashboardLayout({
@@ -83,6 +85,18 @@ export default async function DashboardLayout({
               </p>
             </div>
 
+            <Link href="/follow-ups">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
+                <Bell className="h-4 w-4" />
+                Follow-Ups
+              </Button>
+            </Link>
+            <Link href="/inbox/replies">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
+                <MailCheck className="h-4 w-4" />
+                Inbox Replies
+              </Button>
+            </Link>
             <Link href="/design-queue">
               <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <ClipboardCheck className="h-4 w-4" />

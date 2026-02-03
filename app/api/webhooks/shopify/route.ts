@@ -503,6 +503,19 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
     insertData.shopify_order_number = order.name
   }
 
+  // Check if this is a Shopify-first order (no prior email contact)
+  // Only applicable for customify orders
+  if (workItemType === 'customify_order' && customerEmail) {
+    const { data: existingCommunications } = await supabase
+      .from('communications')
+      .select('id')
+      .ilike('from_email', customerEmail)
+      .limit(1)
+
+    // No prior email communications = needs initial contact
+    insertData.requires_initial_contact = !existingCommunications || existingCommunications.length === 0
+  }
+
   // Create new work item
   const { data: newWorkItem, error: insertError } = await supabase
     .from('work_items')
@@ -512,6 +525,23 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
 
   if (insertError) {
     throw new Error(`Failed to create work item: ${insertError.message}`)
+  }
+
+  // Calculate initial follow-up date
+  if (newWorkItem) {
+    try {
+      const { data: nextFollowUp } = await supabase
+        .rpc('calculate_next_follow_up', { work_item_id: newWorkItem.id })
+
+      if (nextFollowUp !== undefined) {
+        await supabase
+          .from('work_items')
+          .update({ next_follow_up_at: nextFollowUp })
+          .eq('id', newWorkItem.id)
+      }
+    } catch (followUpError) {
+      console.error('[Shopify Webhook] Error calculating follow-up:', followUpError)
+    }
   }
 
   // Create file records for Customify files - download and store in Supabase

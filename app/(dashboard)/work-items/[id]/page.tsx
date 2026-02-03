@@ -14,6 +14,7 @@ import { SendApprovalDialog } from '@/components/email/send-approval-dialog'
 import { ConversationThread } from '@/components/email/conversation-thread'
 import { InlineEmailComposer } from '@/components/email/inline-email-composer'
 import { AlternateEmailsManager } from '@/components/work-items/alternate-emails-manager'
+import { FollowUpActionBar } from '@/components/work-items/follow-up-action-bar'
 import { useWorkItem } from '@/lib/hooks/use-work-items'
 import { useCommunications } from '@/lib/hooks/use-communications'
 import { useFiles, useUploadFile, useDeleteFile, getFileUrl } from '@/lib/hooks/use-files'
@@ -132,6 +133,9 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
           </Button>
         </div>
       </div>
+
+      {/* Follow-Up Action Bar */}
+      <FollowUpActionBar workItem={workItem} />
 
       {/* Key Details */}
       <Card>

@@ -3,6 +3,7 @@ import { Client } from '@microsoft/microsoft-graph-client'
 import { ClientSecretCredential } from '@azure/identity'
 import { createClient } from '@supabase/supabase-js'
 import 'isomorphic-fetch'
+import { importEmail, isJunkEmail } from '@/lib/utils/email-import'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -92,73 +93,48 @@ export async function POST() {
     })
 
     // Also import any missed emails from the last 3 days
-    console.log('Importing any missed emails...')
+    console.log('[Subscription Check] Importing any missed emails...')
     try {
       const messages = await client
         .api(`/users/${mailboxEmail}/messages`)
-        .select('internetMessageId,subject,from,toRecipients,body,receivedDateTime,conversationId,sentDateTime')
+        .select(
+          'id,internetMessageId,subject,from,toRecipients,body,receivedDateTime,sentDateTime,conversationId'
+        )
         .filter(`receivedDateTime ge ${new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()}`)
         .top(50)
         .orderby('receivedDateTime desc')
         .get()
 
       let imported = 0
-      const junkPatterns = [
-        /^noreply@/i,
-        /^no-reply@/i,
-        /^donotreply@/i,
-        /^do-not-reply@/i,
-        /^automated@/i,
-        /^notifications@/i,
-        /^bounce@/i,
-        /^mailer-daemon@/i,
-      ]
+      let skipped = 0
+      let filtered = 0
 
       for (const message of messages.value) {
         const fromEmail = message.from?.emailAddress?.address || 'unknown@unknown.com'
 
         // Skip junk
-        if (junkPatterns.some(pattern => pattern.test(fromEmail))) {
+        if (isJunkEmail(fromEmail)) {
+          filtered++
           continue
         }
 
-        // Check for duplicate
-        const { data: existingEmail } = await supabase
-          .from('communications')
-          .select('id')
-          .eq('internet_message_id', message.internetMessageId)
-          .single()
+        // Use shared import function (handles deduplication, categorization, auto-linking)
+        const result = await importEmail(message, { mailboxEmail })
 
-        if (existingEmail) {
-          continue
+        if (result.success) {
+          if (result.action === 'inserted') {
+            imported++
+          } else if (result.action === 'duplicate') {
+            skipped++
+          }
         }
-
-        const isOutbound = fromEmail.toLowerCase() === mailboxEmail.toLowerCase()
-        const bodyContent = message.body?.content || ''
-        const bodyPreview = bodyContent.replace(/<[^>]*>/g, '').substring(0, 200)
-
-        await supabase.from('communications').insert({
-          direction: isOutbound ? 'outbound' : 'inbound',
-          from_email: fromEmail,
-          to_emails: message.toRecipients?.map((r: any) => r.emailAddress.address) || [],
-          subject: message.subject || '(no subject)',
-          body_html: bodyContent,
-          body_preview: bodyPreview,
-          received_at: message.receivedDateTime,
-          sent_at: isOutbound ? message.sentDateTime : null,
-          internet_message_id: message.internetMessageId,
-          provider: 'm365',
-          provider_message_id: message.id,
-          provider_thread_id: message.conversationId,
-          triage_status: isOutbound ? 'archived' : 'untriaged',
-        })
-
-        imported++
       }
 
-      console.log(`Imported ${imported} missed emails`)
+      console.log(
+        `[Subscription Check] Missed emails: ${imported} imported, ${skipped} duplicates, ${filtered} junk`
+      )
     } catch (importError) {
-      console.error('Error importing missed emails:', importError)
+      console.error('[Subscription Check] Error importing missed emails:', importError)
       // Don't fail the renewal if import fails
     }
 
