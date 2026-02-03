@@ -196,21 +196,33 @@ function detectOrderType(order: any): 'customify_order' | 'custom_design_service
     if (
       title.includes('professional custom fan design service') ||
       title.includes('custom fan design service') ||
-      title.includes('design service & credit')
+      title.includes('design service & credit') ||
+      title.includes('custom fan designer')
     ) {
       return 'custom_design_service'
     }
   }
 
+  // Check for Etsy custom orders (has Personalization properties)
+  for (const item of order.line_items || []) {
+    if (item.properties) {
+      const props = Array.isArray(item.properties) ? item.properties : []
+      for (const prop of props) {
+        const propName = prop.name?.toLowerCase() || ''
+        if (propName.includes('personalization')) {
+          return 'custom_design_service'
+        }
+      }
+    }
+  }
+
   // Check for Customify (has Customify properties)
-  let hasCustomifyProperties = false
   for (const item of order.line_items || []) {
     if (item.properties) {
       const props = Array.isArray(item.properties) ? item.properties : []
       for (const prop of props) {
         const propName = prop.name?.toLowerCase() || ''
         if (propName.includes('customify')) {
-          hasCustomifyProperties = true
           return 'customify_order'
         }
       }

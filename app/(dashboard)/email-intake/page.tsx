@@ -568,7 +568,7 @@ export default function EmailIntakePage() {
                           >
                             {group.latestEmail.subject || '(no subject)'}
                           </p>
-                          <p className="text-sm text-muted-foreground line-clamp-3 mt-1 whitespace-pre-wrap">
+                          <p className="text-sm text-muted-foreground line-clamp-6 mt-1 whitespace-pre-wrap">
                             {group.latestEmail.body_preview}
                           </p>
                         </div>
@@ -609,7 +609,7 @@ export default function EmailIntakePage() {
                                       <p className={`text-sm ${!email.is_read ? 'font-semibold' : ''}`}>
                                         {email.subject || '(no subject)'}
                                       </p>
-                                      <p className="text-xs text-muted-foreground line-clamp-1">
+                                      <p className="text-xs text-muted-foreground line-clamp-2">
                                         {email.body_preview}
                                       </p>
                                       <p className="text-xs text-muted-foreground">
