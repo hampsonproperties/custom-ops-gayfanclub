@@ -348,11 +348,10 @@ export function useMarkEmailAsRead() {
 
 /**
  * Move email to a different category
- * Optionally creates a filter rule for the sender
+ * Optionally creates a filter rule for the sender and applies it to ALL matching emails
  */
 export function useMoveEmailToCategory() {
   const queryClient = useQueryClient()
-  const supabase = createClient()
 
   return useMutation({
     mutationFn: async ({
@@ -366,7 +365,29 @@ export function useMoveEmailToCategory() {
       createFilter?: boolean
       fromEmail?: string
     }) => {
-      // Update the email category
+      // If creating a filter, use the API endpoint that moves ALL matching emails
+      if (createFilter && fromEmail) {
+        const response = await fetch('/api/email/move-with-filter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fromEmail,
+            category,
+            createFilter: true,
+          }),
+        })
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || 'Failed to move emails with filter')
+        }
+
+        const result = await response.json()
+        return result
+      }
+
+      // Otherwise, just move this single email (no filter creation)
+      const supabase = createClient()
       const { data: email, error: emailError } = await supabase
         .from('communications')
         .update({ category })
@@ -375,26 +396,6 @@ export function useMoveEmailToCategory() {
         .single()
 
       if (emailError) throw emailError
-
-      // Optionally create a filter rule
-      if (createFilter && fromEmail) {
-        const domain = fromEmail.split('@')[1]
-
-        const { error: filterError } = await supabase
-          .from('email_filters')
-          .insert({
-            sender_email: fromEmail,
-            sender_domain: domain,
-            category,
-            notes: `Auto-created from email categorization on ${new Date().toLocaleDateString()}`,
-          })
-
-        if (filterError) {
-          console.error('Failed to create filter:', filterError)
-          // Don't throw - email was moved successfully
-        }
-      }
-
       return email
     },
     onSuccess: () => {

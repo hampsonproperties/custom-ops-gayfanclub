@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
       // Extract body content
       const bodyContent = message.body?.content || ''
       const plainText = htmlToPlainText(bodyContent)
-      const bodyPreview = smartTruncate(plainText, 200)
+      const bodyPreview = smartTruncate(plainText, 500)
 
       // Smart auto-categorization (for inbound emails only)
       let category = 'primary' // Default category

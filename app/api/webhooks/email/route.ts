@@ -101,7 +101,7 @@ async function processEmailNotification(notification: any, supabase: any) {
     // Extract body content
     const bodyContent = message.body?.content || ''
     const plainText = htmlToPlainText(bodyContent)
-    const bodyPreview = smartTruncate(plainText, 200)
+    const bodyPreview = smartTruncate(plainText, 500)
 
     // Smart auto-categorization
     let category = autoCategorizEmail({
