@@ -31,20 +31,25 @@ export async function GET(
 
     if (itemsError) throw itemsError
 
-    // Get file records for all work items (design files, not proofs)
+    // Get file records for all work items (preview version 2 - the "design-design 1" files)
     const workItemIds = items.map((item: any) => item.work_item.id)
-    const { data: files, error: filesError } = await supabase
+    const { data: allFiles, error: filesError } = await supabase
       .from('files')
       .select('*')
       .in('work_item_id', workItemIds)
-      .eq('kind', 'design')
+      .eq('kind', 'preview')
 
     if (filesError) throw filesError
 
-    console.log(`Found ${files?.length || 0} design files for ${workItemIds.length} work items`)
+    // Filter to get version 2 preview files (design-design 1)
+    const files = allFiles?.filter((f: any) =>
+      f.version === 2 || f.original_filename.includes('design-design')
+    )
+
+    console.log(`Found ${files?.length || 0} preview files (version 2) for ${workItemIds.length} work items`)
     if (files) {
       files.forEach((f: any) => {
-        console.log(`  - Work Item: ${f.work_item_id}, File: ${f.original_filename}, Storage: ${f.storage_path}`)
+        console.log(`  - Work Item: ${f.work_item_id}, File: ${f.original_filename}, Version: ${f.version}, Storage: ${f.storage_path}`)
       })
     }
 
