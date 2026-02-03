@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,8 +11,19 @@ import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
 
 export default function WorkItemsPage() {
-  const [search, setSearch] = useState('')
-  const { data: workItems, isLoading } = useWorkItems({ search })
+  const [searchInput, setSearchInput] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchInput)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
+  const { data: workItems, isLoading } = useWorkItems({ search: debouncedSearch })
 
   if (isLoading) {
     return (
@@ -41,8 +52,8 @@ export default function WorkItemsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by name, email, order #, or project..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
                 className="pl-9"
               />
             </div>
