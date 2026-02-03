@@ -54,6 +54,25 @@ export function SendApprovalDialog({
     return false
   })
 
+  // Sort files to prioritize Customify preview files
+  const sortedProofFiles = [...proofFiles].sort((a, b) => {
+    // Prioritize preview kind files first
+    if (a.kind === 'preview' && b.kind !== 'preview') return -1
+    if (a.kind !== 'preview' && b.kind === 'preview') return 1
+    // Then by version (highest first)
+    return b.version - a.version
+  })
+
+  // Auto-select the Customify preview file on load
+  useEffect(() => {
+    if (!selectedFileId && sortedProofFiles.length > 0) {
+      // Find the first preview file, or fall back to the first file
+      const previewFile = sortedProofFiles.find((f) => f.kind === 'preview')
+      const defaultFile = previewFile || sortedProofFiles[0]
+      setSelectedFileId(defaultFile.id)
+    }
+  }, [sortedProofFiles, selectedFileId])
+
   // Fetch preview when file is selected
   useEffect(() => {
     if (!selectedFileId) {
@@ -165,17 +184,24 @@ export function SendApprovalDialog({
 
           {/* File selector */}
           <div>
-            <h4 className="text-sm font-medium mb-3">Select Proof File:</h4>
+            <h4 className="text-sm font-medium mb-3">
+              Select Proof File:
+              {sortedProofFiles.some((f) => f.kind === 'preview') && (
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  (Customify preview recommended)
+                </span>
+              )}
+            </h4>
 
             {loadingFiles ? (
               <div className="text-sm text-muted-foreground">Loading files...</div>
-            ) : proofFiles.length === 0 ? (
+            ) : sortedProofFiles.length === 0 ? (
               <div className="text-sm text-muted-foreground border border-dashed rounded-lg p-6 text-center">
                 No proof files available. Please upload a proof file first.
               </div>
             ) : (
               <div className="space-y-2">
-                {proofFiles.map((file) => (
+                {sortedProofFiles.map((file) => (
                   <button
                     key={file.id}
                     onClick={() => setSelectedFileId(file.id)}
@@ -188,8 +214,15 @@ export function SendApprovalDialog({
                     <div className="flex items-center gap-3">
                       <FileIcon className="h-5 w-5 text-muted-foreground" />
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">
-                          {file.original_filename}
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium truncate">
+                            {file.original_filename}
+                          </div>
+                          {file.kind === 'preview' && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 flex-shrink-0">
+                              Customify Preview
+                            </span>
+                          )}
                         </div>
                         {file.note && (
                           <div className="text-sm text-muted-foreground truncate">
