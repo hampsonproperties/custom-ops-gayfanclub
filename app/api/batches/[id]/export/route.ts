@@ -77,7 +77,18 @@ export async function GET(
 
       // Find associated design file
       const designFile = files?.find((f: any) => f.work_item_id === workItem.id)
-      const fileName = designFile ? `${index + 1}_${workItem.customer_name?.replace(/[^a-z0-9]/gi, '_') || 'design'}.${designFile.original_filename.split('.').pop()}` : 'No file'
+      let fileName = 'No file'
+      if (designFile) {
+        // Determine file extension from storage_path
+        let extension = 'png' // default
+        if (designFile.storage_path.includes('.')) {
+          const pathExtension = designFile.storage_path.split('.').pop()?.toLowerCase()
+          if (pathExtension && pathExtension.length <= 4) {
+            extension = pathExtension
+          }
+        }
+        fileName = `${index + 1}_${workItem.customer_name?.replace(/[^a-z0-9]/gi, '_') || 'design'}.${extension}`
+      }
 
       return [
         item.position,
@@ -123,22 +134,45 @@ export async function GET(
 
       if (designFile && designsFolder) {
         try {
-          console.log(`Downloading file for ${workItem.customer_name}: ${designFile.storage_bucket}/${designFile.storage_path}`)
+          console.log(`Downloading file for ${workItem.customer_name}: ${designFile.storage_path}`)
 
-          // Download file from Supabase Storage
-          const { data: fileData, error: downloadError } = await supabase
-            .storage
-            .from(designFile.storage_bucket)
-            .download(designFile.storage_path)
+          // Check if storage_path is a URL or a Supabase path
+          let fileData: ArrayBuffer
+          if (designFile.storage_path.startsWith('http://') || designFile.storage_path.startsWith('https://')) {
+            // It's a full URL - fetch directly
+            const response = await fetch(designFile.storage_path)
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+            }
+            fileData = await response.arrayBuffer()
+          } else {
+            // It's a Supabase storage path
+            const { data: supabaseFileData, error: downloadError } = await supabase
+              .storage
+              .from(designFile.storage_bucket)
+              .download(designFile.storage_path)
 
-          if (downloadError) {
-            console.error(`Download error for ${workItem.customer_name}:`, downloadError)
-          } else if (fileData) {
-            const fileName = `${i + 1}_${workItem.customer_name?.replace(/[^a-z0-9]/gi, '_') || 'design'}.${designFile.original_filename.split('.').pop()}`
-            const arrayBuffer = await fileData.arrayBuffer()
-            designsFolder.file(fileName, arrayBuffer)
-            console.log(`Added file to zip: ${fileName}`)
+            if (downloadError) {
+              throw downloadError
+            }
+            if (!supabaseFileData) {
+              throw new Error('No file data returned')
+            }
+            fileData = await supabaseFileData.arrayBuffer()
           }
+
+          // Determine file extension
+          let extension = 'png' // default
+          if (designFile.storage_path.includes('.')) {
+            const pathExtension = designFile.storage_path.split('.').pop()?.toLowerCase()
+            if (pathExtension && pathExtension.length <= 4) {
+              extension = pathExtension
+            }
+          }
+
+          const fileName = `${i + 1}_${workItem.customer_name?.replace(/[^a-z0-9]/gi, '_') || 'design'}.${extension}`
+          designsFolder.file(fileName, fileData)
+          console.log(`Added file to zip: ${fileName} (${fileData.byteLength} bytes)`)
         } catch (error) {
           console.error(`Failed to download file for ${workItem.customer_name}:`, error)
         }
