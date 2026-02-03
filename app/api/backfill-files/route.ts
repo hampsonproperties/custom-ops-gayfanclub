@@ -1,5 +1,8 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 /**
  * Backfill endpoint to download all existing Customify files and store them in Supabase
@@ -69,7 +72,7 @@ async function downloadAndStoreFile(
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // Get all files that are stored in 'customify' bucket (external URLs)
     const { data: customifyFiles, error: filesError } = await supabase
@@ -80,7 +83,11 @@ export async function POST(request: Request) {
 
     if (filesError) {
       console.error('Error fetching Customify files:', filesError)
-      return NextResponse.json({ error: 'Failed to fetch files' }, { status: 500 })
+      return NextResponse.json({
+        error: 'Failed to fetch files',
+        details: filesError.message,
+        code: filesError.code
+      }, { status: 500 })
     }
 
     if (!customifyFiles || customifyFiles.length === 0) {
