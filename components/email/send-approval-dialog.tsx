@@ -227,13 +227,17 @@ export function SendApprovalDialog({
                             </span>
                           )}
                         </div>
-                        {file.note && (
+                        {file.note && !file.note.startsWith('Backfilled') && (
                           <div className="text-sm text-muted-foreground truncate">
                             {file.note}
                           </div>
                         )}
                         <div className="text-xs text-muted-foreground">
-                          Imported from Shopify order • {new Date(file.created_at).toLocaleDateString()}
+                          {file.storage_bucket === 'custom-ops-files' ? (
+                            <>Hosted in Supabase • {new Date(file.created_at).toLocaleDateString()}</>
+                          ) : (
+                            <>Imported from Shopify order • {new Date(file.created_at).toLocaleDateString()}</>
+                          )}
                         </div>
                       </div>
                       {selectedFileId === file.id && (
