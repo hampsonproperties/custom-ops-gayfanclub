@@ -37,6 +37,7 @@ export default function FollowUpsPage() {
   const { data: needsContactItems = [] } = useNeedsInitialContact()
   const { data: rushItems = [] } = useRushOrders()
   const { data: waitingItems = [] } = useWaitingOnCustomer()
+  const { data: allItems = [] } = useWorkItems()
 
   // Section collapse states
   const [sectionsOpen, setSectionsOpen] = useState<Record<string, boolean>>({
@@ -55,9 +56,6 @@ export default function FollowUpsPage() {
   // Categorize urgent items (overdue + awaiting payment/approval)
   const urgentItems = useMemo(() => {
     const urgent = [...overdueItems]
-
-    // Add items in urgent statuses even if not overdue
-    const { data: allItems = [] } = useWorkItems()
     const urgentStatuses = ['proof_sent', 'awaiting_approval', 'invoice_sent', 'design_fee_sent']
 
     allItems.forEach((item: WorkItem) => {
@@ -70,7 +68,7 @@ export default function FollowUpsPage() {
     })
 
     return urgent
-  }, [overdueItems])
+  }, [overdueItems, allItems])
 
   const totalCount =
     urgentItems.length +
