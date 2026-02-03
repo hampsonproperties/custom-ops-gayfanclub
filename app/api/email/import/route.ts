@@ -122,10 +122,11 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Try to auto-link to existing work item based on thread
+      // Try to auto-link to existing work item
       let workItemId = null
       let triageStatus = isOutbound ? 'archived' : 'untriaged'
 
+      // Strategy 1: Thread-based linking (always link if part of existing conversation)
       if (message.conversationId) {
         const { data: threadEmail } = await supabase
           .from('communications')
@@ -137,8 +138,31 @@ export async function POST(request: NextRequest) {
 
         if (threadEmail?.work_item_id) {
           workItemId = threadEmail.work_item_id
-          triageStatus = 'attached'
+          // Keep as 'untriaged' so it appears in inbox with project badge
           console.log(`Auto-linked email to work item ${workItemId} based on thread ${message.conversationId}`)
+        }
+      }
+
+      // Strategy 2: Email-based linking with time window (only if not already linked by thread)
+      if (!workItemId && !isOutbound) {
+        const emailReceivedDate = new Date(message.receivedDateTime)
+        const lookbackDate = new Date(emailReceivedDate)
+        lookbackDate.setDate(lookbackDate.getDate() - 60) // 60 day window
+
+        const { data: recentWorkItem } = await supabase
+          .from('work_items')
+          .select('id')
+          .eq('customer_email', fromEmail)
+          .is('closed_at', null)
+          .gte('updated_at', lookbackDate.toISOString())
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (recentWorkItem) {
+          workItemId = recentWorkItem.id
+          // Keep as 'untriaged' so it appears in inbox with project badge
+          console.log(`Auto-linked email to work item ${workItemId} based on customer email (within 60 days)`)
         }
       }
 

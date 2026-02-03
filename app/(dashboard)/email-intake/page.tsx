@@ -38,7 +38,8 @@ import {
   useMarkEmailAsRead,
   useMoveEmailToCategory,
 } from '@/lib/hooks/use-communications'
-import { useCreateWorkItem } from '@/lib/hooks/use-work-items'
+import { useCreateWorkItem, useWorkItem } from '@/lib/hooks/use-work-items'
+import Link from 'next/link'
 import {
   Mail,
   User,
@@ -58,6 +59,8 @@ import {
   Filter,
   Download,
   Check,
+  Paperclip,
+  ExternalLink,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -80,6 +83,26 @@ type Email = {
   is_read: boolean
   triage_status: string
   work_item_id: string | null
+}
+
+// Component to show linked work item badge
+function LinkedWorkItemBadge({ workItemId }: { workItemId: string | null }) {
+  const { data: workItem } = useWorkItem(workItemId || '')
+
+  if (!workItemId || !workItem) return null
+
+  return (
+    <Link href={`/work-items/${workItemId}`}>
+      <Badge
+        variant="outline"
+        className="gap-1 hover:bg-[#9C27B0]/10 hover:border-[#9C27B0] transition-colors cursor-pointer"
+      >
+        <Paperclip className="h-3 w-3" />
+        {workItem.shopify_order_number || `Order #${workItem.id.slice(0, 8)}`}
+        <ExternalLink className="h-3 w-3" />
+      </Badge>
+    </Link>
+  )
 }
 
 export default function EmailIntakePage() {
@@ -533,7 +556,7 @@ export default function EmailIntakePage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2 mb-3">
                           <div className="flex-1">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <p
                                 className={`text-base ${
                                   group.hasUnread ? 'font-bold' : 'font-semibold'
@@ -549,6 +572,7 @@ export default function EmailIntakePage() {
                               {!group.latestEmail.is_read && (
                                 <div className="h-2 w-2 rounded-full bg-blue-500" />
                               )}
+                              <LinkedWorkItemBadge workItemId={group.latestEmail.work_item_id} />
                             </div>
                           </div>
                           <p className="text-xs text-muted-foreground whitespace-nowrap">
@@ -712,7 +736,10 @@ export default function EmailIntakePage() {
               <SheetHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <SheetTitle>{selectedEmail.subject || '(no subject)'}</SheetTitle>
+                    <div className="flex items-center gap-2 flex-wrap mb-2">
+                      <SheetTitle className="mb-0">{selectedEmail.subject || '(no subject)'}</SheetTitle>
+                      <LinkedWorkItemBadge workItemId={selectedEmail.work_item_id} />
+                    </div>
                     <SheetDescription>Conversation with {selectedEmail.from_email}</SheetDescription>
                   </div>
                   <div className="flex gap-1 ml-4">

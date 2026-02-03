@@ -122,6 +122,50 @@ async function processEmailNotification(notification: any, supabase: any) {
       console.log(`Manual filter override: ${fromEmail} → ${category}`)
     }
 
+    // Try to auto-link to existing work item
+    let workItemId = null
+    let triageStatus = 'untriaged'
+
+    // Strategy 1: Thread-based linking (always link if part of existing conversation)
+    if (message.conversationId) {
+      const { data: threadEmail } = await supabase
+        .from('communications')
+        .select('work_item_id')
+        .eq('provider_thread_id', message.conversationId)
+        .not('work_item_id', 'is', null)
+        .limit(1)
+        .single()
+
+      if (threadEmail?.work_item_id) {
+        workItemId = threadEmail.work_item_id
+        // Keep as 'untriaged' so it appears in inbox with project badge
+        console.log(`Auto-linked email to work item ${workItemId} based on thread ${message.conversationId}`)
+      }
+    }
+
+    // Strategy 2: Email-based linking with time window (only if not already linked by thread)
+    if (!workItemId) {
+      const emailReceivedDate = new Date(message.receivedDateTime)
+      const lookbackDate = new Date(emailReceivedDate)
+      lookbackDate.setDate(lookbackDate.getDate() - 60) // 60 day window
+
+      const { data: recentWorkItem } = await supabase
+        .from('work_items')
+        .select('id')
+        .eq('customer_email', fromEmail)
+        .is('closed_at', null)
+        .gte('updated_at', lookbackDate.toISOString())
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (recentWorkItem) {
+        workItemId = recentWorkItem.id
+        // Keep as 'untriaged' so it appears in inbox with project badge
+        console.log(`Auto-linked email to work item ${workItemId} based on customer email (within 60 days)`)
+      }
+    }
+
     // Create communication record
     const { data: communication, error: insertError } = await supabase
       .from('communications')
@@ -137,10 +181,10 @@ async function processEmailNotification(notification: any, supabase: any) {
         provider: 'm365',
         provider_message_id: message.id,
         provider_thread_id: message.conversationId,
-        triage_status: 'untriaged', // Goes to intake queue
+        work_item_id: workItemId,
+        triage_status: triageStatus,
         category: category,
         is_read: false,
-        // Note: work_item_id is null - will be set during triage
       })
       .select()
       .single()
@@ -151,9 +195,6 @@ async function processEmailNotification(notification: any, supabase: any) {
     }
 
     console.log('Email imported successfully:', communication.id)
-
-    // TODO: Check if this is a reply to an existing thread
-    // If inReplyTo matches an existing outbound email, auto-link to work item
 
   } catch (error) {
     console.error('Error processing email notification:', error)

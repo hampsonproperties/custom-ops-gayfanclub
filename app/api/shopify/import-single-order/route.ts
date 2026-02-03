@@ -171,6 +171,33 @@ export async function POST(request: NextRequest) {
 
         workItemId = existingWorkItem.id
 
+        // Auto-link recent emails from this customer
+        if (customerEmail) {
+          const orderDate = new Date(order.created_at)
+          const lookbackDate = new Date(orderDate)
+          lookbackDate.setDate(lookbackDate.getDate() - 30)
+
+          const { data: recentEmails } = await supabase
+            .from('communications')
+            .select('id')
+            .eq('from_email', customerEmail)
+            .is('work_item_id', null)
+            .gte('received_at', lookbackDate.toISOString())
+            .lte('received_at', orderDate.toISOString())
+
+          if (recentEmails && recentEmails.length > 0) {
+            await supabase
+              .from('communications')
+              .update({
+                work_item_id: workItemId,
+                triage_status: 'attached'
+              })
+              .in('id', recentEmails.map(e => e.id))
+
+            console.log(`Auto-linked ${recentEmails.length} emails to work item ${workItemId}`)
+          }
+        }
+
         return NextResponse.json({
           success: true,
           action: 'updated',
@@ -222,6 +249,33 @@ export async function POST(request: NextRequest) {
 
         workItemId = existingWorkItem.id
 
+        // Auto-link recent emails from this customer
+        if (customerEmail) {
+          const orderDate = new Date(order.created_at)
+          const lookbackDate = new Date(orderDate)
+          lookbackDate.setDate(lookbackDate.getDate() - 30)
+
+          const { data: recentEmails } = await supabase
+            .from('communications')
+            .select('id')
+            .eq('from_email', customerEmail)
+            .is('work_item_id', null)
+            .gte('received_at', lookbackDate.toISOString())
+            .lte('received_at', orderDate.toISOString())
+
+          if (recentEmails && recentEmails.length > 0) {
+            await supabase
+              .from('communications')
+              .update({
+                work_item_id: workItemId,
+                triage_status: 'attached'
+              })
+              .in('id', recentEmails.map(e => e.id))
+
+            console.log(`Auto-linked ${recentEmails.length} emails to work item ${workItemId}`)
+          }
+        }
+
         return NextResponse.json({
           success: true,
           action: 'updated',
@@ -233,9 +287,19 @@ export async function POST(request: NextRequest) {
 
     // Create new work item
     const workItemType = (orderType === 'custom_design_service' || orderType === 'custom_bulk_order') ? 'assisted_project' : 'customify_order'
-    const workItemStatus = orderType === 'custom_design_service' ? 'design_fee_paid' :
-                           orderType === 'custom_bulk_order' ? 'paid_ready_for_batch' :
-                           'needs_design_review'
+
+    // Determine status based on order type AND payment status
+    let workItemStatus: string
+    if (orderType === 'custom_design_service') {
+      // Design fee order - check if actually paid
+      workItemStatus = order.financial_status === 'paid' ? 'design_fee_paid' : 'design_fee_sent'
+    } else if (orderType === 'custom_bulk_order') {
+      // Production order - check if actually paid
+      workItemStatus = order.financial_status === 'paid' ? 'paid_ready_for_batch' : 'invoice_sent'
+    } else {
+      // Customify order
+      workItemStatus = 'needs_design_review'
+    }
 
     // For design fee orders, store in design_fee_order_id. For others, use shopify_order_id
     const insertData: any = {
@@ -295,6 +359,33 @@ export async function POST(request: NextRequest) {
       }))
 
       await supabase.from('files').insert(fileRecords)
+    }
+
+    // Auto-link recent emails from this customer (last 30 days before order)
+    if (customerEmail) {
+      const orderDate = new Date(order.created_at)
+      const lookbackDate = new Date(orderDate)
+      lookbackDate.setDate(lookbackDate.getDate() - 30)
+
+      const { data: recentEmails } = await supabase
+        .from('communications')
+        .select('id')
+        .eq('from_email', customerEmail)
+        .is('work_item_id', null)
+        .gte('received_at', lookbackDate.toISOString())
+        .lte('received_at', orderDate.toISOString())
+
+      if (recentEmails && recentEmails.length > 0) {
+        await supabase
+          .from('communications')
+          .update({
+            work_item_id: workItemId,
+            triage_status: 'attached'
+          })
+          .in('id', recentEmails.map(e => e.id))
+
+        console.log(`Auto-linked ${recentEmails.length} emails to new work item ${workItemId}`)
+      }
     }
 
     return NextResponse.json({
