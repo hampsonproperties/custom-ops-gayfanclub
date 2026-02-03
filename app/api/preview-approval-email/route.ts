@@ -47,14 +47,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate signed URL for proof image (7-day expiry)
+    console.log('Attempting to generate signed URL:', {
+      bucket: file.storage_bucket,
+      path: file.storage_path,
+    })
+
     const { data: signedUrlData, error: signedUrlError } = await supabase
       .storage
       .from(file.storage_bucket)
       .createSignedUrl(file.storage_path, 604800) // 7 days in seconds
 
     if (signedUrlError || !signedUrlData) {
+      console.error('Signed URL error:', signedUrlError)
       return NextResponse.json(
-        { error: 'Failed to generate signed URL for proof image' },
+        {
+          error: 'Failed to generate signed URL for proof image',
+          details: signedUrlError?.message || 'Unknown error'
+        },
         { status: 500 }
       )
     }
