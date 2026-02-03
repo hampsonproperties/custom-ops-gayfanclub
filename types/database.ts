@@ -150,6 +150,7 @@ export interface Database {
           customer_id: string | null
           customer_name: string | null
           customer_email: string | null
+          alternate_emails: string[] | null
           shopify_order_id: string | null
           shopify_draft_order_id: string | null
           shopify_order_number: string | null
@@ -188,6 +189,7 @@ export interface Database {
           customer_id?: string | null
           customer_name?: string | null
           customer_email?: string | null
+          alternate_emails?: string[] | null
           shopify_order_id?: string | null
           shopify_draft_order_id?: string | null
           shopify_order_number?: string | null
@@ -226,6 +228,7 @@ export interface Database {
           customer_id?: string | null
           customer_name?: string | null
           customer_email?: string | null
+          alternate_emails?: string[] | null
           shopify_order_id?: string | null
           shopify_draft_order_id?: string | null
           shopify_order_number?: string | null

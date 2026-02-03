@@ -13,6 +13,7 @@ import { ChangeStatusDialog } from '@/components/work-items/change-status-dialog
 import { SendApprovalDialog } from '@/components/email/send-approval-dialog'
 import { ConversationThread } from '@/components/email/conversation-thread'
 import { InlineEmailComposer } from '@/components/email/inline-email-composer'
+import { AlternateEmailsManager } from '@/components/work-items/alternate-emails-manager'
 import { useWorkItem } from '@/lib/hooks/use-work-items'
 import { useCommunications } from '@/lib/hooks/use-communications'
 import { useFiles, useUploadFile, useDeleteFile, getFileUrl } from '@/lib/hooks/use-files'
@@ -452,6 +453,15 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
               </div>
             </CardContent>
           </Card>
+
+          {/* Alternate Emails Manager */}
+          {workItem.customer_email && (
+            <AlternateEmailsManager
+              workItemId={workItem.id}
+              customerEmail={workItem.customer_email}
+              alternateEmails={workItem.alternate_emails || []}
+            />
+          )}
 
           {/* Related Orders - show for assisted projects with both design fee and production orders */}
           {workItem.type === 'assisted_project' && (workItem.design_fee_order_number || workItem.shopify_order_number) && (

@@ -149,10 +149,11 @@ async function processEmailNotification(notification: any, supabase: any) {
       const lookbackDate = new Date(emailReceivedDate)
       lookbackDate.setDate(lookbackDate.getDate() - 60) // 60 day window
 
+      // Check both primary email and alternate emails
       const { data: recentWorkItem } = await supabase
         .from('work_items')
         .select('id')
-        .eq('customer_email', fromEmail)
+        .or(`customer_email.eq.${fromEmail},alternate_emails.cs.{${fromEmail}}`)
         .is('closed_at', null)
         .gte('updated_at', lookbackDate.toISOString())
         .order('updated_at', { ascending: false })
