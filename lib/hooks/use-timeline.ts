@@ -107,12 +107,15 @@ export function useTimeline(workItemId: string) {
 
       if (files) {
         files.forEach((file: any) => {
+          // Filter out backfill notes to avoid confusing UI
+          const displayNote = file.note && !file.note.startsWith('Backfilled') ? file.note : null
+
           events.push({
             id: file.id,
             type: 'file_upload',
             timestamp: file.created_at,
             title: 'File Uploaded',
-            description: `${file.kind} file: ${file.original_filename}${file.note ? ` - ${file.note}` : ''}`,
+            description: `${file.kind} file: ${file.original_filename}${displayNote ? ` - ${displayNote}` : ''}`,
             metadata: { kind: file.kind, filename: file.original_filename },
             user: file.users?.full_name || 'Customer',
           })

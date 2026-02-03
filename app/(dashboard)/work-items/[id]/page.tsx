@@ -363,7 +363,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
                                   {file.kind} {file.version > 1 && `v${file.version}`}
                                   {isExternal && ' (Customify)'}
                                 </p>
-                                {file.note && (
+                                {file.note && !file.note.startsWith('Backfilled') && (
                                   <p className="text-xs text-muted-foreground mt-1">{file.note}</p>
                                 )}
                               </div>
