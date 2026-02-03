@@ -26,11 +26,11 @@ export function ConversationThread({ communications }: ConversationThreadProps) 
     setExpandedIds(newExpanded)
   }
 
-  // Sort chronologically (oldest first for thread view)
+  // Sort reverse chronologically (newest first)
   const sortedCommunications = [...communications].sort((a, b) => {
     const dateA = new Date(a.received_at || a.sent_at || a.created_at)
     const dateB = new Date(b.received_at || b.sent_at || b.created_at)
-    return dateA.getTime() - dateB.getTime()
+    return dateB.getTime() - dateA.getTime()
   })
 
   if (communications.length === 0) {

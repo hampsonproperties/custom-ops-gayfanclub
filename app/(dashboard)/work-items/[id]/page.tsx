@@ -150,8 +150,20 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
               <p className="font-medium">{workItem.customer_email || '-'}</p>
             </div>
             <div>
-              <span className="text-sm text-muted-foreground">Event Date</span>
-              <p className="font-medium">{workItem.event_date || '-'}</p>
+              <span className="text-sm text-muted-foreground">Shopify Order</span>
+              {workItem.shopify_order_number && workItem.shopify_order_id ? (
+                <a
+                  href={`https://admin.shopify.com/store/gayfanclub/orders/${workItem.shopify_order_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                >
+                  {workItem.shopify_order_number}
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              ) : (
+                <p className="font-medium">{workItem.shopify_order_number || '-'}</p>
+              )}
             </div>
             <div>
               <span className="text-sm text-muted-foreground">Next Follow-Up</span>

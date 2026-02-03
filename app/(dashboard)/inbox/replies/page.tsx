@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { useInboxReplies, useMarkCommunicationActioned } from '@/lib/hooks/use-work-items'
+import { InlineEmailComposer } from '@/components/email/inline-email-composer'
 import { toast } from 'sonner'
 import {
   Mail,
@@ -15,6 +16,7 @@ import {
   Inbox,
   Clock,
   User,
+  Reply,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import DOMPurify from 'dompurify'
@@ -22,6 +24,7 @@ import DOMPurify from 'dompurify'
 export default function InboxRepliesPage() {
   const { data: replies, isLoading } = useInboxReplies()
   const markActioned = useMarkCommunicationActioned()
+  const [replyingToId, setReplyingToId] = useState<string | null>(null)
 
   const handleMarkActioned = async (communicationId: string) => {
     try {
@@ -31,6 +34,10 @@ export default function InboxRepliesPage() {
       console.error('Mark actioned error:', error)
       toast.error('Failed to mark as actioned')
     }
+  }
+
+  const handleReplySuccess = () => {
+    setReplyingToId(null)
   }
 
   const sanitizeHtml = (html: string) => {
@@ -135,6 +142,21 @@ export default function InboxRepliesPage() {
                               ? 'Customify'
                               : 'Custom Design'}
                           </Badge>
+                          {workItem.shopify_order_number && workItem.shopify_order_id && (
+                            <>
+                              <span className="text-muted-foreground">•</span>
+                              <a
+                                href={`https://admin.shopify.com/store/gayfanclub/orders/${workItem.shopify_order_id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {workItem.shopify_order_number}
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>
@@ -150,6 +172,14 @@ export default function InboxRepliesPage() {
                           <ExternalLink className="mr-2 h-4 w-4" />
                           Open Work Item
                         </Link>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setReplyingToId(replyingToId === reply.id ? null : reply.id)}
+                      >
+                        <Reply className="mr-2 h-4 w-4" />
+                        Reply
                       </Button>
                       <Button
                         size="sm"
@@ -184,6 +214,19 @@ export default function InboxRepliesPage() {
                         }}
                       />
                     </details>
+                  )}
+
+                  {/* Reply Composer */}
+                  {replyingToId === reply.id && workItem && (
+                    <div className="mt-4 pt-4 border-t">
+                      <InlineEmailComposer
+                        workItemId={workItem.id}
+                        workItem={workItem}
+                        defaultTo={reply.from_email}
+                        defaultSubject={reply.subject ? `Re: ${reply.subject}` : ''}
+                        onSendSuccess={handleReplySuccess}
+                      />
+                    </div>
                   )}
                 </div>
               </CardContent>
