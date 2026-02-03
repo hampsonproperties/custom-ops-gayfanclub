@@ -31,15 +31,22 @@ export async function GET(
 
     if (itemsError) throw itemsError
 
-    // Get file records for all work items
+    // Get file records for all work items (design files, not proofs)
     const workItemIds = items.map((item: any) => item.work_item.id)
     const { data: files, error: filesError } = await supabase
       .from('files')
       .select('*')
       .in('work_item_id', workItemIds)
-      .eq('kind', 'proof')
+      .eq('kind', 'design')
 
     if (filesError) throw filesError
+
+    console.log(`Found ${files?.length || 0} design files for ${workItemIds.length} work items`)
+    if (files) {
+      files.forEach((f: any) => {
+        console.log(`  - Work Item: ${f.work_item_id}, File: ${f.original_filename}, Storage: ${f.storage_path}`)
+      })
+    }
 
     // Generate enhanced CSV with payment status
     const headers = [
@@ -70,7 +77,7 @@ export async function GET(
 
       // Find associated design file
       const designFile = files?.find((f: any) => f.work_item_id === workItem.id)
-      const fileName = designFile ? `${index + 1}_${workItem.customer_name?.replace(/[^a-z0-9]/gi, '_') || 'design'}.${designFile.file_name.split('.').pop()}` : 'No file'
+      const fileName = designFile ? `${index + 1}_${workItem.customer_name?.replace(/[^a-z0-9]/gi, '_') || 'design'}.${designFile.original_filename.split('.').pop()}` : 'No file'
 
       return [
         item.position,
@@ -116,20 +123,27 @@ export async function GET(
 
       if (designFile && designsFolder) {
         try {
+          console.log(`Downloading file for ${workItem.customer_name}: ${designFile.storage_bucket}/${designFile.storage_path}`)
+
           // Download file from Supabase Storage
           const { data: fileData, error: downloadError } = await supabase
             .storage
-            .from('custom-ops-files')
+            .from(designFile.storage_bucket)
             .download(designFile.storage_path)
 
-          if (!downloadError && fileData) {
-            const fileName = `${i + 1}_${workItem.customer_name?.replace(/[^a-z0-9]/gi, '_') || 'design'}.${designFile.file_name.split('.').pop()}`
+          if (downloadError) {
+            console.error(`Download error for ${workItem.customer_name}:`, downloadError)
+          } else if (fileData) {
+            const fileName = `${i + 1}_${workItem.customer_name?.replace(/[^a-z0-9]/gi, '_') || 'design'}.${designFile.original_filename.split('.').pop()}`
             const arrayBuffer = await fileData.arrayBuffer()
             designsFolder.file(fileName, arrayBuffer)
+            console.log(`Added file to zip: ${fileName}`)
           }
         } catch (error) {
           console.error(`Failed to download file for ${workItem.customer_name}:`, error)
         }
+      } else {
+        console.log(`No design file found for ${workItem.customer_name}`)
       }
     }
 
