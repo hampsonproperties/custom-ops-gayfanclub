@@ -164,10 +164,13 @@ export async function POST(request: NextRequest) {
       rejectLink,
     })
 
+    console.log('Preview generated with proofImageUrl:', proofImageUrl)
+
     return NextResponse.json({
       success: true,
       subject,
       body,
+      proofImageUrl, // Include this for debugging in the frontend
       fileInfo: {
         filename: file.original_filename,
         kind: file.kind,

@@ -37,6 +37,7 @@ export function SendApprovalDialog({
   const [previewData, setPreviewData] = useState<{
     subject: string
     body: string
+    proofImageUrl?: string
     fileInfo: { filename: string; kind: string; version: number }
   } | null>(null)
   const [loadingPreview, setLoadingPreview] = useState(false)
@@ -133,7 +134,7 @@ export function SendApprovalDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Send Approval Email</DialogTitle>
           <DialogDescription>
