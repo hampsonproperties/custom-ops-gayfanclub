@@ -145,7 +145,6 @@ function detectOrderType(order: any): 'customify_order' | 'custom_design_service
       for (const prop of props) {
         const propName = prop.name?.toLowerCase() || ''
         if (propName.includes('customify')) {
-          hasCustomifyProperties = true
           return 'customify_order'
         }
       }
