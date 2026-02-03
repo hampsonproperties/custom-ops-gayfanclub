@@ -72,7 +72,29 @@ export function FollowUpItemCard({
       setLoadingComm(true)
 
       try {
-        const { data, error } = await supabase
+        // First, try to get the last INBOUND email (customer's message to us)
+        const { data: inboundData, error: inboundError } = await supabase
+          .from('communications')
+          .select('*')
+          .eq('work_item_id', workItem.id)
+          .eq('direction', 'inbound')
+          .order('received_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (inboundError) throw inboundError
+
+        // If we have an inbound email, use that
+        if (inboundData) {
+          if (isMounted) {
+            setLastComm(inboundData)
+            setLoadingComm(false)
+          }
+          return
+        }
+
+        // Otherwise, fall back to most recent communication (could be outbound)
+        const { data: anyData, error: anyError } = await supabase
           .from('communications')
           .select('*')
           .eq('work_item_id', workItem.id)
@@ -80,10 +102,10 @@ export function FollowUpItemCard({
           .limit(1)
           .maybeSingle()
 
-        if (error) throw error
+        if (anyError) throw anyError
 
         if (isMounted) {
-          setLastComm(data)
+          setLastComm(anyData)
           setLoadingComm(false)
         }
       } catch (error) {
@@ -355,18 +377,29 @@ export function FollowUpItemCard({
                     <div className="flex items-center gap-2 text-sm">
                       <Mail className="h-4 w-4 text-muted-foreground" />
                       <span className="font-medium">
-                        {lastComm.direction === 'inbound' ? 'From' : 'To'}: {lastComm.from_email}
+                        {lastComm.direction === 'inbound'
+                          ? `From ${lastComm.from_email}`
+                          : `You sent to ${lastComm.to_emails[0] || lastComm.from_email}`}
                       </span>
                       <span className="text-muted-foreground">
-                        • {format(new Date(lastComm.received_at || lastComm.sent_at!), 'MMM d, yyyy')}
+                        • {format(new Date(lastComm.received_at || lastComm.sent_at!), 'MMM d, yyyy h:mm a')}
                       </span>
+                      {lastComm.direction === 'inbound' && (
+                        <Badge variant="secondary" className="text-xs">
+                          Customer Reply
+                        </Badge>
+                      )}
                     </div>
 
                     <div className="text-sm">
                       <div className="font-medium text-muted-foreground mb-1">
                         Subject: {lastComm.subject || '(no subject)'}
                       </div>
-                      <div className="bg-muted/50 p-3 rounded-md text-sm">
+                      <div className={`p-3 rounded-md text-sm ${
+                        lastComm.direction === 'inbound'
+                          ? 'bg-blue-50 border border-blue-200'
+                          : 'bg-muted/50'
+                      }`}>
                         {lastComm.body_preview || 'No preview available'}
                       </div>
                     </div>
