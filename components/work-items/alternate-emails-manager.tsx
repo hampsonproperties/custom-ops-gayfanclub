@@ -54,7 +54,9 @@ export function AlternateEmailsManager({
     try {
       await updateWorkItem.mutateAsync({
         id: workItemId,
-        alternate_emails: [...alternateEmails, emailToAdd],
+        updates: {
+          alternate_emails: [...alternateEmails, emailToAdd],
+        },
       })
 
       toast.success('Alternate email added successfully')
@@ -69,7 +71,9 @@ export function AlternateEmailsManager({
     try {
       await updateWorkItem.mutateAsync({
         id: workItemId,
-        alternate_emails: alternateEmails.filter(e => e !== emailToRemove),
+        updates: {
+          alternate_emails: alternateEmails.filter(e => e !== emailToRemove),
+        },
       })
 
       toast.success('Alternate email removed')
