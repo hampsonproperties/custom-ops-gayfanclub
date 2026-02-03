@@ -171,6 +171,10 @@ export interface Database {
           last_contact_at: string | null
           next_follow_up_at: string | null
           follow_up_cadence_key: string | null
+          requires_initial_contact: boolean
+          rush_order: boolean
+          missed_design_window: boolean
+          is_waiting: boolean
           assigned_to_user_id: string | null
           ready_for_batch_at: string | null
           batched_at: string | null
@@ -210,6 +214,10 @@ export interface Database {
           last_contact_at?: string | null
           next_follow_up_at?: string | null
           follow_up_cadence_key?: string | null
+          requires_initial_contact?: boolean
+          rush_order?: boolean
+          missed_design_window?: boolean
+          is_waiting?: boolean
           assigned_to_user_id?: string | null
           ready_for_batch_at?: string | null
           batched_at?: string | null
@@ -249,6 +257,10 @@ export interface Database {
           last_contact_at?: string | null
           next_follow_up_at?: string | null
           follow_up_cadence_key?: string | null
+          requires_initial_contact?: boolean
+          rush_order?: boolean
+          missed_design_window?: boolean
+          is_waiting?: boolean
           assigned_to_user_id?: string | null
           ready_for_batch_at?: string | null
           batched_at?: string | null
@@ -313,6 +325,7 @@ export interface Database {
           triage_status: TriageStatus
           category: EmailCategory
           is_read: boolean
+          actioned_at: string | null
           sent_at: string | null
           received_at: string | null
           created_at: string
@@ -338,6 +351,7 @@ export interface Database {
           triage_status?: TriageStatus
           category?: EmailCategory
           is_read?: boolean
+          actioned_at?: string | null
           sent_at?: string | null
           received_at?: string | null
           created_at?: string
@@ -363,6 +377,7 @@ export interface Database {
           triage_status?: TriageStatus
           category?: EmailCategory
           is_read?: boolean
+          actioned_at?: string | null
           sent_at?: string | null
           received_at?: string | null
           created_at?: string
