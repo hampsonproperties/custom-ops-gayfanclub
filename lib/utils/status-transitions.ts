@@ -27,6 +27,8 @@ const ASSISTED_WORKFLOW: Record<AssistedProjectStatus, number> = {
   proof_sent: 7,
   awaiting_approval: 8,
   invoice_sent: 9,
+  deposit_paid_ready_for_batch: 10,
+  on_payment_terms_ready_for_batch: 10,
   paid_ready_for_batch: 10,
   closed_won: 11,
   closed_lost: 11, // Same level as won - branch point
@@ -85,6 +87,8 @@ export function getStatusLabel(status: WorkItemStatus): string {
     proof_sent: 'Proof Sent',
     awaiting_approval: 'Awaiting Approval',
     invoice_sent: 'Invoice Sent',
+    deposit_paid_ready_for_batch: 'Deposit Paid - Ready for Batch',
+    on_payment_terms_ready_for_batch: 'On Payment Terms - Ready for Batch',
     paid_ready_for_batch: 'Paid - Ready for Batch',
     closed_won: 'Closed (Won)',
     closed_lost: 'Closed (Lost)',
@@ -220,6 +224,8 @@ export function getStatusGroups(
         label: 'Payment & Production',
         statuses: [
           { value: 'invoice_sent', label: 'Invoice Sent' },
+          { value: 'deposit_paid_ready_for_batch', label: 'Deposit Paid - Ready for Batch' },
+          { value: 'on_payment_terms_ready_for_batch', label: 'On Payment Terms - Ready for Batch' },
           { value: 'paid_ready_for_batch', label: 'Paid - Ready for Batch' },
         ],
       },
