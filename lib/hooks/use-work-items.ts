@@ -39,14 +39,14 @@ export function useWorkItems(filters?: WorkItemFilters) {
       }
       if (filters?.search) {
         // Search across multiple fields:
-        // - Customer info: name, email, alternate emails
+        // - Customer info: name, email
         // - Order numbers: Shopify order #, design fee order #, raw order IDs
         // - Project: title
+        // Note: alternate_emails search will be enabled after migration runs
         const searchTerm = filters.search.toLowerCase()
         query = query.or(
           `customer_name.ilike.%${searchTerm}%,` +
           `customer_email.ilike.%${searchTerm}%,` +
-          `alternate_emails.cs.{${searchTerm}},` +
           `shopify_order_number.ilike.%${searchTerm}%,` +
           `design_fee_order_number.ilike.%${searchTerm}%,` +
           `shopify_order_id.ilike.%${searchTerm}%,` +
