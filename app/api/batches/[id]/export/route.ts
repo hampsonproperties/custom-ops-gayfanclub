@@ -37,7 +37,7 @@ export async function GET(
       .from('files')
       .select('*')
       .in('work_item_id', workItemIds)
-      .eq('file_type', 'proof')
+      .eq('kind', 'proof')
 
     if (filesError) throw filesError
 
