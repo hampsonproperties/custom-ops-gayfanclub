@@ -131,6 +131,67 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * Downloads a file from an external URL and uploads it to Supabase Storage
+ * @returns { path: string, sizeBytes: number } or null if download fails
+ */
+async function downloadAndStoreFile(
+  supabase: any,
+  externalUrl: string,
+  workItemId: string,
+  filename: string
+): Promise<{ path: string; sizeBytes: number } | null> {
+  try {
+    // Ensure URL has protocol
+    let url = externalUrl
+    if (url.startsWith('//')) {
+      url = `https:${url}`
+    }
+
+    console.log(`Downloading file from: ${url}`)
+
+    // Download file from external URL
+    const response = await fetch(url)
+    if (!response.ok) {
+      console.error(`Failed to download file: ${response.status} ${response.statusText}`)
+      return null
+    }
+
+    const arrayBuffer = await response.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+    const sizeBytes = buffer.length
+
+    // Determine file extension from URL or content-type
+    let extension = 'png'
+    const urlExtension = url.split('.').pop()?.toLowerCase()
+    if (urlExtension && ['png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf'].includes(urlExtension)) {
+      extension = urlExtension
+    }
+
+    // Generate storage path: work-items/{id}/{filename}.{ext}
+    const storagePath = `work-items/${workItemId}/${filename}.${extension}`
+
+    // Upload to Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('custom-ops-files')
+      .upload(storagePath, buffer, {
+        contentType: response.headers.get('content-type') || 'image/png',
+        upsert: true,
+      })
+
+    if (uploadError) {
+      console.error(`Failed to upload file to Supabase Storage:`, uploadError)
+      return null
+    }
+
+    console.log(`Successfully stored file at: ${storagePath} (${sizeBytes} bytes)`)
+    return { path: storagePath, sizeBytes }
+  } catch (error) {
+    console.error(`Error downloading/storing file:`, error)
+    return null
+  }
+}
+
 async function processOrder(supabase: any, order: any, webhookEventId: string) {
   // Check if this is a custom order based on detection rules
   const orderType = detectOrderType(order)
@@ -410,23 +471,60 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
     throw new Error(`Failed to create work item: ${insertError.message}`)
   }
 
-  // Create file records for Customify files
+  // Create file records for Customify files - download and store in Supabase
   if (customifyFiles.length > 0 && newWorkItem) {
-    const fileRecords = customifyFiles.map((file, index) => ({
-      work_item_id: newWorkItem.id,
-      kind: file.kind,
-      version: index + 1,
-      original_filename: file.filename,
-      normalized_filename: file.filename,
-      storage_bucket: 'customify',
-      storage_path: file.url,
-      mime_type: 'image/png',
-      size_bytes: null,
-      uploaded_by_user_id: null,
-      note: 'Imported from Customify',
-    }))
+    const fileRecords = []
 
-    await supabase.from('files').insert(fileRecords)
+    for (let index = 0; index < customifyFiles.length; index++) {
+      const file = customifyFiles[index]
+
+      // Download file from Customify and upload to our Supabase Storage
+      const storedFile = await downloadAndStoreFile(
+        supabase,
+        file.url,
+        newWorkItem.id,
+        file.filename
+      )
+
+      if (storedFile) {
+        // Successfully downloaded and stored - use our storage
+        fileRecords.push({
+          work_item_id: newWorkItem.id,
+          kind: file.kind,
+          version: index + 1,
+          original_filename: file.filename,
+          normalized_filename: file.filename,
+          storage_bucket: 'custom-ops-files',
+          storage_path: storedFile.path,
+          external_url: file.url, // Preserve original Customify URL
+          mime_type: 'image/png',
+          size_bytes: storedFile.sizeBytes,
+          uploaded_by_user_id: null,
+          note: 'Imported from Customify and stored in Supabase',
+        })
+      } else {
+        // Download failed - fall back to storing external URL only
+        console.warn(`Failed to download ${file.filename}, storing external URL as fallback`)
+        fileRecords.push({
+          work_item_id: newWorkItem.id,
+          kind: file.kind,
+          version: index + 1,
+          original_filename: file.filename,
+          normalized_filename: file.filename,
+          storage_bucket: 'customify',
+          storage_path: file.url,
+          external_url: file.url,
+          mime_type: 'image/png',
+          size_bytes: null,
+          uploaded_by_user_id: null,
+          note: 'Customify file - download failed, external URL only',
+        })
+      }
+    }
+
+    if (fileRecords.length > 0) {
+      await supabase.from('files').insert(fileRecords)
+    }
   }
 
   // Mark webhook as completed

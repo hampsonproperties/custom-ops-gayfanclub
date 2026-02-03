@@ -67,7 +67,7 @@ export function useEmailThread(threadId: string | null) {
         .from('communications')
         .select('*')
         .eq('provider_thread_id', threadId)
-        .order('received_at', { ascending: true })
+        .order('received_at', { ascending: false })
 
       if (error) throw error
       return data as Communication[]
@@ -243,6 +243,7 @@ export function useSendEmail() {
 /**
  * Query emails by category (primary, promotional, spam, notifications)
  * Optionally filter by triage_status
+ * Excludes system emails (emails FROM the company's own email address)
  */
 export function useEmailsByCategory(
   category: EmailCategory,
@@ -258,6 +259,7 @@ export function useEmailsByCategory(
         .select('*')
         .eq('direction', 'inbound')
         .eq('category', category)
+        .neq('from_email', 'sales@thegayfanclub.com') // Exclude system-generated emails
         .order('received_at', { ascending: false })
 
       if (triageStatus) {
@@ -275,6 +277,7 @@ export function useEmailsByCategory(
 /**
  * Get counts for all email categories
  * Optionally filter by triage_status
+ * Excludes system emails (emails FROM the company's own email address)
  */
 export function useEmailCategoryCounts(
   triageStatus?: 'untriaged' | 'triaged' | 'created_lead' | 'attached' | 'flagged_support' | 'archived'
@@ -286,8 +289,9 @@ export function useEmailCategoryCounts(
     queryFn: async () => {
       let query = supabase
         .from('communications')
-        .select('category')
+        .select('category, from_email')
         .eq('direction', 'inbound')
+        .neq('from_email', 'sales@thegayfanclub.com') // Exclude system-generated emails
 
       if (triageStatus) {
         query = query.eq('triage_status', triageStatus)

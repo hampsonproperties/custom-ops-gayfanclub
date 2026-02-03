@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate placeholder links for preview
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const approveLink = `${baseUrl}/api/approve-proof?token=PREVIEW_APPROVE_TOKEN`
     const rejectLink = `${baseUrl}/request-changes?token=PREVIEW_REJECT_TOKEN`
 

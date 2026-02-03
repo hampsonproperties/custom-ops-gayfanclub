@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
         ])
 
         // Generate approval links
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
         const approveLink = `${baseUrl}/approve-proof?token=${approveToken}`
         const rejectLink = `${baseUrl}/approve-proof?token=${rejectToken}`
 

@@ -132,7 +132,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Redirect to confirmation page with action and work item ID
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     return NextResponse.redirect(
       `${baseUrl}/approve-proof?success=true&action=${action}&workItemId=${workItemId}`
     )

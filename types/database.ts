@@ -455,6 +455,7 @@ export interface Database {
           normalized_filename: string | null
           storage_bucket: string
           storage_path: string
+          external_url: string | null
           mime_type: string | null
           size_bytes: number | null
           uploaded_by_user_id: string | null
@@ -471,6 +472,7 @@ export interface Database {
           normalized_filename?: string | null
           storage_bucket: string
           storage_path: string
+          external_url?: string | null
           mime_type?: string | null
           size_bytes?: number | null
           uploaded_by_user_id?: string | null
@@ -487,6 +489,7 @@ export interface Database {
           normalized_filename?: string | null
           storage_bucket?: string
           storage_path?: string
+          external_url?: string | null
           mime_type?: string | null
           size_bytes?: number | null
           uploaded_by_user_id?: string | null

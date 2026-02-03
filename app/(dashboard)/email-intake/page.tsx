@@ -401,7 +401,7 @@ export default function EmailIntakePage() {
                   Bulk Actions
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="bg-background border shadow-lg z-50">
                 <DropdownMenuItem onClick={handleBulkArchive}>
                   <Archive className="h-4 w-4 mr-2" />
                   Archive Selected
@@ -656,7 +656,7 @@ export default function EmailIntakePage() {
                                 <MoreVertical className="h-3 w-3" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" className="bg-background border shadow-lg z-50">
                               <DropdownMenuItem
                                 onClick={() =>
                                   handleMoveToCategory(group.latestEmail.id, 'primary', true)

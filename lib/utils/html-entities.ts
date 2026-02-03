@@ -49,7 +49,7 @@ export function htmlToPlainText(html: string): string {
   }
 
   try {
-    return convert(html, {
+    const plainText = convert(html, {
       wordwrap: false,
       preserveNewlines: true,
       selectors: [
@@ -69,6 +69,9 @@ export function htmlToPlainText(html: string): string {
         { selector: 'script', format: 'skip' },      // Skip script tags
       ],
     }).trim()
+
+    // Additional entity decoding pass (in case html-to-text missed some)
+    return decodeHtmlEntities(plainText)
   } catch (error) {
     // Fallback to basic stripping if conversion fails
     console.error('Error converting HTML to text:', error)
