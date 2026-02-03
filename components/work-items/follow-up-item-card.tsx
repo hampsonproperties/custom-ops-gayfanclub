@@ -67,18 +67,25 @@ export function FollowUpItemCard({
       setLoadingComm(true)
       const supabase = createClient()
 
-      supabase
-        .from('communications')
-        .select('*')
-        .eq('work_item_id', workItem.id)
-        .order('received_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-        .then(({ data }) => {
+      const fetchComm = async () => {
+        try {
+          const { data } = await supabase
+            .from('communications')
+            .select('*')
+            .eq('work_item_id', workItem.id)
+            .order('received_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
           setLastComm(data)
           setLoadingComm(false)
-        })
-        .catch(() => setLoadingComm(false))
+        } catch (error) {
+          console.error('Error fetching communication:', error)
+          setLoadingComm(false)
+        }
+      }
+
+      fetchComm()
     }
   }, [isExpanded, workItem.id, lastComm, loadingComm])
 
