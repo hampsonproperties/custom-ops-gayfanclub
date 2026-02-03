@@ -4,7 +4,7 @@ import { ClientSecretCredential } from '@azure/identity'
 import { createClient } from '@supabase/supabase-js'
 import 'isomorphic-fetch'
 import { htmlToPlainText, smartTruncate } from '@/lib/utils/html-entities'
-import { autoCategorizEmail } from '@/lib/utils/email-categorizer'
+import { autoCategorizEmail, EmailCategory } from '@/lib/utils/email-categorizer'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -118,7 +118,7 @@ async function processEmailNotification(notification: any, supabase: any) {
       .maybeSingle() as { data: { matched_category: string; filter_id: string } | null }
 
     if (filterResult?.matched_category) {
-      category = filterResult.matched_category
+      category = filterResult.matched_category as EmailCategory
       console.log(`Manual filter override: ${fromEmail} → ${category}`)
     }
 
