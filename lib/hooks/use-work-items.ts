@@ -38,7 +38,21 @@ export function useWorkItems(filters?: WorkItemFilters) {
         query = query.eq('assigned_to_user_id', filters.assignedTo)
       }
       if (filters?.search) {
-        query = query.or(`customer_name.ilike.%${filters.search}%,customer_email.ilike.%${filters.search}%,title.ilike.%${filters.search}%`)
+        // Search across multiple fields:
+        // - Customer info: name, email, alternate emails
+        // - Order numbers: Shopify order #, design fee order #, raw order IDs
+        // - Project: title
+        const searchTerm = filters.search.toLowerCase()
+        query = query.or(
+          `customer_name.ilike.%${searchTerm}%,` +
+          `customer_email.ilike.%${searchTerm}%,` +
+          `alternate_emails.cs.{${searchTerm}},` +
+          `shopify_order_number.ilike.%${searchTerm}%,` +
+          `design_fee_order_number.ilike.%${searchTerm}%,` +
+          `shopify_order_id.ilike.%${searchTerm}%,` +
+          `design_fee_order_id.ilike.%${searchTerm}%,` +
+          `title.ilike.%${searchTerm}%`
+        )
       }
 
       const { data, error } = await query
