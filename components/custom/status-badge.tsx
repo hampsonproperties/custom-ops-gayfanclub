@@ -26,6 +26,7 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   proof_sent: { label: "Proof Sent", className: "bg-[#00BCD4] text-white hover:bg-[#0097A7]" },
   awaiting_approval: { label: "Awaiting Approval", className: "bg-[#FF9800] text-white hover:bg-[#F57C00]" },
   invoice_sent: { label: "Invoice Sent", className: "bg-[#FF9800] text-white hover:bg-[#F57C00]" },
+  on_payment_terms_ready_for_batch: { label: "On Terms - Ready", className: "bg-[#FFC107] text-black hover:bg-[#FFA000]" },
   paid_ready_for_batch: { label: "Paid - Ready", className: "bg-[#4CAF50] text-white hover:bg-[#388E3C]" },
   closed_won: { label: "Closed - Won", className: "bg-[#4CAF50] text-white hover:bg-[#388E3C]" },
   closed_lost: { label: "Closed - Lost", className: "bg-gray-400 text-white hover:bg-gray-500" },

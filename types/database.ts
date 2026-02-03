@@ -41,6 +41,7 @@ export type AssistedProjectStatus =
   | 'proof_sent'
   | 'awaiting_approval'
   | 'invoice_sent'
+  | 'on_payment_terms_ready_for_batch'
   | 'paid_ready_for_batch'
   | 'closed_won'
   | 'closed_lost'

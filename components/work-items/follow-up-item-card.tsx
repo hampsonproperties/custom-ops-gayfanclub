@@ -176,6 +176,10 @@ export function FollowUpItemCard({
       return 'Follow up on payment'
     }
 
+    if (status === 'on_payment_terms_ready_for_batch') {
+      return 'Ready for batch - payment on terms'
+    }
+
     if (status === 'design_fee_sent') {
       return 'Follow up on design fee payment'
     }
