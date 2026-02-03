@@ -177,13 +177,18 @@ export async function POST(request: NextRequest) {
           const lookbackDate = new Date(orderDate)
           lookbackDate.setDate(lookbackDate.getDate() - 30)
 
+          // For design fee orders, include emails up to NOW
+          const upperBoundDate = orderType === 'custom_design_service'
+            ? new Date()
+            : orderDate
+
           const { data: recentEmails } = await supabase
             .from('communications')
             .select('id')
             .eq('from_email', customerEmail)
             .is('work_item_id', null)
             .gte('received_at', lookbackDate.toISOString())
-            .lte('received_at', orderDate.toISOString())
+            .lte('received_at', upperBoundDate.toISOString())
 
           if (recentEmails && recentEmails.length > 0) {
             await supabase
@@ -255,13 +260,18 @@ export async function POST(request: NextRequest) {
           const lookbackDate = new Date(orderDate)
           lookbackDate.setDate(lookbackDate.getDate() - 30)
 
+          // For design fee orders, include emails up to NOW
+          const upperBoundDate = orderType === 'custom_design_service'
+            ? new Date()
+            : orderDate
+
           const { data: recentEmails } = await supabase
             .from('communications')
             .select('id')
             .eq('from_email', customerEmail)
             .is('work_item_id', null)
             .gte('received_at', lookbackDate.toISOString())
-            .lte('received_at', orderDate.toISOString())
+            .lte('received_at', upperBoundDate.toISOString())
 
           if (recentEmails && recentEmails.length > 0) {
             await supabase
@@ -361,11 +371,17 @@ export async function POST(request: NextRequest) {
       await supabase.from('files').insert(fileRecords)
     }
 
-    // Auto-link recent emails from this customer (last 30 days before order)
+    // Auto-link recent emails from this customer
     if (customerEmail) {
       const orderDate = new Date(order.created_at)
       const lookbackDate = new Date(orderDate)
       lookbackDate.setDate(lookbackDate.getDate() - 30)
+
+      // For design fee orders, include emails up to NOW (not just before order)
+      // Customer might email after placing order with questions
+      const upperBoundDate = orderType === 'custom_design_service'
+        ? new Date() // Now
+        : orderDate  // For production orders, only emails before order
 
       const { data: recentEmails } = await supabase
         .from('communications')
@@ -373,7 +389,7 @@ export async function POST(request: NextRequest) {
         .eq('from_email', customerEmail)
         .is('work_item_id', null)
         .gte('received_at', lookbackDate.toISOString())
-        .lte('received_at', orderDate.toISOString())
+        .lte('received_at', upperBoundDate.toISOString())
 
       if (recentEmails && recentEmails.length > 0) {
         await supabase

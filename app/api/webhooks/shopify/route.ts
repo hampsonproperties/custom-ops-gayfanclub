@@ -353,13 +353,18 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
       const lookbackDate = new Date(orderDate)
       lookbackDate.setDate(lookbackDate.getDate() - 30)
 
+      // For design fee orders, include emails up to NOW
+      const upperBoundDate = orderType === 'custom_design_service'
+        ? new Date()
+        : orderDate
+
       const { data: recentEmails } = await supabase
         .from('communications')
         .select('id')
         .eq('from_email', customerEmail)
         .is('work_item_id', null)
         .gte('received_at', lookbackDate.toISOString())
-        .lte('received_at', orderDate.toISOString())
+        .lte('received_at', upperBoundDate.toISOString())
 
       if (recentEmails && recentEmails.length > 0) {
         await supabase
@@ -565,11 +570,16 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
     }
   }
 
-  // Auto-link recent emails from this customer (last 30 days before order)
+  // Auto-link recent emails from this customer
   if (customerEmail && newWorkItem) {
     const orderDate = new Date(order.created_at)
     const lookbackDate = new Date(orderDate)
     lookbackDate.setDate(lookbackDate.getDate() - 30)
+
+    // For design fee orders, include emails up to NOW
+    const upperBoundDate = orderType === 'custom_design_service'
+      ? new Date()
+      : orderDate
 
     const { data: recentEmails } = await supabase
       .from('communications')
@@ -577,7 +587,7 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
       .eq('from_email', customerEmail)
       .is('work_item_id', null)
       .gte('received_at', lookbackDate.toISOString())
-      .lte('received_at', orderDate.toISOString())
+      .lte('received_at', upperBoundDate.toISOString())
 
     if (recentEmails && recentEmails.length > 0) {
       await supabase
