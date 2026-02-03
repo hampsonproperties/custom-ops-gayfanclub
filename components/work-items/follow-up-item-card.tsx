@@ -1,10 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,11 +32,16 @@ import {
   AlertTriangle,
   Pause,
   Play,
+  ChevronDown,
+  Mail,
+  MessageSquare,
 } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow, format } from 'date-fns'
+import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/types/database'
 
 type WorkItem = Database['public']['Tables']['work_items']['Row']
+type Communication = Database['public']['Tables']['communications']['Row']
 
 interface FollowUpItemCardProps {
   workItem: WorkItem
@@ -45,8 +55,32 @@ export function FollowUpItemCard({
   showFollowUpDate = true,
 }: FollowUpItemCardProps) {
   const [snoozeDialogOpen, setSnoozeDialogOpen] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [lastComm, setLastComm] = useState<Communication | null>(null)
+  const [loadingComm, setLoadingComm] = useState(false)
   const markFollowedUp = useMarkFollowedUp()
   const toggleWaiting = useToggleWaiting()
+
+  // Fetch last communication when expanded
+  useEffect(() => {
+    if (isExpanded && !lastComm && !loadingComm) {
+      setLoadingComm(true)
+      const supabase = createClient()
+
+      supabase
+        .from('communications')
+        .select('*')
+        .eq('work_item_id', workItem.id)
+        .order('received_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => {
+          setLastComm(data)
+          setLoadingComm(false)
+        })
+        .catch(() => setLoadingComm(false))
+    }
+  }, [isExpanded, workItem.id, lastComm, loadingComm])
 
   const handleMarkFollowedUp = async () => {
     try {
@@ -78,11 +112,46 @@ export function FollowUpItemCard({
     const followUpDate = new Date(workItem.next_follow_up_at)
     const now = new Date()
     const isOverdue = followUpDate < now
+    const distance = formatDistanceToNow(followUpDate)
 
     return {
-      text: formatDistanceToNow(followUpDate, { addSuffix: true }),
+      text: isOverdue ? `Overdue by ${distance}` : `Due in ${distance}`,
       isOverdue,
     }
+  }
+
+  const getActionNeeded = () => {
+    const status = workItem.status
+
+    if (workItem.requires_initial_contact) {
+      return 'Send initial contact email'
+    }
+
+    if (status === 'proof_sent' || status === 'awaiting_approval') {
+      return 'Follow up on proof approval'
+    }
+
+    if (status === 'invoice_sent') {
+      return 'Follow up on payment'
+    }
+
+    if (status === 'design_fee_sent') {
+      return 'Follow up on design fee payment'
+    }
+
+    if (status === 'new_inquiry') {
+      return 'Send initial information'
+    }
+
+    if (status === 'info_sent') {
+      return 'Check if they have questions'
+    }
+
+    if (status === 'needs_customer_fix') {
+      return 'Remind about needed fixes'
+    }
+
+    return 'Check in with customer'
   }
 
   const getEventDisplay = () => {
@@ -102,133 +171,205 @@ export function FollowUpItemCard({
   const followUpInfo = getFollowUpDisplay()
   const eventInfo = getEventDisplay()
 
+  const actionNeeded = getActionNeeded()
+
   return (
     <>
-      <Card className="hover:shadow-md transition-shadow">
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between gap-4">
-            {/* Main Content */}
-            <div className="flex-1 min-w-0 space-y-2">
-              {/* Customer Name & Type */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <Link
-                  href={`/work-items/${workItem.id}`}
-                  className="font-medium hover:underline truncate"
-                >
-                  {workItem.customer_name || 'Unnamed Customer'}
-                </Link>
-                <Badge variant="outline" className="text-xs">
-                  {workItem.type === 'customify_order'
-                    ? 'Customify'
-                    : 'Custom Design'}
-                </Badge>
-              </div>
-
-              {/* Status & Flags */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <StatusBadge status={workItem.status} />
-
-                {workItem.requires_initial_contact && (
-                  <Badge variant="secondary" className="text-xs">
-                    Needs Initial Contact
-                  </Badge>
-                )}
-
-                {workItem.rush_order && (
-                  <Badge variant="destructive" className="text-xs">
-                    <AlertTriangle className="mr-1 h-3 w-3" />
-                    Rush
-                  </Badge>
-                )}
-
-                {workItem.is_waiting && (
+      <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+        <Card className="hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
+            <div className="flex items-start justify-between gap-4">
+              {/* Main Content */}
+              <div className="flex-1 min-w-0 space-y-2">
+                {/* Customer Name & Type */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Link
+                    href={`/work-items/${workItem.id}`}
+                    className="font-medium hover:underline truncate"
+                  >
+                    {workItem.customer_name || 'Unnamed Customer'}
+                  </Link>
                   <Badge variant="outline" className="text-xs">
-                    <Pause className="mr-1 h-3 w-3" />
-                    Waiting
+                    {workItem.type === 'customify_order'
+                      ? 'Customify'
+                      : 'Custom Design'}
                   </Badge>
-                )}
-              </div>
-
-              {/* Dates */}
-              <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
-                {showFollowUpDate && followUpInfo && (
-                  <div
-                    className={`flex items-center gap-1 ${
-                      followUpInfo.isOverdue ? 'text-destructive font-medium' : ''
-                    }`}
-                  >
-                    <Clock className="h-3 w-3" />
-                    <span>Follow-up {followUpInfo.text}</span>
-                  </div>
-                )}
-
-                {showEventDate && eventInfo && (
-                  <div
-                    className={`flex items-center gap-1 ${
-                      eventInfo.isRush ? 'text-orange-600 font-medium' : ''
-                    }`}
-                  >
-                    <Calendar className="h-3 w-3" />
-                    <span>Event {eventInfo.text}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Title / Email */}
-              {(workItem.title || workItem.customer_email) && (
-                <div className="text-sm text-muted-foreground truncate">
-                  {workItem.title || workItem.customer_email}
                 </div>
-              )}
-            </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Button
-                size="sm"
-                onClick={handleMarkFollowedUp}
-                disabled={markFollowedUp.isPending}
-              >
-                <Check className="mr-1 h-4 w-4" />
-                Followed Up
-              </Button>
+                {/* Action Needed */}
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-purple-600" />
+                  <span className="text-sm font-medium text-purple-600">
+                    {actionNeeded}
+                  </span>
+                </div>
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="outline">
-                    <MoreVertical className="h-4 w-4" />
+                {/* Status & Flags */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <StatusBadge status={workItem.status} />
+
+                  {workItem.requires_initial_contact && (
+                    <Badge variant="secondary" className="text-xs">
+                      Needs Initial Contact
+                    </Badge>
+                  )}
+
+                  {workItem.rush_order && (
+                    <Badge variant="destructive" className="text-xs">
+                      <AlertTriangle className="mr-1 h-3 w-3" />
+                      Rush
+                    </Badge>
+                  )}
+
+                  {workItem.is_waiting && (
+                    <Badge variant="outline" className="text-xs">
+                      <Pause className="mr-1 h-3 w-3" />
+                      Waiting
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Dates */}
+                <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
+                  {showFollowUpDate && followUpInfo && (
+                    <div
+                      className={`flex items-center gap-1 ${
+                        followUpInfo.isOverdue ? 'text-destructive font-medium' : ''
+                      }`}
+                    >
+                      <Clock className="h-3 w-3" />
+                      <span>{followUpInfo.text}</span>
+                    </div>
+                  )}
+
+                  {showEventDate && eventInfo && (
+                    <div
+                      className={`flex items-center gap-1 ${
+                        eventInfo.isRush ? 'text-orange-600 font-medium' : ''
+                      }`}
+                    >
+                      <Calendar className="h-3 w-3" />
+                      <span>Event {eventInfo.text}</span>
+                    </div>
+                  )}
+
+                  {workItem.last_contact_at && (
+                    <div className="flex items-center gap-1">
+                      <Mail className="h-3 w-3" />
+                      <span>
+                        Last contact {formatDistanceToNow(new Date(workItem.last_contact_at), { addSuffix: true })}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Expand for details */}
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="text-xs h-auto py-1 px-2">
+                    <ChevronDown
+                      className={`h-3 w-3 mr-1 transition-transform ${
+                        isExpanded ? 'rotate-180' : ''
+                      }`}
+                    />
+                    {isExpanded ? 'Hide details' : 'Show last communication'}
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setSnoozeDialogOpen(true)}>
-                    <Clock className="mr-2 h-4 w-4" />
-                    Snooze
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleToggleWaiting}>
-                    {workItem.is_waiting ? (
-                      <>
-                        <Play className="mr-2 h-4 w-4" />
-                        Resume
-                      </>
-                    ) : (
-                      <>
-                        <Pause className="mr-2 h-4 w-4" />
-                        Mark Waiting
-                      </>
-                    )}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href={`/work-items/${workItem.id}`}>
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      Open Work Item
-                    </Link>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                </CollapsibleTrigger>
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Button
+                  size="sm"
+                  onClick={handleMarkFollowedUp}
+                  disabled={markFollowedUp.isPending}
+                >
+                  <Check className="mr-1 h-4 w-4" />
+                  Followed Up
+                </Button>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" variant="outline">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setSnoozeDialogOpen(true)}>
+                      <Clock className="mr-2 h-4 w-4" />
+                      Snooze
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleToggleWaiting}>
+                      {workItem.is_waiting ? (
+                        <>
+                          <Play className="mr-2 h-4 w-4" />
+                          Resume
+                        </>
+                      ) : (
+                        <>
+                          <Pause className="mr-2 h-4 w-4" />
+                          Mark Waiting
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href={`/work-items/${workItem.id}`}>
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        Open Work Item
+                      </Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+
+            {/* Expanded Content - Last Communication */}
+            <CollapsibleContent>
+              <div className="mt-4 pt-4 border-t space-y-3">
+                {loadingComm && (
+                  <div className="text-sm text-muted-foreground">
+                    Loading last communication...
+                  </div>
+                )}
+
+                {!loadingComm && lastComm && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span className="font-medium">
+                        {lastComm.direction === 'inbound' ? 'From' : 'To'}: {lastComm.from_email}
+                      </span>
+                      <span className="text-muted-foreground">
+                        • {format(new Date(lastComm.received_at || lastComm.sent_at!), 'MMM d, yyyy')}
+                      </span>
+                    </div>
+
+                    <div className="text-sm">
+                      <div className="font-medium text-muted-foreground mb-1">
+                        Subject: {lastComm.subject || '(no subject)'}
+                      </div>
+                      <div className="bg-muted/50 p-3 rounded-md text-sm">
+                        {lastComm.body_preview || 'No preview available'}
+                      </div>
+                    </div>
+
+                    {workItem.customer_email && (
+                      <div className="text-xs text-muted-foreground">
+                        Customer email: {workItem.customer_email}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!loadingComm && !lastComm && (
+                  <div className="text-sm text-muted-foreground">
+                    No communications found for this work item.
+                  </div>
+                )}
+              </div>
+            </CollapsibleContent>
+          </CardContent>
+        </Card>
+      </Collapsible>
 
       <SnoozeDialog
         workItemId={workItem.id}

@@ -70,12 +70,38 @@ export default function FollowUpsPage() {
     return urgent
   }, [overdueItems, allItems])
 
+  // Filter out duplicates - priority order: urgent > needsContact > dueToday > rush > dueWeek
+  const urgentIds = new Set(urgentItems.map(i => i.id))
+
+  const filteredNeedsContact = needsContactItems.filter(
+    (item: WorkItem) => !urgentIds.has(item.id)
+  )
+  const needsContactIds = new Set(filteredNeedsContact.map(i => i.id))
+
+  const filteredTodayItems = todayItems.filter(
+    (item: WorkItem) => !urgentIds.has(item.id) && !needsContactIds.has(item.id)
+  )
+  const todayIds = new Set(filteredTodayItems.map(i => i.id))
+
+  const filteredRushItems = rushItems.filter(
+    (item: WorkItem) => !urgentIds.has(item.id) && !needsContactIds.has(item.id) && !todayIds.has(item.id)
+  )
+  const rushIds = new Set(filteredRushItems.map(i => i.id))
+
+  const filteredWeekItems = weekItems.filter(
+    (item: WorkItem) =>
+      !urgentIds.has(item.id) &&
+      !needsContactIds.has(item.id) &&
+      !todayIds.has(item.id) &&
+      !rushIds.has(item.id)
+  )
+
   const totalCount =
     urgentItems.length +
-    needsContactItems.length +
-    todayItems.length +
-    rushItems.length +
-    weekItems.length +
+    filteredNeedsContact.length +
+    filteredTodayItems.length +
+    filteredRushItems.length +
+    filteredWeekItems.length +
     waitingItems.length
 
   return (
@@ -147,7 +173,7 @@ export default function FollowUpsPage() {
         )}
 
         {/* NEEDS INITIAL CONTACT - Shopify-first orders */}
-        {needsContactItems.length > 0 && (
+        {filteredNeedsContact.length > 0 && (
           <Collapsible
             open={sectionsOpen.needsContact}
             onOpenChange={() => toggleSection('needsContact')}
@@ -162,7 +188,7 @@ export default function FollowUpsPage() {
                         🆕 NEEDS INITIAL CONTACT
                       </CardTitle>
                       <Badge variant="secondary" className="bg-purple-100 text-purple-700">
-                        {needsContactItems.length}
+                        {filteredNeedsContact.length}
                       </Badge>
                     </div>
                     <ChevronDown
@@ -175,7 +201,7 @@ export default function FollowUpsPage() {
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <CardContent className="space-y-3 pt-0">
-                  {needsContactItems.map((item: WorkItem) => (
+                  {filteredNeedsContact.map((item: WorkItem) => (
                     <FollowUpItemCard key={item.id} workItem={item} />
                   ))}
                 </CardContent>
@@ -185,7 +211,7 @@ export default function FollowUpsPage() {
         )}
 
         {/* DUE TODAY */}
-        {todayItems.length > 0 && (
+        {filteredTodayItems.length > 0 && (
           <Collapsible
             open={sectionsOpen.dueToday}
             onOpenChange={() => toggleSection('dueToday')}
@@ -200,7 +226,7 @@ export default function FollowUpsPage() {
                         🟡 DUE TODAY
                       </CardTitle>
                       <Badge variant="secondary" className="bg-yellow-100 text-yellow-700">
-                        {todayItems.length}
+                        {filteredTodayItems.length}
                       </Badge>
                     </div>
                     <ChevronDown
@@ -213,7 +239,7 @@ export default function FollowUpsPage() {
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <CardContent className="space-y-3 pt-0">
-                  {todayItems.map((item: WorkItem) => (
+                  {filteredTodayItems.map((item: WorkItem) => (
                     <FollowUpItemCard key={item.id} workItem={item} />
                   ))}
                 </CardContent>
@@ -223,7 +249,7 @@ export default function FollowUpsPage() {
         )}
 
         {/* RUSH / TOO LATE - Event <30 days */}
-        {rushItems.length > 0 && (
+        {filteredRushItems.length > 0 && (
           <Collapsible
             open={sectionsOpen.rush}
             onOpenChange={() => toggleSection('rush')}
@@ -238,7 +264,7 @@ export default function FollowUpsPage() {
                         ⚠️ RUSH / TOO LATE
                       </CardTitle>
                       <Badge variant="secondary" className="bg-orange-100 text-orange-700">
-                        {rushItems.length}
+                        {filteredRushItems.length}
                       </Badge>
                     </div>
                     <ChevronDown
@@ -251,7 +277,7 @@ export default function FollowUpsPage() {
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <CardContent className="space-y-3 pt-0">
-                  {rushItems.map((item: WorkItem) => (
+                  {filteredRushItems.map((item: WorkItem) => (
                     <FollowUpItemCard key={item.id} workItem={item} />
                   ))}
                 </CardContent>
@@ -261,7 +287,7 @@ export default function FollowUpsPage() {
         )}
 
         {/* DUE THIS WEEK */}
-        {weekItems.length > 0 && (
+        {filteredWeekItems.length > 0 && (
           <Collapsible
             open={sectionsOpen.dueWeek}
             onOpenChange={() => toggleSection('dueWeek')}
@@ -273,7 +299,7 @@ export default function FollowUpsPage() {
                     <div className="flex items-center gap-2">
                       <Calendar className="h-5 w-5 text-blue-600" />
                       <CardTitle>📅 DUE THIS WEEK</CardTitle>
-                      <Badge variant="secondary">{weekItems.length}</Badge>
+                      <Badge variant="secondary">{filteredWeekItems.length}</Badge>
                     </div>
                     <ChevronDown
                       className={`h-5 w-5 transition-transform ${
@@ -285,7 +311,7 @@ export default function FollowUpsPage() {
               </CollapsibleTrigger>
               <CollapsibleContent>
                 <CardContent className="space-y-3 pt-0">
-                  {weekItems.map((item: WorkItem) => (
+                  {filteredWeekItems.map((item: WorkItem) => (
                     <FollowUpItemCard key={item.id} workItem={item} />
                   ))}
                 </CardContent>
