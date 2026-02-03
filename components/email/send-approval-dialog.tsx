@@ -79,9 +79,12 @@ export function SendApprovalDialog({
           throw new Error(result.error || 'Failed to load preview')
         }
 
+        console.log('Preview loaded with proofImageUrl:', result.proofImageUrl)
+
         setPreviewData({
           subject: result.subject,
           body: result.body,
+          proofImageUrl: result.proofImageUrl,
           fileInfo: result.fileInfo,
         })
       } catch (error) {
@@ -243,14 +246,27 @@ export function SendApprovalDialog({
                     <div className="text-sm">
                       <strong>Subject:</strong> {previewData.subject}
                     </div>
+                    {previewData.proofImageUrl && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        <strong>Image URL:</strong>{' '}
+                        <a
+                          href={previewData.proofImageUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline"
+                        >
+                          {previewData.proofImageUrl.slice(0, 50)}...
+                        </a>
+                      </div>
+                    )}
                   </div>
-                  <div className="bg-white dark:bg-slate-950 p-4 max-h-96 overflow-y-auto">
+                  <div className="bg-white dark:bg-slate-950 p-4 max-h-[500px] overflow-y-auto">
                     <iframe
                       srcDoc={previewData.body}
                       className="w-full border-0"
-                      style={{ minHeight: '400px' }}
+                      style={{ minHeight: '500px', height: '100%' }}
                       title="Email Preview"
-                      sandbox="allow-same-origin"
+                      sandbox="allow-same-origin allow-popups"
                     />
                   </div>
                 </div>

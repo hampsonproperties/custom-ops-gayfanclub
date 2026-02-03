@@ -125,8 +125,8 @@ export async function POST(request: NextRequest) {
 
     // Generate approval links
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
-    const approveLink = `${baseUrl}/approve-proof?token=${approveToken}`
-    const rejectLink = `${baseUrl}/approve-proof?token=${rejectToken}`
+    const approveLink = `${baseUrl}/api/approve-proof?token=${approveToken}`
+    const rejectLink = `${baseUrl}/request-changes?token=${rejectToken}`
 
     // Load and render template
     const template = await getTemplateByKey('customify-proof-approval')
