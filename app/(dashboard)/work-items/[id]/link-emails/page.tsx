@@ -10,6 +10,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { useWorkItem } from '@/lib/hooks/use-work-items'
+import { parseEmailAddress, extractEmailPreview } from '@/lib/utils/email-formatting'
 
 type Email = {
   id: string
@@ -116,32 +117,35 @@ export default function LinkEmailsPage({ params }: { params: Promise<{ id: strin
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-2">
                         <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <span className="font-medium text-sm truncate">
-                          {email.from_email}
+                        <span className="font-semibold text-sm">
+                          {email.subject || '(No subject)'}
                         </span>
-                        <Badge variant="outline" className="text-xs">
-                          {email.triage_status}
-                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2 mb-2 text-xs">
+                        <span className="font-medium text-foreground">
+                          {parseEmailAddress(email.from_email).displayName}
+                        </span>
+                        <span className="text-muted-foreground">•</span>
+                        <span className="text-muted-foreground">
+                          {email.received_at
+                            ? formatDistanceToNow(new Date(email.received_at), {
+                                addSuffix: true,
+                              })
+                            : 'Unknown date'}
+                        </span>
                         {email.work_item_id && (
-                          <Badge variant="secondary" className="text-xs">
-                            Already Linked
-                          </Badge>
+                          <>
+                            <span className="text-muted-foreground">•</span>
+                            <Badge variant="secondary" className="text-xs">
+                              Already Linked
+                            </Badge>
+                          </>
                         )}
                       </div>
-                      <p className="text-sm font-medium mb-1">
-                        {email.subject || '(No subject)'}
-                      </p>
-                      <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
-                        {email.body_preview || '(No preview)'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {email.received_at
-                          ? formatDistanceToNow(new Date(email.received_at), {
-                              addSuffix: true,
-                            })
-                          : 'Unknown date'}
+                      <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                        {extractEmailPreview(null, email.body_preview, 150)}
                       </p>
                     </div>
                     <Button

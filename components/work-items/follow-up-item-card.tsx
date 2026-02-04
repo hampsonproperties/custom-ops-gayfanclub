@@ -39,6 +39,7 @@ import {
 import { formatDistanceToNow, format } from 'date-fns'
 import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/types/database'
+import { parseEmailAddress, extractEmailPreview } from '@/lib/utils/email-formatting'
 
 type WorkItem = Database['public']['Tables']['work_items']['Row']
 type Communication = Database['public']['Tables']['communications']['Row']
@@ -386,8 +387,8 @@ export function FollowUpItemCard({
                       <Mail className="h-4 w-4 text-muted-foreground" />
                       <span className="font-medium">
                         {lastComm.direction === 'inbound'
-                          ? `From ${lastComm.from_email}`
-                          : `You sent to ${lastComm.to_emails[0] || lastComm.from_email}`}
+                          ? `From ${parseEmailAddress(lastComm.from_email).displayName}`
+                          : `You sent to ${parseEmailAddress(lastComm.to_emails[0] || lastComm.from_email).displayName}`}
                       </span>
                       <span className="text-muted-foreground">
                         • {format(new Date(lastComm.received_at || lastComm.sent_at!), 'MMM d, yyyy h:mm a')}
@@ -403,18 +404,18 @@ export function FollowUpItemCard({
                       <div className="font-medium text-muted-foreground mb-1">
                         Subject: {lastComm.subject || '(no subject)'}
                       </div>
-                      <div className={`p-3 rounded-md text-sm ${
+                      <div className={`p-3 rounded-md text-sm leading-relaxed ${
                         lastComm.direction === 'inbound'
                           ? 'bg-blue-50 border border-blue-200'
                           : 'bg-muted/50'
                       }`}>
-                        {lastComm.body_preview || 'No preview available'}
+                        {extractEmailPreview(lastComm.body_html, lastComm.body_preview, 200)}
                       </div>
                     </div>
 
                     {workItem.customer_email && (
                       <div className="text-xs text-muted-foreground">
-                        Customer email: {workItem.customer_email}
+                        Customer email: {parseEmailAddress(workItem.customer_email).displayName}
                       </div>
                     )}
                   </div>
