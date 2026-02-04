@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Flag, Mail, MessageSquare, Archive, Package } from 'lucide-react'
+import { parseEmailAddress, extractEmailPreview } from '@/lib/utils/email-formatting'
 
 export default function SupportQueuePage() {
   const { data: supportEmails = [], isLoading } = useFlaggedSupportEmails()
@@ -140,7 +141,7 @@ export default function SupportQueuePage() {
                     <CardDescription className="flex items-center gap-4">
                       <span className="flex items-center gap-1">
                         <Mail className="h-4 w-4" />
-                        {email.from_email}
+                        {parseEmailAddress(email.from_email).displayName}
                       </span>
                       <span className="text-xs">
                         {email.received_at && new Date(email.received_at).toLocaleString()}
@@ -154,8 +155,8 @@ export default function SupportQueuePage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground mb-4 line-clamp-3">
-                  {email.body_preview}
+                <p className="text-sm text-muted-foreground mb-4 line-clamp-3 leading-relaxed">
+                  {extractEmailPreview(email.body_html, email.body_preview, 300)}
                 </p>
                 <div className="flex gap-2">
                   <Button

@@ -101,65 +101,44 @@ export default function InboxRepliesPage() {
                   {/* Header Row */}
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 space-y-2">
+                      {/* Subject - Most Prominent */}
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className="font-semibold text-base">
+                          {reply.subject || '(no subject)'}
+                        </span>
+                      </div>
+
                       {/* From Email & Time */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{sender.displayName}</span>
-                        {sender.name && (
-                          <span className="text-xs text-muted-foreground">
-                            &lt;{sender.email}&gt;
-                          </span>
-                        )}
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <span className="font-medium text-foreground">{sender.displayName}</span>
                         {receivedAt && (
                           <>
-                            <span className="text-muted-foreground">•</span>
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                              <Clock className="h-3 w-3" />
-                              {formatDistanceToNow(receivedAt, { addSuffix: true })}
-                            </div>
+                            <span>•</span>
+                            <span>{formatDistanceToNow(receivedAt, { addSuffix: true })}</span>
                           </>
                         )}
                       </div>
 
-                      {/* Subject */}
-                      {reply.subject && (
-                        <div className="text-sm font-medium">
-                          <Mail className="inline h-3 w-3 mr-1 text-muted-foreground" />
-                          {reply.subject}
-                        </div>
-                      )}
-
                       {/* Work Item Info */}
                       {workItem && (
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm text-muted-foreground">Re:</span>
+                        <div className="flex items-center gap-2 flex-wrap text-xs">
+                          <span className="text-muted-foreground">Re:</span>
                           <Link
                             href={`/work-items/${workItem.id}`}
-                            className="text-sm font-medium hover:underline"
+                            className="font-medium hover:underline text-foreground"
                           >
                             {workItem.customer_name || 'Unnamed Work Item'}
                           </Link>
-                          <StatusBadge status={workItem.status} />
-                          <Badge variant="outline" className="text-xs">
-                            {workItem.type === 'customify_order'
-                              ? 'Customify'
-                              : 'Custom Design'}
-                          </Badge>
-                          {workItem.shopify_order_number && workItem.shopify_order_id && (
+                          {workItem.shopify_order_number && (
                             <>
                               <span className="text-muted-foreground">•</span>
-                              <a
-                                href={`https://admin.shopify.com/store/gayfanclub/orders/${workItem.shopify_order_id}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {workItem.shopify_order_number}
-                                <ExternalLink className="h-3 w-3" />
-                              </a>
+                              <span className="text-muted-foreground">
+                                Order {workItem.shopify_order_number}
+                              </span>
                             </>
                           )}
+                          <StatusBadge status={workItem.status} />
                         </div>
                       )}
                     </div>
@@ -197,10 +176,8 @@ export default function InboxRepliesPage() {
 
                   {/* Email Preview */}
                   {cleanPreview && (
-                    <div className="bg-muted/50 rounded-md p-4 text-sm">
-                      <div className="line-clamp-3 text-muted-foreground leading-relaxed">
-                        {cleanPreview}
-                      </div>
+                    <div className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+                      {cleanPreview}
                     </div>
                   )}
 
