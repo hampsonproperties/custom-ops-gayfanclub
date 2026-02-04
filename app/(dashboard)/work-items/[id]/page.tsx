@@ -93,6 +93,8 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
   }
 
   const handleToggleCustomerArtwork = async (checked: boolean) => {
+    if (!workItem) return
+
     try {
       await updateWorkItem.mutateAsync({
         id: workItem.id,
