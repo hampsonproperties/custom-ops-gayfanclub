@@ -39,6 +39,8 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
   const deleteFile = useDeleteFile()
   const updateWorkItem = useUpdateWorkItem()
 
+  const [isLinkingEmails, setIsLinkingEmails] = useState(false)
+
 
   const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [uploadForm, setUploadForm] = useState({
@@ -107,6 +109,43 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
       )
     } catch (error) {
       toast.error('Failed to update setting')
+    }
+  }
+
+  const handleFindAndLinkEmails = async () => {
+    setIsLinkingEmails(true)
+    try {
+      // Search for unlinked emails
+      const searchResponse = await fetch(`/api/work-items/${id}/link-email`)
+      const { emails } = await searchResponse.json()
+
+      if (!emails || emails.length === 0) {
+        toast.info('No unlinked emails found for this customer')
+        return
+      }
+
+      // Link all found emails
+      let linked = 0
+      for (const email of emails) {
+        const linkResponse = await fetch(`/api/work-items/${id}/link-email`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ emailId: email.id }),
+        })
+
+        if (linkResponse.ok) {
+          linked++
+        }
+      }
+
+      toast.success(`Linked ${linked} email${linked !== 1 ? 's' : ''}`)
+
+      // Refresh the page to show linked emails
+      window.location.reload()
+    } catch (error) {
+      toast.error('Failed to find and link emails')
+    } finally {
+      setIsLinkingEmails(false)
     }
   }
 
@@ -317,20 +356,21 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
             </Card>
           )}
 
-          {/* No emails message with refresh option */}
+          {/* No emails message with search option */}
           {(!communications || communications.length === 0) && workItem.customer_email && (
             <Card>
               <CardContent className="p-6 text-center space-y-4">
                 <p className="text-sm text-muted-foreground">No email history yet</p>
                 <p className="text-xs text-muted-foreground">
-                  If you just created this lead from an email, try refreshing below
+                  Search for emails from {workItem.customer_email} and link them to this work item
                 </p>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => window.location.reload()}
+                  onClick={handleFindAndLinkEmails}
+                  disabled={isLinkingEmails}
                 >
-                  Refresh Page
+                  {isLinkingEmails ? 'Searching...' : 'Find & Link Emails'}
                 </Button>
               </CardContent>
             </Card>
