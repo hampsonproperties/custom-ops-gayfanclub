@@ -28,6 +28,7 @@ import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import DOMPurify from 'dompurify'
+import { parseEmailAddress, extractEmailPreview } from '@/lib/utils/email-formatting'
 
 export default function WorkItemDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -262,6 +263,28 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
                       }
                     }
 
+                    // Special handling for email events
+                    const isEmailEvent = event.type === 'email'
+                    let emailFrom = ''
+                    let emailSubject = ''
+                    let emailPreview = ''
+
+                    if (isEmailEvent && event.metadata) {
+                      // Parse email metadata for cleaner display
+                      if (event.metadata.from) {
+                        const parsed = parseEmailAddress(event.metadata.from as string)
+                        emailFrom = parsed.displayName
+                      }
+                      emailSubject = (event.metadata.subject as string) || '(no subject)'
+                      if (event.metadata.preview) {
+                        emailPreview = extractEmailPreview(
+                          event.metadata.preview as string,
+                          null,
+                          150
+                        )
+                      }
+                    }
+
                     return (
                       <div
                         key={event.id}
@@ -282,13 +305,39 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
                               })}
                             </span>
                           </div>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {event.description}
-                          </p>
-                          {event.metadata?.preview && (
-                            <p className="text-sm text-muted-foreground mt-2 p-3 bg-muted rounded-md line-clamp-3">
-                              {event.metadata.preview}
-                            </p>
+
+                          {/* Email-specific clean display */}
+                          {isEmailEvent ? (
+                            <div className="mt-2 space-y-1">
+                              {emailFrom && (
+                                <div className="text-xs">
+                                  <span className="text-muted-foreground">From: </span>
+                                  <span className="font-medium">{emailFrom}</span>
+                                </div>
+                              )}
+                              {emailSubject && (
+                                <div className="text-xs">
+                                  <span className="text-muted-foreground">Subject: </span>
+                                  <span className="font-medium">{emailSubject}</span>
+                                </div>
+                              )}
+                              {emailPreview && (
+                                <p className="text-xs text-muted-foreground mt-2 p-2 bg-muted rounded line-clamp-2">
+                                  {emailPreview}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <>
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {event.description}
+                              </p>
+                              {event.metadata?.preview && (
+                                <p className="text-sm text-muted-foreground mt-2 p-3 bg-muted rounded-md line-clamp-3">
+                                  {event.metadata.preview}
+                                </p>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>

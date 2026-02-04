@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import DOMPurify from 'dompurify'
+import { parseEmailAddress, extractEmailPreview } from '@/lib/utils/email-formatting'
 
 export default function InboxRepliesPage() {
   const { data: replies, isLoading } = useInboxReplies()
@@ -38,13 +39,6 @@ export default function InboxRepliesPage() {
 
   const handleReplySuccess = () => {
     setReplyingToId(null)
-  }
-
-  const sanitizeHtml = (html: string) => {
-    return DOMPurify.sanitize(html, {
-      ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a', 'p', 'br', 'ul', 'ol', 'li'],
-      ALLOWED_ATTR: ['href'],
-    })
   }
 
   if (isLoading) {
@@ -96,6 +90,10 @@ export default function InboxRepliesPage() {
           const workItem = reply.work_item
           const receivedAt = reply.received_at ? new Date(reply.received_at) : null
 
+          // Parse sender for cleaner display
+          const sender = parseEmailAddress(reply.from_email || '')
+          const cleanPreview = extractEmailPreview(reply.body_html, reply.body_preview, 200)
+
           return (
             <Card key={reply.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-6">
@@ -106,7 +104,12 @@ export default function InboxRepliesPage() {
                       {/* From Email & Time */}
                       <div className="flex items-center gap-2 flex-wrap">
                         <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{reply.from_email}</span>
+                        <span className="font-medium">{sender.displayName}</span>
+                        {sender.name && (
+                          <span className="text-xs text-muted-foreground">
+                            &lt;{sender.email}&gt;
+                          </span>
+                        )}
                         {receivedAt && (
                           <>
                             <span className="text-muted-foreground">•</span>
@@ -193,10 +196,10 @@ export default function InboxRepliesPage() {
                   </div>
 
                   {/* Email Preview */}
-                  {reply.body_preview && (
+                  {cleanPreview && (
                     <div className="bg-muted/50 rounded-md p-4 text-sm">
-                      <div className="line-clamp-3 text-muted-foreground">
-                        {reply.body_preview}
+                      <div className="line-clamp-3 text-muted-foreground leading-relaxed">
+                        {cleanPreview}
                       </div>
                     </div>
                   )}
@@ -208,9 +211,36 @@ export default function InboxRepliesPage() {
                         Show full message
                       </summary>
                       <div
-                        className="mt-2 prose prose-sm max-w-none"
+                        className="mt-3 email-content prose prose-sm max-w-none"
                         dangerouslySetInnerHTML={{
-                          __html: sanitizeHtml(reply.body_html),
+                          __html: DOMPurify.sanitize(reply.body_html, {
+                            ALLOWED_TAGS: [
+                              'p',
+                              'br',
+                              'strong',
+                              'em',
+                              'u',
+                              'a',
+                              'ul',
+                              'ol',
+                              'li',
+                              'h1',
+                              'h2',
+                              'h3',
+                              'h4',
+                              'div',
+                              'span',
+                              'table',
+                              'tr',
+                              'td',
+                              'th',
+                              'tbody',
+                              'thead',
+                              'img',
+                              'blockquote',
+                            ],
+                            ALLOWED_ATTR: ['href', 'target', 'src', 'alt', 'width', 'height'],
+                          }),
                         }}
                       />
                     </details>

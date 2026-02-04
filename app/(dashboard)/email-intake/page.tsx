@@ -67,6 +67,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import DOMPurify from 'dompurify'
 import { toast } from 'sonner'
+import { parseEmailAddress, extractEmailPreview } from '@/lib/utils/email-formatting'
 
 type EmailCategory = 'primary' | 'promotional' | 'spam' | 'notifications'
 
@@ -569,7 +570,7 @@ export default function EmailIntakePage() {
                                   group.hasUnread ? 'font-bold' : 'font-semibold'
                                 }`}
                               >
-                                {group.sender}
+                                {parseEmailAddress(group.sender).displayName}
                               </p>
                               {group.count > 1 && (
                                 <Badge variant="outline" className="text-xs">
@@ -599,8 +600,12 @@ export default function EmailIntakePage() {
                           >
                             {group.latestEmail.subject || '(no subject)'}
                           </p>
-                          <p className="text-sm text-muted-foreground/80 line-clamp-6 leading-relaxed whitespace-pre-wrap">
-                            {group.latestEmail.body_preview}
+                          <p className="text-sm text-muted-foreground/80 line-clamp-6 leading-relaxed">
+                            {extractEmailPreview(
+                              group.latestEmail.body_html,
+                              group.latestEmail.body_preview,
+                              400
+                            )}
                           </p>
                         </div>
 
@@ -642,7 +647,7 @@ export default function EmailIntakePage() {
                                           {email.subject || '(no subject)'}
                                         </p>
                                         <p className="text-xs text-muted-foreground/80 line-clamp-2 mt-1 leading-relaxed">
-                                          {email.body_preview}
+                                          {extractEmailPreview(email.body_html, email.body_preview, 200)}
                                         </p>
                                       </div>
                                     </div>
@@ -747,7 +752,9 @@ export default function EmailIntakePage() {
                       <SheetTitle className="mb-0">{selectedEmail.subject || '(no subject)'}</SheetTitle>
                       <LinkedWorkItemBadge workItemId={selectedEmail.work_item_id} />
                     </div>
-                    <SheetDescription>Conversation with {selectedEmail.from_email}</SheetDescription>
+                    <SheetDescription>
+                      Conversation with {parseEmailAddress(selectedEmail.from_email).displayName}
+                    </SheetDescription>
                   </div>
                   <div className="flex gap-1 ml-4">
                     <Button
@@ -800,7 +807,9 @@ export default function EmailIntakePage() {
                               />
                             </div>
                             <div>
-                              <p className="text-sm font-medium">{email.from_email}</p>
+                              <p className="text-sm font-medium">
+                                {parseEmailAddress(email.from_email).displayName}
+                              </p>
                               <p className="text-xs text-muted-foreground">
                                 {(email.sent_at || email.received_at) &&
                                   formatDistanceToNow(new Date(email.sent_at || email.received_at!), {
@@ -815,10 +824,10 @@ export default function EmailIntakePage() {
                         </div>
 
                         {/* Email Body */}
-                        <div className="prose prose-sm max-w-none">
+                        <div className="border-t pt-3">
                           {viewMode === 'html' && email.body_html ? (
                             <div
-                              className="text-sm border-t pt-3"
+                              className="email-content prose prose-sm max-w-none"
                               dangerouslySetInnerHTML={{
                                 __html: DOMPurify.sanitize(email.body_html, {
                                   ALLOWED_TAGS: [
@@ -843,14 +852,16 @@ export default function EmailIntakePage() {
                                     'tr',
                                     'td',
                                     'th',
+                                    'img',
+                                    'blockquote',
                                   ],
-                                  ALLOWED_ATTR: ['href', 'target', 'class', 'alt', 'src'],
+                                  ALLOWED_ATTR: ['href', 'target', 'src', 'alt', 'width', 'height'],
                                 }),
                               }}
                             />
                           ) : (
-                            <p className="text-sm whitespace-pre-wrap border-t pt-3">
-                              {email.body_preview || 'No preview available'}
+                            <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                              {extractEmailPreview(email.body_html, email.body_preview, 1000)}
                             </p>
                           )}
                         </div>
@@ -874,7 +885,9 @@ export default function EmailIntakePage() {
                           <User className="h-4 w-4 text-purple-600" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium">{selectedEmail.from_email}</p>
+                          <p className="text-sm font-medium">
+                            {parseEmailAddress(selectedEmail.from_email).displayName}
+                          </p>
                           <p className="text-xs text-muted-foreground">
                             {selectedEmail.received_at &&
                               formatDistanceToNow(new Date(selectedEmail.received_at), {
@@ -886,10 +899,10 @@ export default function EmailIntakePage() {
                       <Badge variant="secondary">Received</Badge>
                     </div>
 
-                    <div className="prose prose-sm max-w-none">
+                    <div className="border-t pt-3">
                       {viewMode === 'html' && selectedEmail.body_html ? (
                         <div
-                          className="text-sm border-t pt-3"
+                          className="email-content prose prose-sm max-w-none"
                           dangerouslySetInnerHTML={{
                             __html: DOMPurify.sanitize(selectedEmail.body_html, {
                               ALLOWED_TAGS: [
@@ -914,14 +927,16 @@ export default function EmailIntakePage() {
                                 'tr',
                                 'td',
                                 'th',
+                                'img',
+                                'blockquote',
                               ],
-                              ALLOWED_ATTR: ['href', 'target', 'class', 'alt', 'src'],
+                              ALLOWED_ATTR: ['href', 'target', 'src', 'alt', 'width', 'height'],
                             }),
                           }}
                         />
                       ) : (
-                        <p className="text-sm whitespace-pre-wrap border-t pt-3">
-                          {selectedEmail.body_preview || 'No preview available'}
+                        <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                          {extractEmailPreview(selectedEmail.body_html, selectedEmail.body_preview, 1000)}
                         </p>
                       )}
                     </div>
