@@ -41,6 +41,7 @@ export type AssistedProjectStatus =
   | 'proof_sent'
   | 'awaiting_approval'
   | 'invoice_sent'
+  | 'awaiting_customer_files'
   | 'deposit_paid_ready_for_batch'
   | 'on_payment_terms_ready_for_batch'
   | 'paid_ready_for_batch'
@@ -153,6 +154,7 @@ export interface Database {
           customer_name: string | null
           customer_email: string | null
           alternate_emails: string[] | null
+          customer_providing_artwork: boolean
           shopify_order_id: string | null
           shopify_draft_order_id: string | null
           shopify_order_number: string | null
@@ -196,6 +198,7 @@ export interface Database {
           customer_name?: string | null
           customer_email?: string | null
           alternate_emails?: string[] | null
+          customer_providing_artwork?: boolean
           shopify_order_id?: string | null
           shopify_draft_order_id?: string | null
           shopify_order_number?: string | null
@@ -239,6 +242,7 @@ export interface Database {
           customer_name?: string | null
           customer_email?: string | null
           alternate_emails?: string[] | null
+          customer_providing_artwork?: boolean
           shopify_order_id?: string | null
           shopify_draft_order_id?: string | null
           shopify_order_number?: string | null
