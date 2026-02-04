@@ -1,11 +1,17 @@
 'use client'
 
 import { formatDistanceToNow } from 'date-fns'
-import { Mail, ArrowDownCircle, ArrowUpCircle, Paperclip } from 'lucide-react'
+import { Mail, ArrowDownCircle, ArrowUpCircle, Paperclip, ChevronDown, ChevronUp } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { useState } from 'react'
 import DOMPurify from 'dompurify'
 import type { Database } from '@/types/database'
+import {
+  parseEmailAddress,
+  formatEmailList,
+  separateQuotedContent,
+  formatEmailTimestamp,
+} from '@/lib/utils/email-formatting'
 
 type Communication = Database['public']['Tables']['communications']['Row']
 

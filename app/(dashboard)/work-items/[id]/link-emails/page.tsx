@@ -9,6 +9,7 @@ import { ArrowLeft, Link as LinkIcon, Mail } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { useWorkItem } from '@/lib/hooks/use-work-items'
 
 type Email = {
   id: string
@@ -23,17 +24,24 @@ type Email = {
 export default function LinkEmailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
+  const { data: workItem } = useWorkItem(id)
   const [emails, setEmails] = useState<Email[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isLinking, setIsLinking] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchEmails()
-  }, [])
+    if (workItem?.customer_email) {
+      fetchEmails(workItem.customer_email)
+    } else if (workItem && !workItem.customer_email) {
+      setIsLoading(false)
+    }
+  }, [workItem])
 
-  const fetchEmails = async () => {
+  const fetchEmails = async (customerEmail: string) => {
     try {
-      const response = await fetch('/api/email/recent-unlinked')
+      const response = await fetch(
+        `/api/email/recent-unlinked?workItemId=${id}&customerEmail=${encodeURIComponent(customerEmail)}`
+      )
       const data = await response.json()
       setEmails(data.emails || [])
     } catch (error) {
@@ -75,14 +83,20 @@ export default function LinkEmailsPage({ params }: { params: Promise<{ id: strin
         <div className="flex-1">
           <h1 className="text-3xl font-bold">Find & Link Email</h1>
           <p className="text-muted-foreground">
-            Select the email you want to link to this work item
+            {workItem?.customer_email
+              ? `Emails from or mentioning ${workItem.customer_email}`
+              : 'Select the email you want to link to this work item'}
           </p>
         </div>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Emails (Last 7 Days)</CardTitle>
+          <CardTitle>
+            {workItem?.customer_email
+              ? `Emails for ${workItem.customer_email.split('@')[0]}`
+              : 'Recent Emails'}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -91,7 +105,7 @@ export default function LinkEmailsPage({ params }: { params: Promise<{ id: strin
             </p>
           ) : emails.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
-              No emails found
+              No emails found for this customer in the last 7 days
             </p>
           ) : (
             <div className="space-y-3">
