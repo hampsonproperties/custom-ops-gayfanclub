@@ -317,16 +317,21 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
             </Card>
           )}
 
-          {/* No emails message with link option */}
+          {/* No emails message with refresh option */}
           {(!communications || communications.length === 0) && workItem.customer_email && (
             <Card>
               <CardContent className="p-6 text-center space-y-4">
                 <p className="text-sm text-muted-foreground">No email history yet</p>
-                <Link href={`/work-items/${id}/link-emails`}>
-                  <Button variant="outline" size="sm">
-                    Find & Link Emails for {workItem.customer_email}
-                  </Button>
-                </Link>
+                <p className="text-xs text-muted-foreground">
+                  If you just created this lead from an email, try refreshing below
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.location.reload()}
+                >
+                  Refresh Page
+                </Button>
               </CardContent>
             </Card>
           )}
