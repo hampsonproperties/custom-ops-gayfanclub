@@ -25,7 +25,9 @@
     "inspect:shopify-table": "node -r dotenv/config scripts/inspect-shopify-table.js dotenv_config_path=.env.local",
     "update:6540-deposit": "node -r dotenv/config scripts/update-6540-to-deposit-paid.js dotenv_config_path=.env.local",
     "analyze:6540-invoicing": "node -r dotenv/config scripts/analyze-6540-invoicing.js dotenv_config_path=.env.local",
-    "delete:feb2-batch": "node -r dotenv/config scripts/delete-feb2-test-batch.js dotenv_config_path=.env.local"
+    "delete:feb2-batch": "node -r dotenv/config scripts/delete-feb2-test-batch.js dotenv_config_path=.env.local",
+    "update:6540-awaiting-files": "node -r dotenv/config scripts/update-6540-awaiting-files.js dotenv_config_path=.env.local",
+    "migrate:add-customer-artwork": "node -r dotenv/config scripts/add-customer-artwork-column.js dotenv_config_path=.env.local"
   },
   "dependencies": {
     "@azure/identity": "^4.13.0",

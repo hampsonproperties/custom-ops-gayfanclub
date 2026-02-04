@@ -92,10 +92,47 @@ export function useUploadFile() {
         .single()
 
       if (error) throw error
+
+      // Check if work item is awaiting customer files - auto-advance status
+      const { data: workItem } = await supabase
+        .from('work_items')
+        .select('id, status, customer_providing_artwork, shopify_financial_status')
+        .eq('id', workItemId)
+        .single()
+
+      if (workItem?.customer_providing_artwork && workItem.status === 'awaiting_customer_files') {
+        // Customer was providing artwork and files are now uploaded
+        // Advance to appropriate ready-for-batch status based on payment
+        let newStatus = 'ready_for_batch'
+        if (workItem.shopify_financial_status === 'paid') {
+          newStatus = 'paid_ready_for_batch'
+        } else if (workItem.shopify_financial_status === 'partially_paid') {
+          newStatus = 'deposit_paid_ready_for_batch'
+        } else if (workItem.shopify_financial_status === 'on_payment_terms') {
+          newStatus = 'on_payment_terms_ready_for_batch'
+        }
+
+        await supabase
+          .from('work_items')
+          .update({ status: newStatus })
+          .eq('id', workItemId)
+
+        // Create status event
+        await supabase.from('work_item_status_events').insert({
+          work_item_id: workItemId,
+          from_status: 'awaiting_customer_files',
+          to_status: newStatus,
+          changed_by_user_id: user?.id || null,
+          note: 'Customer artwork received - auto-advanced to ready for batch',
+        })
+      }
+
       return data as FileRecord
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['files', variables.workItemId] })
+      queryClient.invalidateQueries({ queryKey: ['work-item', variables.workItemId] })
+      queryClient.invalidateQueries({ queryKey: ['work-items'] })
     },
   })
 }

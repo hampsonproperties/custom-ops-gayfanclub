@@ -4,6 +4,7 @@ import { use, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -15,7 +16,7 @@ import { ConversationThread } from '@/components/email/conversation-thread'
 import { InlineEmailComposer } from '@/components/email/inline-email-composer'
 import { AlternateEmailsManager } from '@/components/work-items/alternate-emails-manager'
 import { FollowUpActionBar } from '@/components/work-items/follow-up-action-bar'
-import { useWorkItem } from '@/lib/hooks/use-work-items'
+import { useWorkItem, useUpdateWorkItem } from '@/lib/hooks/use-work-items'
 import { useCommunications } from '@/lib/hooks/use-communications'
 import { useFiles, useUploadFile, useDeleteFile, getFileUrl } from '@/lib/hooks/use-files'
 import { useTimeline } from '@/lib/hooks/use-timeline'
@@ -36,6 +37,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
   const { data: timeline } = useTimeline(id)
   const uploadFile = useUploadFile()
   const deleteFile = useDeleteFile()
+  const updateWorkItem = useUpdateWorkItem()
 
 
   const [showUploadDialog, setShowUploadDialog] = useState(false)
@@ -87,6 +89,22 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
     const file = e.target.files?.[0]
     if (file) {
       setUploadForm({ ...uploadForm, file })
+    }
+  }
+
+  const handleToggleCustomerArtwork = async (checked: boolean) => {
+    try {
+      await updateWorkItem.mutateAsync({
+        id: workItem.id,
+        updates: { customer_providing_artwork: checked }
+      })
+      toast.success(
+        checked
+          ? 'Marked as customer providing artwork'
+          : 'Removed customer artwork flag'
+      )
+    } catch (error) {
+      toast.error('Failed to update setting')
     }
   }
 
@@ -466,6 +484,27 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
                     </div>
                   </div>
                 )}
+                <div className="col-span-2 pt-4 border-t">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="customer-artwork"
+                      checked={workItem.customer_providing_artwork || false}
+                      onCheckedChange={handleToggleCustomerArtwork}
+                      disabled={updateWorkItem.isPending}
+                    />
+                    <div className="space-y-1">
+                      <Label
+                        htmlFor="customer-artwork"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        Customer is providing their own artwork
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        When enabled, this order will be marked as "awaiting customer files" until artwork is received, even if deposit is paid.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>

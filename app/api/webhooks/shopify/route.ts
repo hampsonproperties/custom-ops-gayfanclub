@@ -234,7 +234,7 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
     // Link bulk/invoice orders to existing assisted projects awaiting payment
     const { data: foundWorkItem } = await supabase
       .from('work_items')
-      .select('id, status, quantity, grip_color')
+      .select('id, status, quantity, grip_color, customer_providing_artwork')
       .eq('customer_email', customerEmail)
       .eq('type', 'assisted_project')
       .in('status', ['design_fee_paid', 'in_design', 'proof_sent', 'awaiting_approval', 'invoice_sent'])
@@ -320,7 +320,11 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
       updateData.grip_color = gripColor || existingWorkItem.grip_color
 
       // Detect payment status and set appropriate status
-      if (order.financial_status === 'paid') {
+      // Check if customer is providing artwork - if so, keep in awaiting_customer_files
+      if (existingWorkItem.customer_providing_artwork) {
+        // Customer is providing artwork - don't move to batch queue even if paid
+        updateData.status = 'awaiting_customer_files'
+      } else if (order.financial_status === 'paid') {
         updateData.status = 'paid_ready_for_batch'
       } else if (order.financial_status === 'partially_paid') {
         updateData.status = 'deposit_paid_ready_for_batch'
