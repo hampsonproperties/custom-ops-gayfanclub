@@ -176,10 +176,14 @@ export function useTriageEmail() {
       if (error) throw error
       return data
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['communications', 'untriaged'] })
       queryClient.invalidateQueries({ queryKey: ['communications', 'support'] })
       queryClient.invalidateQueries({ queryKey: ['communications'] })
+      // Invalidate the specific work item's communications if it was linked
+      if (data.work_item_id) {
+        queryClient.invalidateQueries({ queryKey: ['communications', data.work_item_id] })
+      }
     },
   })
 }

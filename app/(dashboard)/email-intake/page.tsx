@@ -40,6 +40,7 @@ import {
 } from '@/lib/hooks/use-communications'
 import { useCreateWorkItem, useWorkItem } from '@/lib/hooks/use-work-items'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   Mail,
   User,
@@ -106,6 +107,7 @@ function LinkedWorkItemBadge({ workItemId }: { workItemId: string | null }) {
 }
 
 export default function EmailIntakePage() {
+  const router = useRouter()
   const [activeCategory, setActiveCategory] = useState<EmailCategory>('primary')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set())
@@ -259,6 +261,11 @@ export default function EmailIntakePage() {
       notes: '',
     })
     toast.success('Lead created successfully')
+
+    // Navigate to the work item page
+    if (workItem?.id) {
+      router.push(`/work-items/${workItem.id}`)
+    }
   }
 
   const handleArchive = async (emailId: string) => {
