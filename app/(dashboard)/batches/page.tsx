@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Package, Plus, FileDown, CheckCircle, Clock, ExternalLink } from 'lucide-react'
+import { Package, Plus, FileDown, CheckCircle, Clock, ExternalLink, Truck } from 'lucide-react'
 import { useReadyForBatch } from '@/lib/hooks/use-work-items'
 import { useBatches, useCreateBatch, useConfirmBatch, useExportBatch } from '@/lib/hooks/use-batches'
 import { StatusBadge } from '@/components/custom/status-badge'
@@ -191,6 +191,14 @@ export default function BatchesPage() {
                           </>
                         )}
                       </div>
+                      {batch.tracking_number && (
+                        <div className="flex items-center gap-2 mt-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/20 rounded-md w-fit">
+                          <Truck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                          <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                            {batch.tracking_number}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <StatusBadge

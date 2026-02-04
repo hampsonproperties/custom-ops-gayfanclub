@@ -5,13 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ArrowLeft, FileDown, CheckCircle, Package, Truck } from 'lucide-react'
+import { ArrowLeft, FileDown, CheckCircle, Package, Truck, ImageIcon } from 'lucide-react'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useBatch, useConfirmBatch, useExportBatch, useUpdateBatchTracking } from '@/lib/hooks/use-batches'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function BatchDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -170,8 +171,37 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
             <div className="space-y-2">
               {batch.items.map((item: any) => {
                 const workItem = item.work_item
+
+                // Get the design preview - try files first, then fallback to preview URL
+                const designFile = workItem.files?.find((f: any) =>
+                  f.kind === 'design' || f.kind === 'preview'
+                )
+                const previewUrl = designFile?.storage_path ||
+                                  workItem.design_preview_url ||
+                                  workItem.design_download_url
+
                 return (
                   <div key={item.id} className="flex items-center gap-3 p-3 border rounded-lg">
+                    {/* Design Thumbnail */}
+                    <div className="flex-shrink-0">
+                      {previewUrl ? (
+                        <div className="relative w-16 h-16 rounded-md overflow-hidden bg-muted">
+                          <Image
+                            src={previewUrl.startsWith('http') ? previewUrl : `/api/files/proxy?path=${encodeURIComponent(previewUrl)}`}
+                            alt="Design preview"
+                            fill
+                            className="object-cover"
+                            unoptimized
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-16 h-16 rounded-md bg-muted flex items-center justify-center">
+                          <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Work Item Info */}
                     <div className="flex-1">
                       <Link
                         href={`/work-items/${workItem.id}`}
@@ -187,6 +217,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                         <span>{workItem.shopify_order_number || 'No order'}</span>
                       </div>
                     </div>
+
                     <StatusBadge status={workItem.status} />
                   </div>
                 )

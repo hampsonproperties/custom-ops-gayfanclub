@@ -40,10 +40,16 @@ export function useBatch(id: string) {
 
       if (batchError) throw batchError
 
-      // Get batch items with work item details
+      // Get batch items with work item details and files
       const { data: items, error: itemsError } = await supabase
         .from('batch_items')
-        .select('*, work_item:work_items(*)')
+        .select(`
+          *,
+          work_item:work_items(
+            *,
+            files(*)
+          )
+        `)
         .eq('batch_id', id)
         .order('position', { ascending: true })
 
