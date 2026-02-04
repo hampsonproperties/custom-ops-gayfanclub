@@ -1,89 +1,69 @@
 'use client'
 
-import { use, useState } from 'react'
+import { use, useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { useRouter } from 'next/navigation'
-import { ArrowLeft, Mail, Link as LinkIcon } from 'lucide-react'
-import Link from 'next/link'
-import { toast } from 'sonner'
-import { createClient } from '@/lib/supabase/client'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useWorkItem } from '@/lib/hooks/use-work-items'
+import { Badge } from '@/components/ui/badge'
+import { ArrowLeft, Link as LinkIcon, Mail } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
+import { toast } from 'sonner'
+import Link from 'next/link'
+
+type Email = {
+  id: string
+  from_email: string
+  subject: string | null
+  body_preview: string | null
+  received_at: string | null
+  triage_status: string
+  work_item_id: string | null
+}
 
 export default function LinkEmailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
-  const queryClient = useQueryClient()
-  const supabase = createClient()
-  const { data: workItem, isLoading: workItemLoading } = useWorkItem(id)
+  const [emails, setEmails] = useState<Email[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isLinking, setIsLinking] = useState<string | null>(null)
 
-  // Fetch all unlinked communications for this customer email
-  const { data: unlinkedEmails, isLoading: emailsLoading } = useQuery({
-    queryKey: ['unlinked-emails', workItem?.customer_email],
-    queryFn: async () => {
-      if (!workItem?.customer_email) return []
+  useEffect(() => {
+    fetchEmails()
+  }, [])
 
-      const { data, error } = await supabase
-        .from('communications')
-        .select('*')
-        .or(`from_email.eq.${workItem.customer_email},to_emails.cs.{${workItem.customer_email}}`)
-        .is('work_item_id', null)
-        .order('received_at', { ascending: false })
-
-      if (error) throw error
-      return data
-    },
-    enabled: !!workItem?.customer_email,
-  })
-
-  // Mutation to link an email to this work item
-  const linkEmailMutation = useMutation({
-    mutationFn: async (emailId: string) => {
-      const { data, error } = await supabase
-        .from('communications')
-        .update({
-          work_item_id: id,
-          triage_status: 'attached'
-        })
-        .eq('id', emailId)
-        .select()
-        .single()
-
-      if (error) throw error
-      return data
-    },
-    onSuccess: () => {
-      toast.success('Email linked successfully')
-      queryClient.invalidateQueries({ queryKey: ['unlinked-emails'] })
-      queryClient.invalidateQueries({ queryKey: ['communications', id] })
-      queryClient.invalidateQueries({ queryKey: ['timeline', id] })
-    },
-    onError: () => {
-      toast.error('Failed to link email')
-    },
-  })
-
-  if (workItemLoading || emailsLoading) {
-    return (
-      <div className="p-6">
-        <p>Loading...</p>
-      </div>
-    )
+  const fetchEmails = async () => {
+    try {
+      const response = await fetch('/api/email/recent-unlinked')
+      const data = await response.json()
+      setEmails(data.emails || [])
+    } catch (error) {
+      toast.error('Failed to load emails')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  if (!workItem) {
-    return (
-      <div className="p-6">
-        <p>Work item not found</p>
-      </div>
-    )
+  const handleLinkEmail = async (emailId: string) => {
+    setIsLinking(emailId)
+    try {
+      const response = await fetch(`/api/work-items/${id}/link-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emailId }),
+      })
+
+      if (!response.ok) throw new Error('Failed to link')
+
+      toast.success('Email linked successfully')
+      router.push(`/work-items/${id}`)
+    } catch (error) {
+      toast.error('Failed to link email')
+      setIsLinking(null)
+    }
   }
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
       <div className="flex items-center gap-4">
         <Link href={`/work-items/${id}`}>
           <Button variant="ghost" size="sm" className="gap-2">
@@ -93,74 +73,79 @@ export default function LinkEmailsPage({ params }: { params: Promise<{ id: strin
         </Link>
 
         <div className="flex-1">
-          <h1 className="text-3xl font-bold">Link Emails</h1>
+          <h1 className="text-3xl font-bold">Find & Link Email</h1>
           <p className="text-muted-foreground">
-            Find and link emails from {workItem.customer_email} to this work item
+            Select the email you want to link to this work item
           </p>
         </div>
       </div>
 
-      {/* Unlinked Emails */}
       <Card>
         <CardHeader>
-          <CardTitle>Unlinked Emails from {workItem.customer_email}</CardTitle>
+          <CardTitle>Recent Emails (Last 7 Days)</CardTitle>
         </CardHeader>
         <CardContent>
-          {!unlinkedEmails || unlinkedEmails.length === 0 ? (
-            <div className="text-center py-12">
-              <Mail className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-lg font-medium">No unlinked emails found</p>
-              <p className="text-sm text-muted-foreground">
-                All emails from this customer are already linked to work items
-              </p>
-            </div>
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              Loading emails...
+            </p>
+          ) : emails.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">
+              No emails found
+            </p>
           ) : (
             <div className="space-y-3">
-              {unlinkedEmails.map((email) => (
-                <Card key={email.id} className="border">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm">
-                          {email.subject || '(no subject)'}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {email.direction === 'inbound'
-                            ? `From: ${email.from_email}`
-                            : `To: ${email.to_emails.join(', ')}`}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {email.received_at && formatDistanceToNow(new Date(email.received_at), { addSuffix: true })}
-                        </p>
-                        {email.body_preview && (
-                          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                            {email.body_preview}
-                          </p>
+              {emails.map((email) => (
+                <div
+                  key={email.id}
+                  className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className="font-medium text-sm truncate">
+                          {email.from_email}
+                        </span>
+                        <Badge variant="outline" className="text-xs">
+                          {email.triage_status}
+                        </Badge>
+                        {email.work_item_id && (
+                          <Badge variant="secondary" className="text-xs">
+                            Already Linked
+                          </Badge>
                         )}
                       </div>
-                      <Button
-                        size="sm"
-                        onClick={() => linkEmailMutation.mutate(email.id)}
-                        disabled={linkEmailMutation.isPending}
-                        className="gap-2"
-                      >
-                        <LinkIcon className="h-3 w-3" />
-                        Link to Work Item
-                      </Button>
+                      <p className="text-sm font-medium mb-1">
+                        {email.subject || '(No subject)'}
+                      </p>
+                      <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                        {email.body_preview || '(No preview)'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {email.received_at
+                          ? formatDistanceToNow(new Date(email.received_at), {
+                              addSuffix: true,
+                            })
+                          : 'Unknown date'}
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
+                    <Button
+                      size="sm"
+                      onClick={() => handleLinkEmail(email.id)}
+                      disabled={isLinking === email.id || !!email.work_item_id}
+                      className="gap-2 flex-shrink-0"
+                    >
+                      <LinkIcon className="h-3 w-3" />
+                      {isLinking === email.id ? 'Linking...' : email.work_item_id ? 'Already Linked' : 'Link This Email'}
+                    </Button>
+                  </div>
+                </div>
               ))}
             </div>
           )}
         </CardContent>
       </Card>
-
-      <div className="flex justify-end">
-        <Button onClick={() => router.push(`/work-items/${id}`)}>
-          Done
-        </Button>
-      </div>
     </div>
   )
 }

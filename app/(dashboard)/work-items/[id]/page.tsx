@@ -39,8 +39,6 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
   const deleteFile = useDeleteFile()
   const updateWorkItem = useUpdateWorkItem()
 
-  const [isLinkingEmails, setIsLinkingEmails] = useState(false)
-
 
   const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [uploadForm, setUploadForm] = useState({
@@ -109,56 +107,6 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
       )
     } catch (error) {
       toast.error('Failed to update setting')
-    }
-  }
-
-  const handleFindAndLinkEmails = async () => {
-    setIsLinkingEmails(true)
-    try {
-      // Search for unlinked emails
-      const searchResponse = await fetch(`/api/work-items/${id}/link-email`)
-      const result = await searchResponse.json()
-      const { emails, alreadyLinked, debug } = result
-
-      console.log('Email search result:', { emails, alreadyLinked, debug })
-
-      // Check if there are already linked emails
-      if (alreadyLinked && alreadyLinked.length > 0) {
-        console.log('Found already linked emails:', alreadyLinked)
-        toast.info(`${alreadyLinked.length} email${alreadyLinked.length !== 1 ? 's are' : ' is'} already linked. Refreshing...`)
-        // Refresh to show them
-        window.location.reload()
-        return
-      }
-
-      if (!emails || emails.length === 0) {
-        toast.info('No unlinked emails found for this customer')
-        return
-      }
-
-      // Link all found emails
-      let linked = 0
-      for (const email of emails) {
-        const linkResponse = await fetch(`/api/work-items/${id}/link-email`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ emailId: email.id }),
-        })
-
-        if (linkResponse.ok) {
-          linked++
-        }
-      }
-
-      toast.success(`Linked ${linked} email${linked !== 1 ? 's' : ''}`)
-
-      // Refresh the page to show linked emails
-      window.location.reload()
-    } catch (error) {
-      console.error('Find and link error:', error)
-      toast.error('Failed to find and link emails')
-    } finally {
-      setIsLinkingEmails(false)
     }
   }
 
@@ -369,22 +317,19 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
             </Card>
           )}
 
-          {/* No emails message with search option */}
+          {/* No emails message with link to search page */}
           {(!communications || communications.length === 0) && workItem.customer_email && (
             <Card>
               <CardContent className="p-6 text-center space-y-4">
                 <p className="text-sm text-muted-foreground">No email history yet</p>
                 <p className="text-xs text-muted-foreground">
-                  Search for emails from {workItem.customer_email} and link them to this work item
+                  Browse recent emails and link the right one to this work item
                 </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleFindAndLinkEmails}
-                  disabled={isLinkingEmails}
-                >
-                  {isLinkingEmails ? 'Searching...' : 'Find & Link Emails'}
-                </Button>
+                <Link href={`/work-items/${id}/link-emails`}>
+                  <Button variant="outline" size="sm">
+                    Find & Link Emails
+                  </Button>
+                </Link>
               </CardContent>
             </Card>
           )}
