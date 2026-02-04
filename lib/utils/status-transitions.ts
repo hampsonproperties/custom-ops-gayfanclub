@@ -27,6 +27,7 @@ const ASSISTED_WORKFLOW: Record<AssistedProjectStatus, number> = {
   proof_sent: 7,
   awaiting_approval: 8,
   invoice_sent: 9,
+  awaiting_customer_files: 9, // Parallel to invoice_sent - waiting for files instead of payment
   deposit_paid_ready_for_batch: 10,
   on_payment_terms_ready_for_batch: 10,
   paid_ready_for_batch: 10,
@@ -87,6 +88,7 @@ export function getStatusLabel(status: WorkItemStatus): string {
     proof_sent: 'Proof Sent',
     awaiting_approval: 'Awaiting Approval',
     invoice_sent: 'Invoice Sent',
+    awaiting_customer_files: 'Awaiting Customer Files',
     deposit_paid_ready_for_batch: 'Deposit Paid - Ready for Batch',
     on_payment_terms_ready_for_batch: 'On Payment Terms - Ready for Batch',
     paid_ready_for_batch: 'Paid - Ready for Batch',
@@ -224,6 +226,7 @@ export function getStatusGroups(
         label: 'Payment & Production',
         statuses: [
           { value: 'invoice_sent', label: 'Invoice Sent' },
+          { value: 'awaiting_customer_files', label: 'Awaiting Customer Files' },
           { value: 'deposit_paid_ready_for_batch', label: 'Deposit Paid - Ready for Batch' },
           { value: 'on_payment_terms_ready_for_batch', label: 'On Payment Terms - Ready for Batch' },
           { value: 'paid_ready_for_batch', label: 'Paid - Ready for Batch' },
