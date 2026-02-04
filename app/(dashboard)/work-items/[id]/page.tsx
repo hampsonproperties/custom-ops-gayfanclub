@@ -117,7 +117,19 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
     try {
       // Search for unlinked emails
       const searchResponse = await fetch(`/api/work-items/${id}/link-email`)
-      const { emails } = await searchResponse.json()
+      const result = await searchResponse.json()
+      const { emails, alreadyLinked, debug } = result
+
+      console.log('Email search result:', { emails, alreadyLinked, debug })
+
+      // Check if there are already linked emails
+      if (alreadyLinked && alreadyLinked.length > 0) {
+        console.log('Found already linked emails:', alreadyLinked)
+        toast.info(`${alreadyLinked.length} email${alreadyLinked.length !== 1 ? 's are' : ' is'} already linked. Refreshing...`)
+        // Refresh to show them
+        window.location.reload()
+        return
+      }
 
       if (!emails || emails.length === 0) {
         toast.info('No unlinked emails found for this customer')
@@ -143,6 +155,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
       // Refresh the page to show linked emails
       window.location.reload()
     } catch (error) {
+      console.error('Find and link error:', error)
       toast.error('Failed to find and link emails')
     } finally {
       setIsLinkingEmails(false)

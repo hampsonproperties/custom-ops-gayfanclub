@@ -98,7 +98,24 @@ export async function GET(
       new Map(allEmails.map(email => [email.id, email])).values()
     )
 
-    return NextResponse.json({ emails: uniqueEmails })
+    // Also check if there are emails already linked to this work item
+    const { data: alreadyLinked } = await supabase
+      .from('communications')
+      .select('*')
+      .eq('work_item_id', id)
+      .order('received_at', { ascending: false })
+
+    return NextResponse.json({
+      emails: uniqueEmails,
+      alreadyLinked: alreadyLinked || [],
+      debug: {
+        workItemCreatedAt: workItem.created_at,
+        timeBefore: timeBefore.toISOString(),
+        timeAfter: timeAfter.toISOString(),
+        recentTriagedCount: recentTriaged?.length || 0,
+        customerEmailCount: workItem.customer_email ? 'searched' : 'no customer email'
+      }
+    })
   } catch (error) {
     console.error('Search emails error:', error)
     return NextResponse.json(
