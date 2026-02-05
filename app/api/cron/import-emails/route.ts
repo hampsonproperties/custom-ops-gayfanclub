@@ -77,9 +77,10 @@ export async function GET(request: Request) {
 
     for (const message of messages.value) {
       const fromEmail = message.from?.emailAddress?.address || 'unknown@unknown.com'
+      const subject = message.subject || ''
 
-      // Skip junk emails
-      if (isJunkEmail(fromEmail)) {
+      // Skip junk emails (form submissions are exempt)
+      if (isJunkEmail(fromEmail, subject)) {
         filtered++
         continue
       }

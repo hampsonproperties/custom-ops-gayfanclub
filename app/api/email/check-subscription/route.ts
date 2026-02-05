@@ -111,9 +111,10 @@ export async function POST() {
 
       for (const message of messages.value) {
         const fromEmail = message.from?.emailAddress?.address || 'unknown@unknown.com'
+        const subject = message.subject || ''
 
-        // Skip junk
-        if (isJunkEmail(fromEmail)) {
+        // Skip junk (form submissions are exempt)
+        if (isJunkEmail(fromEmail, subject)) {
           filtered++
           continue
         }

@@ -53,9 +53,10 @@ export async function POST(request: NextRequest) {
     for (const message of messages.value) {
       // Extract sender email early for filtering
       const fromEmail = message.from?.emailAddress?.address || 'unknown@unknown.com'
+      const subject = message.subject || ''
 
-      // Skip obvious junk emails
-      if (isJunkEmail(fromEmail)) {
+      // Skip obvious junk emails (form submissions are exempt)
+      if (isJunkEmail(fromEmail, subject)) {
         filtered++
         console.log(`[Email Import] Filtered junk email from: ${fromEmail}`)
         continue
