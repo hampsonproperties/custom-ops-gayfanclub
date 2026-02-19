@@ -401,6 +401,89 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
       }
     }
 
+    // Import Customify files for existing work items (if any)
+    // Extract file URLs from order
+    const customifyFilesForUpdate: Array<{ kind: string; url: string; filename: string }> = []
+    for (const item of order.line_items || []) {
+      if (item.properties) {
+        const props = Array.isArray(item.properties) ? item.properties : []
+        for (const prop of props) {
+          const propName = prop.name?.toLowerCase() || ''
+          const propValue = prop.value
+
+          if (propName.includes('final design') && propValue?.includes('http')) {
+            customifyFilesForUpdate.push({ kind: 'design', url: propValue, filename: `final-design-${propName}` })
+          } else if (propName.includes('design ') && !propName.includes('final') && propValue?.includes('http')) {
+            customifyFilesForUpdate.push({ kind: 'preview', url: propValue, filename: `design-${propName}` })
+          } else if (propName.includes('cst-original-image') && propValue?.includes('http')) {
+            customifyFilesForUpdate.push({ kind: 'other', url: propValue, filename: `original-${propName}` })
+          } else if (propName.includes('preview') && propValue?.includes('http')) {
+            customifyFilesForUpdate.push({ kind: 'preview', url: propValue, filename: `preview-${propName}` })
+          }
+        }
+      }
+    }
+
+    // Import files if we found any and work item doesn't already have files
+    if (customifyFilesForUpdate.length > 0) {
+      const { data: existingFiles } = await supabase
+        .from('files')
+        .select('id')
+        .eq('work_item_id', existingWorkItem.id)
+        .limit(1)
+
+      // Only import if no files exist yet
+      if (!existingFiles || existingFiles.length === 0) {
+        const fileRecords = []
+        for (let index = 0; index < customifyFilesForUpdate.length; index++) {
+          const file = customifyFilesForUpdate[index]
+          const storedFile = await downloadAndStoreFile(
+            supabase,
+            file.url,
+            existingWorkItem.id,
+            file.filename
+          )
+
+          if (storedFile) {
+            fileRecords.push({
+              work_item_id: existingWorkItem.id,
+              kind: file.kind,
+              version: index + 1,
+              original_filename: file.filename,
+              normalized_filename: file.filename,
+              storage_bucket: 'custom-ops-files',
+              storage_path: storedFile.path,
+              external_url: file.url,
+              mime_type: 'image/png',
+              size_bytes: storedFile.sizeBytes,
+              uploaded_by_user_id: null,
+              note: 'Imported from Customify via webhook update',
+            })
+          } else {
+            fileRecords.push({
+              work_item_id: existingWorkItem.id,
+              kind: file.kind,
+              version: index + 1,
+              original_filename: file.filename,
+              normalized_filename: file.filename,
+              storage_bucket: 'customify',
+              storage_path: file.url,
+              external_url: file.url,
+              mime_type: 'image/png',
+              size_bytes: null,
+              uploaded_by_user_id: null,
+              note: 'Customify file from webhook update',
+            })
+          }
+        }
+
+        if (fileRecords.length > 0) {
+          await supabase.from('files').insert(fileRecords)
+          console.log(`Imported ${fileRecords.length} files for existing work item ${existingWorkItem.id}`)
+        }
+      }
+    }
+
     // Mark webhook as completed
     await supabase
       .from('webhook_events')
@@ -684,6 +767,12 @@ async function processFulfillment(supabase: any, fulfillment: any, webhookEventI
     return
   }
 
+  // Get work item(s) for this order
+  const { data: workItems } = await supabase
+    .from('work_items')
+    .select('id')
+    .eq('shopify_order_id', orderId)
+
   // Update work item status to shipped
   const { error: updateError } = await supabase
     .from('work_items')
@@ -695,6 +784,27 @@ async function processFulfillment(supabase: any, fulfillment: any, webhookEventI
 
   if (updateError) {
     throw new Error(`Failed to update work item: ${updateError.message}`)
+  }
+
+  // Recalculate follow-ups for shipped items
+  // Status 'shipped' should pause follow-ups (set to NULL)
+  if (workItems && workItems.length > 0) {
+    try {
+      for (const workItem of workItems) {
+        const { data: nextFollowUp } = await supabase
+          .rpc('calculate_next_follow_up', { work_item_id: workItem.id })
+
+        if (nextFollowUp !== undefined) {
+          await supabase
+            .from('work_items')
+            .update({ next_follow_up_at: nextFollowUp })
+            .eq('id', workItem.id)
+        }
+      }
+    } catch (followUpError) {
+      console.error('[Shopify Fulfillment] Error calculating follow-ups:', followUpError)
+      // Don't fail the whole operation if follow-up calc fails
+    }
   }
 
   // Mark webhook as completed
