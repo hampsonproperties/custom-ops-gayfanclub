@@ -82,6 +82,7 @@ type Email = {
   provider_thread_id: string | null
   has_attachments: boolean
   category: EmailCategory
+  direction: 'inbound' | 'outbound'
   is_read: boolean
   triage_status: string
   work_item_id: string | null
