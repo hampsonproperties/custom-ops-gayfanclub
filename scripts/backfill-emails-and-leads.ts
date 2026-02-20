@@ -8,7 +8,12 @@
  * Run: npx tsx scripts/backfill-emails-and-leads.ts
  */
 
+import { config } from 'dotenv'
+import { resolve } from 'path'
 import { createClient } from '@supabase/supabase-js'
+
+// Load environment variables from .env.local
+config({ path: resolve(process.cwd(), '.env.local') })
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
