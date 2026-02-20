@@ -160,13 +160,13 @@ export function separateQuotedContent(html: string): {
     /On .+? at .+? wrote:/i,
     /On .+?, .+? wrote:/i,
     // Signature lines followed by dashes (catches "— Ryan Sales... --------")
-    /—.+?[-_]{5,}/s,
+    /—[\s\S]+?[-_]{5,}/,
     // Long dashes/underscores that precede forwarded messages
     /[-_]{10,}/,
     // Outlook-style "From:... Sent:... To:... Subject:" (catches full headers)
-    /From:\s*.+?<[^>]+>.*?Sent:.*?To:/is,
+    /From:\s*[\s\S]+?<[^>]+>[\s\S]*?Sent:[\s\S]*?To:/i,
     // Alternative Outlook pattern "From:... Date:... To:..."
-    /From:\s*.+?<[^>]+>.*?Date:.*?To:/is,
+    /From:\s*[\s\S]+?<[^>]+>[\s\S]*?Date:[\s\S]*?To:/i,
     // Simple "From: Name <email>" at line start
     /(?:^|\n)From:\s+.+?<[^>]+>/im,
     // Quote marker at start of line
