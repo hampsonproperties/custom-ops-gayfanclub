@@ -2,6 +2,9 @@ import { createClient } from '@supabase/supabase-js'
 import { htmlToPlainText, smartTruncate } from '@/lib/utils/html-entities'
 import { autoCategorizEmail } from '@/lib/utils/email-categorizer'
 import { isFormSubmissionEmail, parseFormEmail, isValidFormSubmission } from '@/lib/utils/form-email-parser'
+import { isDuplicateEmail } from '@/lib/utils/email-deduplication'
+import { autoLinkEmailToWorkItem } from '@/lib/utils/order-number-extractor'
+import { addToDLQ } from '@/lib/utils/dead-letter-queue'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -64,20 +67,31 @@ export async function importEmail(
   const { skipEnrichment = false, mailboxEmail = 'sales@thegayfanclub.com' } = options
 
   try {
-    // Validate required fields
-    if (!message.internetMessageId) {
-      console.error('Email missing internet_message_id - cannot import safely', {
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    // Check for duplicates using 3-strategy approach BEFORE processing
+    // This prevents race conditions and wasted work on duplicate emails
+    const duplicateCheck = await isDuplicateEmail(message)
+    if (duplicateCheck.isDuplicate) {
+      console.log('[Email Import] Duplicate detected via', duplicateCheck.strategy, {
         messageId: message.id,
+        internetMessageId: message.internetMessageId,
         subject: message.subject,
+        existingId: duplicateCheck.existingCommunicationId,
+        matchedOn: duplicateCheck.matchedOn,
       })
       return {
-        success: false,
-        action: 'error',
-        error: 'Missing internet_message_id',
+        success: true,
+        action: 'duplicate',
+        communicationId: duplicateCheck.existingCommunicationId,
+        debug: {
+          messageId: message.id,
+          from: message.from?.emailAddress?.address || 'unknown',
+          to: message.toRecipients?.map((r) => r.emailAddress.address) || [],
+          subject: message.subject || '(no subject)',
+        },
       }
     }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // Extract email details
     const fromEmail = message.from?.emailAddress?.address || 'unknown@unknown.com'
@@ -107,22 +121,26 @@ export async function importEmail(
     // Auto-categorization (only for inbound emails, unless skipEnrichment)
     let category = 'primary'
     if (!isOutbound && !skipEnrichment) {
-      category = autoCategorizEmail({
-        from: fromEmail,
-        subject: message.subject || '',
-        body: plainText,
-        htmlBody: bodyContent,
-      })
-      console.log(`[Email Import] Auto-categorized: ${fromEmail} → ${category}`)
-
-      // Check for manual filters (user overrides)
+      // STRATEGY 1: Domain-based filters (highest priority - curated list)
       const { data: filterResult } = (await supabase
-        .rpc('apply_email_filters', { p_from_email: fromEmail })
+        .rpc('apply_email_filters', {
+          p_from_email: fromEmail,
+          p_subject: message.subject || null
+        })
         .maybeSingle()) as { data: { matched_category: string; filter_id: string } | null }
 
       if (filterResult?.matched_category) {
         category = filterResult.matched_category
-        console.log(`[Email Import] Manual filter override: ${fromEmail} → ${category}`)
+        console.log(`[Email Import] Domain filter matched: ${fromEmail} → ${category}`)
+      } else {
+        // STRATEGY 2: Keyword-based fallback (for emails not in filter list)
+        category = autoCategorizEmail({
+          from: fromEmail,
+          subject: message.subject || '',
+          body: plainText,
+          htmlBody: bodyContent,
+        })
+        console.log(`[Email Import] Fallback categorization: ${fromEmail} → ${category}`)
       }
     }
 
@@ -136,46 +154,20 @@ export async function importEmail(
     lookbackDate.setDate(lookbackDate.getDate() - 60)
 
     if (!skipEnrichment) {
-      // Strategy 1: Thread-based linking
-      if (message.conversationId) {
-        const { data: threadEmail } = await supabase
-          .from('communications')
-          .select('work_item_id')
-          .eq('provider_thread_id', message.conversationId)
-          .not('work_item_id', 'is', null)
-          .limit(1)
-          .maybeSingle()
-
-        if (threadEmail?.work_item_id) {
-          workItemId = threadEmail.work_item_id
-          console.log(
-            `[Email Import] Auto-linked to work item ${workItemId} (thread: ${message.conversationId})`
-          )
+      // Use enhanced auto-linking (5 strategies: thread, order#, email, title, subject)
+      workItemId = await autoLinkEmailToWorkItem(supabase, {
+        id: message.id,
+        subject: message.subject,
+        body: plainText,
+        conversationId: message.conversationId,
+        from: {
+          emailAddress: {
+            address: fromEmail
+          }
         }
-      }
+      })
 
-      // Strategy 2: Email-based linking (only for inbound, 60-day window)
-      if (!workItemId && !isOutbound) {
-
-        const { data: recentWorkItem } = await supabase
-          .from('work_items')
-          .select('id')
-          .or(`customer_email.eq.${fromEmail},alternate_emails.cs.{${fromEmail}}`)
-          .is('closed_at', null)
-          .gte('updated_at', lookbackDate.toISOString())
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-
-        if (recentWorkItem) {
-          workItemId = recentWorkItem.id
-          console.log(
-            `[Email Import] Auto-linked to work item ${workItemId} (email match within 60 days)`
-          )
-        }
-      }
-
-      // Strategy 3: Form submission auto-create lead
+      // Strategy: Form submission auto-create lead
       // Detect form submissions and auto-create work items with parsed data
       if (!workItemId && !isOutbound && isFormSubmissionEmail(fromEmail, message.subject || '')) {
         console.log(`[Email Import] Detected form submission from: ${fromEmail}`)
@@ -259,8 +251,8 @@ export async function importEmail(
       }
     }
 
-    // Use INSERT ... ON CONFLICT to prevent race conditions
-    // This is atomic at the database level
+    // Insert the email (should not be a duplicate due to check above)
+    // Note: internet_message_id and provider_message_id are optional but indexed for performance
     const { data: communication, error: insertError } = await supabase
       .from('communications')
       .insert({
@@ -272,10 +264,10 @@ export async function importEmail(
         body_preview: bodyPreview,
         received_at: message.receivedDateTime,
         sent_at: isOutbound ? message.sentDateTime : null,
-        internet_message_id: message.internetMessageId,
+        internet_message_id: message.internetMessageId || null,
         provider: 'm365',
         provider_message_id: message.id,
-        provider_thread_id: message.conversationId,
+        provider_thread_id: message.conversationId || null,
         work_item_id: workItemId,
         triage_status: triageStatus,
         category,
@@ -286,16 +278,19 @@ export async function importEmail(
 
     if (insertError) {
       // Check if it's a duplicate (unique constraint violation)
+      // This should rarely happen now due to pre-insert duplicate check
       if (insertError.code === '23505') {
-        console.log('[Email Import] Duplicate detected (already imported):', {
+        console.warn('[Email Import] Race condition: Duplicate caught at DB level:', {
+          providerId: message.id,
           internetMessageId: message.internetMessageId,
           subject: message.subject,
+          error: insertError.message,
         })
         return {
           success: true,
           action: 'duplicate',
           debug: {
-            messageId: message.internetMessageId,
+            messageId: message.id,
             from: fromEmail,
             to: toEmails,
             subject: message.subject || '(no subject)',
@@ -312,10 +307,63 @@ export async function importEmail(
       }
     }
 
+    // Create or link to conversation thread (CRM model)
+    try {
+      if (message.conversationId && !skipEnrichment) {
+        // Get customer_id from work item if linked
+        let customerId = null
+        if (workItemId) {
+          const { data: workItem } = await supabase
+            .from('work_items')
+            .select('customer_id')
+            .eq('id', workItemId)
+            .single()
+          customerId = workItem?.customer_id || null
+        }
+
+        // Find or create conversation
+        const { data: conversationId } = await supabase.rpc('find_or_create_conversation', {
+          p_provider: 'm365',
+          p_provider_thread_id: message.conversationId,
+          p_subject: message.subject || '(no subject)',
+          p_customer_id: customerId,
+          p_work_item_id: workItemId
+        })
+
+        // Link communication to conversation
+        if (conversationId) {
+          await supabase
+            .from('communications')
+            .update({ conversation_id: conversationId })
+            .eq('id', communication.id)
+
+          console.log(`[Email Import] Linked to conversation: ${conversationId}`)
+        }
+      }
+    } catch (conversationError) {
+      // Don't fail the import if conversation creation fails
+      console.error('[Email Import] Conversation creation error:', conversationError)
+      await addToDLQ({
+        operationType: 'other',
+        operationKey: `conversation:${message.id}`,
+        errorMessage: conversationError instanceof Error ? conversationError.message : 'Unknown error',
+        errorStack: conversationError instanceof Error ? conversationError.stack : undefined,
+        operationPayload: {
+          messageId: message.id,
+          conversationId: message.conversationId,
+          workItemId
+        },
+        communicationId: communication.id,
+      })
+    }
+
     console.log('[Email Import] Successfully imported:', {
       communicationId: communication.id,
+      providerId: message.id,
       internetMessageId: message.internetMessageId,
       subject: message.subject,
+      direction,
+      workItemId: workItemId || null,
     })
 
     return {
@@ -325,7 +373,7 @@ export async function importEmail(
       workItemId: workItemId || undefined,
       direction,
       debug: {
-        messageId: message.internetMessageId,
+        messageId: message.id,
         from: fromEmail,
         to: toEmails,
         subject: message.subject || '(no subject)',
@@ -333,6 +381,25 @@ export async function importEmail(
     }
   } catch (error) {
     console.error('[Email Import] Unexpected error:', error)
+
+    // Add to DLQ for retry
+    await addToDLQ({
+      operationType: 'email_import',
+      operationKey: `email:${message.id}`,
+      errorMessage: error instanceof Error ? error.message : 'Unknown error',
+      errorStack: error instanceof Error ? error.stack : undefined,
+      operationPayload: {
+        messageId: message.id,
+        internetMessageId: message.internetMessageId,
+        subject: message.subject,
+        from: message.from?.emailAddress?.address,
+        receivedDateTime: message.receivedDateTime
+      },
+    }).catch((dlqError) => {
+      // Don't fail if DLQ fails
+      console.error('[Email Import] Failed to add to DLQ:', dlqError)
+    })
+
     return {
       success: false,
       action: 'error',

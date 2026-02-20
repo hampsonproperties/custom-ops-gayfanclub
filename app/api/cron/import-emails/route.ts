@@ -3,6 +3,7 @@ import { Client } from '@microsoft/microsoft-graph-client'
 import { ClientSecretCredential } from '@azure/identity'
 import 'isomorphic-fetch'
 import { importEmail, isJunkEmail } from '@/lib/utils/email-import'
+import { addToDLQ } from '@/lib/utils/dead-letter-queue'
 
 function getGraphClient() {
   const credential = new ClientSecretCredential(
@@ -114,6 +115,21 @@ export async function GET(request: Request) {
     })
   } catch (error) {
     console.error('[Email Cron] Error:', error)
+
+    // Add to DLQ for retry (critical cron job failure)
+    await addToDLQ({
+      operationType: 'email_cron',
+      operationKey: `cron:${new Date().toISOString()}`,
+      errorMessage: error instanceof Error ? error.message : 'Failed to import emails',
+      errorStack: error instanceof Error ? error.stack : undefined,
+      operationPayload: {
+        mailboxEmail: process.env.MICROSOFT_MAILBOX_EMAIL,
+        cronTimestamp: new Date().toISOString(),
+      },
+    }).catch((dlqError) => {
+      console.error('[Email Cron] Failed to add to DLQ:', dlqError)
+    })
+
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : 'Failed to import emails',

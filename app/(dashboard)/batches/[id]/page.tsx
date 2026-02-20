@@ -9,6 +9,7 @@ import { ArrowLeft, FileDown, CheckCircle, Package, Truck, ImageIcon } from 'luc
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useBatch, useConfirmBatch, useExportBatch, useUpdateBatchTracking } from '@/lib/hooks/use-batches'
 import { StatusBadge } from '@/components/custom/status-badge'
+import { BatchEmailStatus } from '@/components/batch-email-status'
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
@@ -253,6 +254,18 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         </CardContent>
       </Card>
+
+      {/* Batch Email Status */}
+      {batch.status !== 'draft' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Customer Email Notifications</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <BatchEmailStatus batchId={id} />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tracking Number Dialog */}
       <Dialog open={showTrackingDialog} onOpenChange={setShowTrackingDialog}>

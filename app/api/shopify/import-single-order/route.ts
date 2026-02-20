@@ -171,6 +171,21 @@ export async function POST(request: NextRequest) {
 
         workItemId = existingWorkItem.id
 
+        // Recalculate next follow-up after status change
+        try {
+          const { data: nextFollowUp } = await supabase
+            .rpc('calculate_next_follow_up', { work_item_id: existingWorkItem.id })
+
+          if (nextFollowUp !== undefined) {
+            await supabase
+              .from('work_items')
+              .update({ next_follow_up_at: nextFollowUp })
+              .eq('id', existingWorkItem.id)
+          }
+        } catch (followUpError) {
+          console.error('[Import Order - Design Fee] Error calculating follow-up:', followUpError)
+        }
+
         // Auto-link recent emails from this customer
         if (customerEmail) {
           const orderDate = new Date(order.created_at)
@@ -253,6 +268,21 @@ export async function POST(request: NextRequest) {
         })
 
         workItemId = existingWorkItem.id
+
+        // Recalculate next follow-up after status change
+        try {
+          const { data: nextFollowUp } = await supabase
+            .rpc('calculate_next_follow_up', { work_item_id: existingWorkItem.id })
+
+          if (nextFollowUp !== undefined) {
+            await supabase
+              .from('work_items')
+              .update({ next_follow_up_at: nextFollowUp })
+              .eq('id', existingWorkItem.id)
+          }
+        } catch (followUpError) {
+          console.error('[Import Order - Production] Error calculating follow-up:', followUpError)
+        }
 
         // Auto-link recent emails from this customer
         if (customerEmail) {

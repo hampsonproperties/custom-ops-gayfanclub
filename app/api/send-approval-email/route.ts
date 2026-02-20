@@ -240,6 +240,22 @@ export async function POST(request: NextRequest) {
       console.error('Failed to update work item status:', updateError)
     }
 
+    // Recalculate next follow-up after status change
+    try {
+      const { data: nextFollowUp } = await supabase
+        .rpc('calculate_next_follow_up', { work_item_id: workItemId })
+
+      if (nextFollowUp !== undefined) {
+        await supabase
+          .from('work_items')
+          .update({ next_follow_up_at: nextFollowUp })
+          .eq('id', workItemId)
+      }
+    } catch (followUpError) {
+      console.error('[Send Approval Email] Error calculating follow-up:', followUpError)
+      // Don't fail the whole operation if follow-up calc fails
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Approval email sent successfully',

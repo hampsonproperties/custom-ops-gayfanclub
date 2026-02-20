@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { addToDLQ } from '@/lib/utils/dead-letter-queue'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -31,7 +32,25 @@ async function downloadAndStoreFile(
     // Download file from external URL
     const response = await fetch(url)
     if (!response.ok) {
-      console.error(`Failed to download file: ${response.status} ${response.statusText}`)
+      const errorMessage = `Failed to download file: ${response.status} ${response.statusText}`
+      console.error(errorMessage)
+
+      // Add to DLQ for retry
+      await addToDLQ({
+        operationType: 'file_download',
+        operationKey: `backfill:${workItemId}:${filename}`,
+        errorMessage,
+        errorStack: undefined,
+        operationPayload: {
+          externalUrl: url,
+          workItemId,
+          filename,
+          httpStatus: response.status,
+        },
+      }).catch((dlqError) => {
+        console.error('[Backfill] Failed to add to DLQ:', dlqError)
+      })
+
       return null
     }
 
@@ -58,14 +77,50 @@ async function downloadAndStoreFile(
       })
 
     if (uploadError) {
-      console.error(`Failed to upload file to Supabase Storage:`, uploadError)
+      const errorMessage = `Failed to upload file to Supabase Storage: ${uploadError.message}`
+      console.error(errorMessage)
+
+      // Add to DLQ for retry
+      await addToDLQ({
+        operationType: 'file_upload',
+        operationKey: `backfill:${workItemId}:${filename}`,
+        errorMessage,
+        errorStack: undefined,
+        operationPayload: {
+          externalUrl: url,
+          workItemId,
+          filename,
+          storagePath,
+          uploadError: uploadError.message,
+        },
+      }).catch((dlqError) => {
+        console.error('[Backfill] Failed to add to DLQ:', dlqError)
+      })
+
       return null
     }
 
     console.log(`Successfully stored file at: ${storagePath} (${sizeBytes} bytes)`)
     return { path: storagePath, sizeBytes }
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error downloading/storing file'
     console.error(`Error downloading/storing file:`, error)
+
+    // Add to DLQ for retry
+    await addToDLQ({
+      operationType: 'file_download',
+      operationKey: `backfill:${workItemId}:${filename}`,
+      errorMessage,
+      errorStack: error instanceof Error ? error.stack : undefined,
+      operationPayload: {
+        externalUrl,
+        workItemId,
+        filename,
+      },
+    }).catch((dlqError) => {
+      console.error('[Backfill] Failed to add to DLQ:', dlqError)
+    })
+
     return null
   }
 }
@@ -165,6 +220,20 @@ export async function POST(request: Request) {
     })
   } catch (error) {
     console.error('Error in backfill endpoint:', error)
+
+    // Add to DLQ for retry
+    await addToDLQ({
+      operationType: 'file_backfill',
+      operationKey: `backfill:${new Date().toISOString()}`,
+      errorMessage: error instanceof Error ? error.message : 'Backfill operation failed',
+      errorStack: error instanceof Error ? error.stack : undefined,
+      operationPayload: {
+        timestamp: new Date().toISOString(),
+      },
+    }).catch((dlqError) => {
+      console.error('[Backfill] Failed to add to DLQ:', dlqError)
+    })
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

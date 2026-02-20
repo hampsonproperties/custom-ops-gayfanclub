@@ -110,6 +110,25 @@ export function useCreateBatch() {
 
       if (updateError) throw updateError
 
+      // Recalculate follow-ups for all batched items
+      // Status 'batched' should pause follow-ups (set to NULL)
+      try {
+        for (const workItemId of workItemIds) {
+          const { data: nextFollowUp } = await supabase
+            .rpc('calculate_next_follow_up', { work_item_id: workItemId })
+
+          if (nextFollowUp !== undefined) {
+            await supabase
+              .from('work_items')
+              .update({ next_follow_up_at: nextFollowUp })
+              .eq('id', workItemId)
+          }
+        }
+      } catch (followUpError) {
+        console.error('[Create Batch] Error calculating follow-ups:', followUpError)
+        // Don't fail the whole operation if follow-up calc fails
+      }
+
       return batch
     },
     onSuccess: () => {
@@ -136,6 +155,14 @@ export function useConfirmBatch() {
         .single()
 
       if (error) throw error
+
+      // Queue progress emails (Email 1 & 2) in background
+      fetch(`/api/batches/${batchId}/queue-progress-emails`, {
+        method: 'POST',
+      }).catch((error) => {
+        console.error('[Confirm Batch] Failed to queue progress emails:', error)
+      })
+
       return data
     },
     onSuccess: (data) => {
@@ -188,11 +215,45 @@ export function useUpdateBatchTracking() {
         .single()
 
       if (error) throw error
+
+      // Queue en route email (Email 3) in background
+      fetch(`/api/batches/${batchId}/queue-tracking-email`, {
+        method: 'POST',
+      }).catch((error) => {
+        console.error('[Update Batch Tracking] Failed to queue en route email:', error)
+      })
+
       return data
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['batches'] })
       queryClient.invalidateQueries({ queryKey: ['batch', data.id] })
+    },
+  })
+}
+
+export function useMarkBatchReceived() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ batchId, receivedAt }: { batchId: string; receivedAt?: string }) => {
+      const response = await fetch(`/api/batches/${batchId}/mark-received`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ receivedAt }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to mark batch as received')
+      }
+
+      return response.json()
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['batches'] })
+      queryClient.invalidateQueries({ queryKey: ['batch', data.batchId] })
+      queryClient.invalidateQueries({ queryKey: ['batch-email-status', data.batchId] })
     },
   })
 }

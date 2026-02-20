@@ -10,7 +10,9 @@ import {
   useCustomDesignProjects
 } from '@/lib/hooks/use-work-items'
 import { useUntriagedEmails } from '@/lib/hooks/use-communications'
-import { ArrowRight, AlertCircle, Clock, ClipboardCheck, Mail, Package, Palette } from 'lucide-react'
+import { useStuckItemsSummary } from '@/lib/hooks/use-stuck-items'
+import { MyActionsToday } from '@/components/dashboard/my-actions-today'
+import { ArrowRight, AlertCircle, Clock, ClipboardCheck, Mail, Package, Palette, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 
 export default function DashboardPage() {
@@ -20,8 +22,18 @@ export default function DashboardPage() {
   const { data: readyForBatch } = useReadyForBatch()
   const { data: untriagedEmails } = useUntriagedEmails()
   const { data: customDesignProjects } = useCustomDesignProjects()
+  const { data: stuckItemsSummary } = useStuckItemsSummary()
 
   const stats = [
+    {
+      title: 'Stuck Items',
+      count: stuckItemsSummary?.total_stuck_items || 0,
+      icon: AlertTriangle,
+      link: '/stuck-items',
+      color: 'text-[#E91E63]',
+      bgColor: 'bg-[#E91E63]/10',
+      priority: true
+    },
     {
       title: 'Needs Follow-Up Today',
       count: followUpToday?.length || 0,
@@ -35,8 +47,8 @@ export default function DashboardPage() {
       count: overdueFollowUps?.length || 0,
       icon: AlertCircle,
       link: '/work-items?view=overdue',
-      color: 'text-[#E91E63]',
-      bgColor: 'bg-[#E91E63]/10'
+      color: 'text-[#FF9800]',
+      bgColor: 'bg-[#FF9800]/10'
     },
     {
       title: 'Design Review Queue',
@@ -82,12 +94,16 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {stats.map((stat) => {
           const Icon = stat.icon
+          const isPriority = 'priority' in stat && stat.priority
           return (
             <Link key={stat.title} href={stat.link}>
-              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+              <Card className={`hover:shadow-md transition-shadow cursor-pointer ${isPriority && stat.count > 0 ? 'border-l-4 border-l-[#E91E63]' : ''}`}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
                     {stat.title}
+                    {isPriority && stat.count > 0 && (
+                      <span className="ml-2 text-xs text-[#E91E63]">⚠️</span>
+                    )}
                   </CardTitle>
                   <div className={`p-2 rounded-lg ${stat.bgColor}`}>
                     <Icon className={`h-4 w-4 ${stat.color}`} />
@@ -95,7 +111,9 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-baseline justify-between">
-                    <div className="text-3xl font-bold">{stat.count}</div>
+                    <div className={`text-3xl font-bold ${isPriority && stat.count > 0 ? 'text-[#E91E63]' : ''}`}>
+                      {stat.count}
+                    </div>
                     <Button variant="ghost" size="sm" className="gap-1">
                       View <ArrowRight className="h-3 w-3" />
                     </Button>
@@ -106,6 +124,9 @@ export default function DashboardPage() {
           )
         })}
       </div>
+
+      {/* My Actions Today Widget */}
+      <MyActionsToday />
 
       {/* Quick Actions */}
       <Card>
@@ -129,6 +150,12 @@ export default function DashboardPage() {
             <Button variant="outline" className="gap-2">
               <Package className="h-4 w-4" />
               Create Batch
+            </Button>
+          </Link>
+          <Link href="/stuck-items">
+            <Button variant="outline" className="gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              View Stuck Items
             </Button>
           </Link>
         </CardContent>

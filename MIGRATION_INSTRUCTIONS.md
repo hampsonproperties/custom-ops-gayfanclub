@@ -1,82 +1,66 @@
-# Database Migration: Alternate Emails
+# Database Migration Instructions
 
-## What This Does
+## ⚠️ Important
+The new migrations (Phase 1-3) need to be applied manually via the Supabase Dashboard because `supabase db push` attempts to re-run all historical migrations, which conflicts with your existing database.
 
-Adds support for tracking multiple email addresses per customer. This allows emails from different addresses (e.g., personal vs work email) to automatically link to the same work item.
+## How to Apply Migrations
 
-## Running the Migration
+### Option 1: Supabase Dashboard (Recommended)
 
-### Option 1: Via Supabase Studio SQL Editor (Recommended)
+1. **Open Supabase Dashboard**
+   - Go to: https://supabase.com/dashboard/project/uvdaqjxmstbhfcgjlemm
+   - Navigate to: **SQL Editor** (left sidebar)
 
-1. Go to your Supabase project: https://supabase.com/dashboard/project/uvdaqjxmstbhfcgjlemm
-2. Navigate to **SQL Editor** in the left sidebar
-3. Create a new query
-4. Copy and paste the contents of `supabase/migrations/20260203000001_add_alternate_emails.sql`
-5. Click **Run** to execute the migration
+2. **Create New Query**
+   - Click **"New Query"** button
 
-### Option 2: Via Supabase CLI
+3. **Copy the Migration SQL**
+   - Open the file: `custom-ops/APPLY_NEW_MIGRATIONS.sql`
+   - Copy the entire contents (2,284 lines)
 
-```bash
-# If you have Supabase CLI installed
-supabase db push
-```
+4. **Paste and Run**
+   - Paste into the SQL Editor
+   - Click **"Run"** button (or press `Cmd+Enter`)
 
-### Option 3: Via psql
+5. **Verify Success**
+   - You should see success messages in the output panel
+   - Check for any errors (red text)
 
-```bash
-psql "your-connection-string-here" < supabase/migrations/20260203000001_add_alternate_emails.sql
-```
+## What These Migrations Do
 
-## What Gets Created
+### Migration 1: Email Deduplication
+- Adds 3-strategy deduplication
+- Creates monitoring views
+- Fixes 37+ duplicate emails
 
-- **Column:** `work_items.alternate_emails` (TEXT[] array)
-- **Index:** `idx_work_items_alternate_emails` (GIN index for fast searches)
-- **Default value:** Empty array `'{}'`
+### Migration 2: Dead Letter Queue
+- Captures failed operations
+- Automatic retry with exponential backoff
 
-## Verifying the Migration
+### Migration 3: Stuck Items Detection
+- 9 SQL views for stuck work items
+- Unified dashboard
 
-After running the migration, you can verify it worked:
+### Migration 4: Email Filters
+- Domain-based filtering
+- Seeds 18 filters
+- Fixes 59% miscategorization
 
-```sql
--- Check if column exists
-SELECT column_name, data_type
-FROM information_schema.columns
-WHERE table_name = 'work_items'
-AND column_name = 'alternate_emails';
+### Migration 5: Conversations Table
+- CRM model for email threading
+- Backfills existing emails
 
--- Test adding an alternate email
-UPDATE work_items
-SET alternate_emails = array['test@example.com']
-WHERE id = 'some-work-item-id';
-```
+### Migration 6: Auto-Reminder Engine
+- Reminder templates and queue
+- 4 seeded templates
 
-## Example Usage
+### Migration 7: Quick Reply Templates
+- 8 templates with keyboard shortcuts
+- Solves 316 manual responses
 
-### Adding an alternate email for Basil's work item:
+## After Migration
 
-```sql
-UPDATE work_items
-SET alternate_emails = array['delibellules.basil@gmail.com']
-WHERE id = 'c0ae0c91-73c4-4d5c-9ef2-52cb86bede5e';
-```
+1. Restart your application
+2. Visit `/dashboard` to see new features
+3. Check `/stuck-items` for stuck work items
 
-Now emails from either `basilzuzu@gmail.com` OR `delibellules.basil@gmail.com` will auto-link to this work item!
-
-## Post-Migration
-
-After running the migration:
-
-1. Deploy the updated code (already done if you're reading this from main branch)
-2. The UI will show an "Alternate Emails" section in work item details
-3. Email linking will automatically check both primary and alternate emails
-4. You can manually add `delibellules.basil@gmail.com` via the UI or SQL
-
-## Rollback (if needed)
-
-```sql
--- Remove the column
-ALTER TABLE work_items DROP COLUMN IF EXISTS alternate_emails;
-
--- Remove the index
-DROP INDEX IF EXISTS idx_work_items_alternate_emails;
-```

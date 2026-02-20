@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { detectOrderType } from '@/lib/shopify/detect-order-type'
+import { addToDLQ } from '@/lib/utils/dead-letter-queue'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -183,6 +184,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(results)
   } catch (error) {
     console.error('Import error:', error)
+
+    // Add to DLQ for retry
+    await addToDLQ({
+      operationType: 'order_import',
+      operationKey: `import:${new Date().toISOString()}`,
+      errorMessage: error instanceof Error ? error.message : 'Order import batch failed',
+      errorStack: error instanceof Error ? error.stack : undefined,
+      operationPayload: {
+        timestamp: new Date().toISOString(),
+      },
+    }).catch((dlqError) => {
+      console.error('[Order Import] Failed to add to DLQ:', dlqError)
+    })
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Import failed' },
       { status: 500 }

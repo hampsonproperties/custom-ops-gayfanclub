@@ -131,6 +131,22 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Recalculate next follow-up after status change
+    try {
+      const { data: nextFollowUp } = await supabase
+        .rpc('calculate_next_follow_up', { work_item_id: workItemId })
+
+      if (nextFollowUp !== undefined) {
+        await supabase
+          .from('work_items')
+          .update({ next_follow_up_at: nextFollowUp })
+          .eq('id', workItemId)
+      }
+    } catch (followUpError) {
+      console.error('[Approve Proof] Error calculating follow-up:', followUpError)
+      // Don't fail the whole operation if follow-up calc fails
+    }
+
     // Redirect to confirmation page with action and work item ID
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     return NextResponse.redirect(
