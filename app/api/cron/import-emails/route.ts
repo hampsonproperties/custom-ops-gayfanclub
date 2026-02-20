@@ -118,7 +118,7 @@ export async function GET(request: Request) {
 
     // Add to DLQ for retry (critical cron job failure)
     await addToDLQ({
-      operationType: 'email_cron',
+      operationType: 'email_import',
       operationKey: `cron:${new Date().toISOString()}`,
       errorMessage: error instanceof Error ? error.message : 'Failed to import emails',
       errorStack: error instanceof Error ? error.stack : undefined,

@@ -223,7 +223,7 @@ export async function POST(request: Request) {
 
     // Add to DLQ for retry
     await addToDLQ({
-      operationType: 'file_backfill',
+      operationType: 'batch_export',
       operationKey: `backfill:${new Date().toISOString()}`,
       errorMessage: error instanceof Error ? error.message : 'Backfill operation failed',
       errorStack: error instanceof Error ? error.stack : undefined,

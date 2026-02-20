@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
 
     // Add to DLQ for retry
     await addToDLQ({
-      operationType: 'order_import',
+      operationType: 'shopify_api_call',
       operationKey: `import:${new Date().toISOString()}`,
       errorMessage: error instanceof Error ? error.message : 'Order import batch failed',
       errorStack: error instanceof Error ? error.stack : undefined,
