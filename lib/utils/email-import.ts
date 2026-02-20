@@ -270,6 +270,73 @@ export async function importEmail(
           console.log('[Email Import] Form submission parsing failed or invalid data')
         }
       }
+
+      // Strategy: Auto-create lead for primary category emails
+      // If email is categorized as "primary" and has no work item, auto-create a lead
+      if (!workItemId && !isOutbound && category === 'primary') {
+        console.log(`[Email Import] Auto-creating lead for primary email from: ${fromEmail}`)
+
+        const { data: newWorkItem, error: workItemError } = await supabase
+          .from('work_items')
+          .insert({
+            type: 'assisted_project',
+            source: 'email',
+            status: 'new_inquiry',
+            customer_name: fromName,
+            customer_email: fromEmail,
+            title: message.subject || `Inquiry from ${fromName}`,
+            last_contact_at: message.receivedDateTime,
+            reason_included: {
+              detected_via: 'auto_lead_primary_category',
+              original_subject: message.subject,
+            },
+          })
+          .select('id')
+          .single()
+
+        if (workItemError) {
+          console.error('[Email Import] Failed to auto-create lead:', workItemError)
+        } else if (newWorkItem) {
+          workItemId = newWorkItem.id
+          triageStatus = 'created_lead'
+          console.log(`[Email Import] Auto-created lead ${workItemId} for primary email`)
+
+          // Calculate initial follow-up date
+          try {
+            const { data: nextFollowUp } = await supabase
+              .rpc('calculate_next_follow_up', { work_item_id: newWorkItem.id })
+
+            if (nextFollowUp !== undefined) {
+              await supabase
+                .from('work_items')
+                .update({ next_follow_up_at: nextFollowUp })
+                .eq('id', newWorkItem.id)
+            }
+          } catch (followUpError) {
+            console.error('[Email Import] Error calculating follow-up:', followUpError)
+          }
+
+          // Try to link recent emails from same sender to this new lead
+          const { data: recentEmails } = await supabase
+            .from('communications')
+            .select('id')
+            .eq('from_email', fromEmail)
+            .is('work_item_id', null)
+            .gte('received_at', lookbackDate.toISOString())
+
+          if (recentEmails && recentEmails.length > 0) {
+            await supabase
+              .from('communications')
+              .update({ work_item_id: newWorkItem.id })
+              .in(
+                'id',
+                recentEmails.map((e: any) => e.id)
+              )
+
+            console.log(`[Email Import] Auto-linked ${recentEmails.length} recent emails to new lead`)
+          }
+        }
+      }
     }
 
     // Insert the email (should not be a duplicate due to check above)

@@ -74,6 +74,7 @@ type EmailCategory = 'primary' | 'promotional' | 'spam' | 'notifications'
 type Email = {
   id: string
   from_email: string
+  from_name: string | null
   to_emails: string[]
   subject: string | null
   body_preview: string | null
@@ -571,7 +572,7 @@ export default function EmailIntakePage() {
                                   group.hasUnread ? 'font-bold' : 'font-semibold'
                                 }`}
                               >
-                                {parseEmailAddress(group.sender).displayName}
+                                {group.latestEmail.from_name || parseEmailAddress(group.sender).displayName}
                               </p>
                               {group.count > 1 && (
                                 <Badge variant="outline" className="text-xs">
