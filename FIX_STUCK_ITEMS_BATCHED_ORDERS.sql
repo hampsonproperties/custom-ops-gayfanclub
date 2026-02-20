@@ -19,6 +19,7 @@ SELECT
   wi.created_at,
   wi.last_contact_at,
   wi.updated_at,
+  wi.next_follow_up_at,  -- Add this so the dashboard can reference it
   EXTRACT(DAYS FROM (NOW() - GREATEST(
     COALESCE(wi.last_contact_at, wi.created_at),
     wi.updated_at
@@ -48,141 +49,169 @@ ORDER BY GREATEST(
 COMMENT ON VIEW stuck_stale_items IS
 'Work items with no activity (updates or communication) for >14 days. Excludes orders in production or shipped.';
 
+-- Also fix stuck_design_review to include next_follow_up_at
+DROP VIEW IF EXISTS stuck_design_review CASCADE;
+
+CREATE OR REPLACE VIEW stuck_design_review AS
+SELECT
+  wi.id,
+  wi.type,
+  wi.title,
+  wi.customer_name,
+  wi.customer_email,
+  wi.status,
+  wi.design_review_status,
+  wi.created_at,
+  wi.updated_at,
+  wi.next_follow_up_at,  -- Add this column
+  EXTRACT(DAYS FROM (NOW() - wi.updated_at)) as days_pending,
+  'design_review_pending' as stuck_reason,
+  2 as priority_score -- Medium-high priority
+FROM work_items wi
+WHERE wi.status = 'design_received'
+  AND wi.design_review_status = 'pending'
+  AND wi.closed_at IS NULL
+  AND wi.updated_at < NOW() - INTERVAL '7 days'
+ORDER BY wi.updated_at;
+
+COMMENT ON VIEW stuck_design_review IS
+'Work items with designs received but not reviewed for >7 days.';
+
 -- Recreate the unified dashboard (depends on stuck_stale_items)
-DROP VIEW IF EXISTS stuck_items_dashboard;
+DROP VIEW IF EXISTS stuck_items_dashboard CASCADE;
 
 CREATE OR REPLACE VIEW stuck_items_dashboard AS
 -- Expired approvals
 SELECT
-  id as work_item_id,
+  ea.id as work_item_id,
   NULL::uuid as dlq_id,
-  type as item_type,
-  title,
-  customer_name,
-  customer_email,
-  status,
-  stuck_reason,
-  priority_score,
-  days_waiting::integer as days_stuck,
-  created_at,
-  last_contact_at,
-  next_follow_up_at
-FROM stuck_expired_approvals
+  ea.type as item_type,
+  ea.title,
+  ea.customer_name,
+  ea.customer_email,
+  ea.status,
+  ea.stuck_reason,
+  ea.priority_score,
+  ea.days_waiting::integer as days_stuck,
+  ea.created_at,
+  ea.last_contact_at,
+  ea.next_follow_up_at
+FROM stuck_expired_approvals ea
 
 UNION ALL
 
 -- Overdue invoices
 SELECT
-  id,
+  oi.id,
   NULL::uuid,
-  type,
-  title,
-  customer_name,
-  customer_email,
-  status,
-  stuck_reason,
-  priority_score,
-  days_since_deposit::integer,
-  created_at,
-  last_contact_at,
-  next_follow_up_at
-FROM stuck_overdue_invoices
+  oi.type,
+  oi.title,
+  oi.customer_name,
+  oi.customer_email,
+  oi.status,
+  oi.stuck_reason,
+  oi.priority_score,
+  oi.days_since_deposit::integer,
+  oi.created_at,
+  oi.last_contact_at,
+  oi.next_follow_up_at
+FROM stuck_overdue_invoices oi
 
 UNION ALL
 
 -- Awaiting files
 SELECT
-  id,
+  af.id,
   NULL::uuid,
-  type,
-  title,
-  customer_name,
-  customer_email,
-  status,
-  stuck_reason,
-  priority_score,
-  days_waiting::integer,
-  created_at,
-  last_contact_at,
-  next_follow_up_at
-FROM stuck_awaiting_files
+  af.type,
+  af.title,
+  af.customer_name,
+  af.customer_email,
+  af.status,
+  af.stuck_reason,
+  af.priority_score,
+  af.days_waiting::integer,
+  af.created_at,
+  af.last_contact_at,
+  af.next_follow_up_at
+FROM stuck_awaiting_files af
 
 UNION ALL
 
 -- Design review pending
 SELECT
-  id,
+  dr.id,
   NULL::uuid,
-  type,
-  title,
-  customer_name,
-  customer_email,
-  status,
-  stuck_reason,
-  priority_score,
-  days_pending::integer,
-  created_at,
-  NULL::timestamptz,
-  next_follow_up_at
-FROM stuck_design_review
+  dr.type,
+  dr.title,
+  dr.customer_name,
+  dr.customer_email,
+  dr.status,
+  dr.stuck_reason,
+  dr.priority_score,
+  dr.days_pending::integer,
+  dr.created_at,
+  NULL::timestamptz as last_contact_at,
+  dr.next_follow_up_at
+FROM stuck_design_review dr
 
 UNION ALL
 
 -- No follow-up scheduled
 SELECT
-  id,
+  nf.id,
   NULL::uuid,
-  type,
-  title,
-  customer_name,
-  customer_email,
-  status,
-  stuck_reason,
-  priority_score,
-  days_since_update::integer,
-  created_at,
-  last_contact_at,
-  next_follow_up_at
-FROM stuck_no_follow_up
+  nf.type,
+  nf.title,
+  nf.customer_name,
+  nf.customer_email,
+  nf.status,
+  nf.stuck_reason,
+  nf.priority_score,
+  nf.days_since_update::integer,
+  nf.created_at,
+  nf.last_contact_at,
+  nf.next_follow_up_at
+FROM stuck_no_follow_up nf
 
 UNION ALL
 
 -- Stale items (NOW EXCLUDES BATCHED ORDERS)
 SELECT
-  id,
+  si.id,
   NULL::uuid,
-  type,
-  title,
-  customer_name,
-  customer_email,
-  status,
-  stuck_reason,
-  priority_score,
-  days_stale::integer,
-  created_at,
-  last_contact_at,
-  next_follow_up_at
-FROM stuck_stale_items
+  si.type,
+  si.title,
+  si.customer_name,
+  si.customer_email,
+  si.status,
+  si.stuck_reason,
+  si.priority_score,
+  si.days_stale::integer,
+  si.created_at,
+  si.last_contact_at,
+  si.next_follow_up_at
+FROM stuck_stale_items si
 
 UNION ALL
 
 -- DLQ failures (with work_item_id)
 SELECT
-  work_item_id,
-  id,
-  operation_type::text,
-  operation_key,
-  NULL::text,
-  NULL::text,
+  dlq.work_item_id,
+  dlq.id,
+  dlq.operation_type::text,
+  dlq.operation_key,
+  NULL::text as customer_name,
+  NULL::text as customer_email,
   'dlq_failure',
-  stuck_reason,
-  priority_score,
-  days_failed::integer,
-  created_at,
-  last_retry_at,
-  NULL::timestamptz
-FROM stuck_dlq_failures
-WHERE work_item_id IS NOT NULL
+  dlq.stuck_reason,
+  dlq.priority_score,
+  dlq.days_failed::integer,
+  dlq.created_at,
+  dlq.last_retry_at,
+  NULL::timestamptz as next_follow_up_at
+FROM stuck_dlq_failures dlq
+WHERE dlq.work_item_id IS NOT NULL
 
 ORDER BY priority_score DESC, days_stuck DESC;
 
