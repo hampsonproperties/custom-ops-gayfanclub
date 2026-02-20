@@ -5,10 +5,10 @@
 -- ============================================================================
 
 -- Etsy notifications
-INSERT INTO email_filters (filter_type, pattern, action, target_category, name, description, priority)
+INSERT INTO email_filters (key, filter_type, pattern, action, target_category, name, description, priority)
 VALUES
-  ('domain', '@etsy.com', 'categorize', 'other', 'Etsy notifications', 'Order notifications from Etsy marketplace', 30),
-  ('domain', '@transaction.etsy.com', 'categorize', 'other', 'Etsy transactions', 'Transaction confirmation emails', 30)
+  ('etsy_general', 'domain', '@etsy.com', 'categorize', 'other', 'Etsy notifications', 'Order notifications from Etsy marketplace', 30),
+  ('etsy_transactions', 'domain', '@transaction.etsy.com', 'categorize', 'other', 'Etsy transactions', 'Transaction confirmation emails', 30)
 ON CONFLICT (key) DO NOTHING;
 
 -- Payment processors
