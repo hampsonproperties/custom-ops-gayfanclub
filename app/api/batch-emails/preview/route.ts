@@ -14,12 +14,14 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const templateKey = {
+  const templateMap: Record<string, string> = {
     entering_production: 'batch-entering-production',
     midway_checkin: 'batch-midway-checkin',
     en_route: 'batch-en-route',
     arrived_stateside: 'batch-arrived-stateside',
-  }[emailType]
+  }
+
+  const templateKey = templateMap[emailType]!
 
   const rendered = await getAndRenderTemplate(templateKey, {
     first_name: firstName,
