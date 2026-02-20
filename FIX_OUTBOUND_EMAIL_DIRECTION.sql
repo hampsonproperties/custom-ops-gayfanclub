@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Fix Outbound Email Direction Detection
--- Purpose: Mark emails from support@ and sales@ as "outbound" instead of "inbound"
+-- Purpose: Mark emails from ANY @thegayfanclub.com address as "outbound"
 -- ============================================================================
 
 -- Check current state
@@ -9,19 +9,13 @@ SELECT
   direction,
   COUNT(*) as count
 FROM communications
-WHERE from_email IN ('sales@thegayfanclub.com', 'support@thegayfanclub.com')
+WHERE from_email LIKE '%@thegayfanclub.com'
 GROUP BY direction;
 
--- Fix emails from sales@thegayfanclub.com
+-- Fix ALL emails from @thegayfanclub.com domain
 UPDATE communications
 SET direction = 'outbound'
-WHERE from_email = 'sales@thegayfanclub.com'
-  AND direction = 'inbound';
-
--- Fix emails from support@thegayfanclub.com
-UPDATE communications
-SET direction = 'outbound'
-WHERE from_email = 'support@thegayfanclub.com'
+WHERE from_email LIKE '%@thegayfanclub.com'
   AND direction = 'inbound';
 
 -- Verify fix
@@ -30,7 +24,7 @@ SELECT
   direction,
   COUNT(*) as count
 FROM communications
-WHERE from_email IN ('sales@thegayfanclub.com', 'support@thegayfanclub.com')
+WHERE from_email LIKE '%@thegayfanclub.com'
 GROUP BY direction;
 
 -- Summary
@@ -41,20 +35,20 @@ DECLARE
 BEGIN
   SELECT COUNT(*) INTO outbound_count
   FROM communications
-  WHERE from_email IN ('sales@thegayfanclub.com', 'support@thegayfanclub.com')
+  WHERE from_email LIKE '%@thegayfanclub.com'
     AND direction = 'outbound';
 
   SELECT COUNT(*) INTO inbound_count
   FROM communications
-  WHERE from_email IN ('sales@thegayfanclub.com', 'support@thegayfanclub.com')
+  WHERE from_email LIKE '%@thegayfanclub.com'
     AND direction = 'inbound';
 
   RAISE NOTICE '';
   RAISE NOTICE '========================================';
   RAISE NOTICE 'Outbound Email Direction Fix Complete';
   RAISE NOTICE '========================================';
-  RAISE NOTICE 'Company emails marked as outbound: %', outbound_count;
-  RAISE NOTICE 'Company emails still inbound: %', inbound_count;
+  RAISE NOTICE 'All @thegayfanclub.com emails marked as outbound: %', outbound_count;
+  RAISE NOTICE '@thegayfanclub.com emails still inbound: %', inbound_count;
   RAISE NOTICE '';
 
   IF inbound_count = 0 THEN
@@ -64,6 +58,7 @@ BEGIN
   END IF;
 
   RAISE NOTICE '';
-  RAISE NOTICE 'Your sent emails will now show with green arrows (↑)';
+  RAISE NOTICE 'Applies to: sales@, support@, timothy@, ryan@, etc.';
+  RAISE NOTICE 'Internal emails will now show with green arrows (↑)';
   RAISE NOTICE '========================================';
 END $$;

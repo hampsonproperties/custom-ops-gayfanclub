@@ -261,9 +261,8 @@ export function useEmailsByCategory(
       let query = supabase
         .from('communications')
         .select('*')
-        .eq('direction', 'inbound')
+        .eq('direction', 'inbound') // Only inbound (customer) emails - company emails are marked as outbound
         .eq('category', category)
-        .neq('from_email', 'sales@thegayfanclub.com') // Exclude system-generated emails
         .order('received_at', { ascending: false })
 
       if (triageStatus) {

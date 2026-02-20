@@ -129,15 +129,9 @@ export async function importEmail(
       timestamp: message.receivedDateTime,
     })
 
-    // Detect direction - check against all company email addresses
-    const companyEmails = [
-      'sales@thegayfanclub.com',
-      'support@thegayfanclub.com',
-      mailboxEmail, // Include the mailbox email parameter if different
-    ]
-    const isOutbound = companyEmails.some(email =>
-      fromEmail.toLowerCase() === email.toLowerCase()
-    )
+    // Detect direction - check if from company domain
+    const companyDomain = '@thegayfanclub.com'
+    const isOutbound = fromEmail.toLowerCase().endsWith(companyDomain)
     const direction = isOutbound ? 'outbound' : 'inbound'
 
     // Extract body content

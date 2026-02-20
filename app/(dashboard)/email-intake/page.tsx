@@ -755,21 +755,21 @@ export default function EmailIntakePage() {
                     </div>
                     <SheetDescription>
                       Conversation with {(() => {
-                        // Find the customer email from the thread (not from company emails)
-                        const companyEmails = ['sales@thegayfanclub.com', 'support@thegayfanclub.com']
+                        // Find the customer email from the thread (not from company domain)
+                        const companyDomain = '@thegayfanclub.com'
+                        const isCompanyEmail = (email: string) =>
+                          email.toLowerCase().endsWith(companyDomain)
                         const allEmails = threadEmails || [selectedEmail]
 
-                        // Look through the thread for customer emails
+                        // Look through the thread for customer emails (external addresses)
                         for (const email of allEmails) {
-                          const fromEmail = email.from_email.toLowerCase()
-                          if (!companyEmails.includes(fromEmail)) {
-                            return parseEmailAddress(email.from_email).displayName
+                          const fromEmail = email.from_email
+                          if (fromEmail && !isCompanyEmail(fromEmail)) {
+                            return parseEmailAddress(fromEmail).displayName
                           }
                           // Also check recipients in case the thread only has outbound emails
                           if (email.to_emails && email.to_emails.length > 0) {
-                            const customerTo = email.to_emails.find(to =>
-                              !companyEmails.includes(to.toLowerCase())
-                            )
+                            const customerTo = email.to_emails.find(to => !isCompanyEmail(to))
                             if (customerTo) {
                               return parseEmailAddress(customerTo).displayName
                             }
