@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/import-emails",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/process-batch-emails",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
