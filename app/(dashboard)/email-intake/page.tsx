@@ -754,11 +754,33 @@ export default function EmailIntakePage() {
                       <LinkedWorkItemBadge workItemId={selectedEmail.work_item_id} />
                     </div>
                     <SheetDescription>
-                      Conversation with {
-                        selectedEmail.direction === 'outbound'
+                      Conversation with {(() => {
+                        // Find the customer email from the thread (not from company emails)
+                        const companyEmails = ['sales@thegayfanclub.com', 'support@thegayfanclub.com']
+                        const allEmails = threadEmails || [selectedEmail]
+
+                        // Look through the thread for customer emails
+                        for (const email of allEmails) {
+                          const fromEmail = email.from_email.toLowerCase()
+                          if (!companyEmails.includes(fromEmail)) {
+                            return parseEmailAddress(email.from_email).displayName
+                          }
+                          // Also check recipients in case the thread only has outbound emails
+                          if (email.to_emails && email.to_emails.length > 0) {
+                            const customerTo = email.to_emails.find(to =>
+                              !companyEmails.includes(to.toLowerCase())
+                            )
+                            if (customerTo) {
+                              return parseEmailAddress(customerTo).displayName
+                            }
+                          }
+                        }
+
+                        // Fallback to selectedEmail logic
+                        return selectedEmail.direction === 'outbound'
                           ? parseEmailAddress(selectedEmail.to_emails[0] || '').displayName
                           : parseEmailAddress(selectedEmail.from_email).displayName
-                      }
+                      })()}
                     </SheetDescription>
                   </div>
                   <div className="flex gap-1 ml-4">
