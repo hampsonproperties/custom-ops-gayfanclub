@@ -566,7 +566,7 @@ export default function EmailIntakePage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2 mb-3">
                           <div className="flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex flex-col gap-0.5">
                               <p
                                 className={`text-base ${
                                   group.hasUnread ? 'font-bold' : 'font-semibold'
@@ -574,6 +574,13 @@ export default function EmailIntakePage() {
                               >
                                 {group.latestEmail.from_name || parseEmailAddress(group.sender).displayName}
                               </p>
+                              {group.latestEmail.from_name && (
+                                <p className="text-xs text-muted-foreground">
+                                  {group.sender}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 flex-wrap">
                               {group.count > 1 && (
                                 <Badge variant="outline" className="text-xs">
                                   {group.count}
