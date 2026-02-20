@@ -74,7 +74,7 @@ type EmailCategory = 'primary' | 'promotional' | 'spam' | 'notifications'
 type Email = {
   id: string
   from_email: string
-  from_name: string | null
+  from_name?: string | null
   to_emails: string[]
   subject: string | null
   body_preview: string | null

@@ -346,6 +346,7 @@ export async function importEmail(
       .insert({
         direction,
         from_email: fromEmail,
+        from_name: fromName,
         to_emails: toEmails,
         subject: message.subject || '(no subject)',
         body_html: bodyContent,
