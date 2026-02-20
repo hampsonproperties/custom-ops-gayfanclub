@@ -10,9 +10,9 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
  * Queue Email 3 (en_route) for all work items in a batch
  * This is called after tracking number is added to the batch
  */
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id: batchId } = params
+    const { id: batchId } = await params
 
     if (!batchId) {
       return NextResponse.json({ error: 'Missing batch ID' }, { status: 400 })

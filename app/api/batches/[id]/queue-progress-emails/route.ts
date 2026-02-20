@@ -10,9 +10,9 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
  * Queue Email 1 (entering_production) and Email 2 (midway_checkin) for all work items in a batch
  * This is called after a batch is confirmed
  */
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id: batchId } = params
+    const { id: batchId } = await params
 
     if (!batchId) {
       return NextResponse.json({ error: 'Missing batch ID' }, { status: 400 })
