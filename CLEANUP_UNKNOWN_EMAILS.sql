@@ -18,21 +18,21 @@ WHERE from_email = 'unknown@unknown.com'
   AND (subject IS NULL OR subject = '(no subject)')
   AND (body_preview IS NULL OR body_preview = '' OR body_preview LIKE '%Ryan%Sales Support%');
 
--- STEP 3: Categorize remaining unknown emails as "other" (system notifications)
+-- STEP 3: Categorize remaining unknown emails as "notifications" (system notifications)
 -- (e.g., Adobe PDF shares, calendar invites, etc.)
 UPDATE communications
-SET email_category = 'other'
+SET category = 'notifications'
 WHERE from_email = 'unknown@unknown.com'
-  AND email_category != 'other';
+  AND category != 'notifications';
 
 -- STEP 4: Verify cleanup
 SELECT
   COUNT(*) as remaining_unknown_emails,
-  email_category,
+  category,
   COUNT(*) as count_by_category
 FROM communications
 WHERE from_email = 'unknown@unknown.com'
-GROUP BY email_category;
+GROUP BY category;
 
 -- STEP 5: Summary
 DO $$
