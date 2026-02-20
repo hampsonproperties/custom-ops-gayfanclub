@@ -129,8 +129,15 @@ export async function importEmail(
       timestamp: message.receivedDateTime,
     })
 
-    // Detect direction
-    const isOutbound = fromEmail.toLowerCase() === mailboxEmail.toLowerCase()
+    // Detect direction - check against all company email addresses
+    const companyEmails = [
+      'sales@thegayfanclub.com',
+      'support@thegayfanclub.com',
+      mailboxEmail, // Include the mailbox email parameter if different
+    ]
+    const isOutbound = companyEmails.some(email =>
+      fromEmail.toLowerCase() === email.toLowerCase()
+    )
     const direction = isOutbound ? 'outbound' : 'inbound'
 
     // Extract body content
