@@ -753,7 +753,11 @@ export default function EmailIntakePage() {
                       <LinkedWorkItemBadge workItemId={selectedEmail.work_item_id} />
                     </div>
                     <SheetDescription>
-                      Conversation with {parseEmailAddress(selectedEmail.from_email).displayName}
+                      Conversation with {
+                        selectedEmail.direction === 'outbound'
+                          ? parseEmailAddress(selectedEmail.to_emails[0] || '').displayName
+                          : parseEmailAddress(selectedEmail.from_email).displayName
+                      }
                     </SheetDescription>
                   </div>
                   <div className="flex gap-1 ml-4">
