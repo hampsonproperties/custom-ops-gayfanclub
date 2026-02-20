@@ -1,5 +1,4 @@
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from '@/types/database'
 import { getAndRenderTemplate } from './templates'
 import { Client } from '@microsoft/microsoft-graph-client'
 import { ClientSecretCredential } from '@azure/identity'
@@ -37,7 +36,7 @@ export async function getWorkItemRecipients(workItemId: string): Promise<{
   alternateEmails: string[]
   customerName: string | null
 }> {
-  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
+  const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
   const { data: workItem } = await supabase
     .from('work_items')
@@ -60,7 +59,7 @@ export async function getWorkItemRecipients(workItemId: string): Promise<{
  * Queue a batch email for delayed send with verification
  */
 export async function queueBatchEmail(params: QueueBatchEmailParams): Promise<{ success: boolean; error?: string }> {
-  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
+  const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
   // Check if already queued or sent
   const { data: existingQueue } = await supabase
@@ -165,7 +164,7 @@ export async function verifyEmailConditions(queueItemId: string): Promise<{
   valid: boolean
   reason?: string
 }> {
-  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
+  const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
   // Get queue item
   const { data: queueItem } = await supabase
@@ -239,7 +238,7 @@ export async function sendBatchEmail(params: SendBatchEmailParams): Promise<{
   communicationId?: string
   error?: string
 }> {
-  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
+  const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
   try {
     // Get work item for merge fields
@@ -375,7 +374,7 @@ export async function sendBatchEmail(params: SendBatchEmailParams): Promise<{
  * Cancel a pending batch email
  */
 export async function cancelBatchEmail(queueItemId: string, reason: string): Promise<{ success: boolean; error?: string }> {
-  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
+  const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
   const { error } = await supabase
     .from('batch_email_queue')
@@ -398,7 +397,7 @@ export async function cancelBatchEmail(queueItemId: string, reason: string): Pro
  * Mark queue item as sent
  */
 export async function markQueueItemSent(queueItemId: string): Promise<{ success: boolean; error?: string }> {
-  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
+  const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
   const { error } = await supabase
     .from('batch_email_queue')
@@ -419,7 +418,7 @@ export async function markQueueItemSent(queueItemId: string): Promise<{ success:
  * Mark queue item as failed
  */
 export async function markQueueItemFailed(queueItemId: string, errorMessage: string): Promise<{ success: boolean; error?: string }> {
-  const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
+  const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
   const { error } = await supabase
     .from('batch_email_queue')
