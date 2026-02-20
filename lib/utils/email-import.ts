@@ -94,7 +94,27 @@ export async function importEmail(
     }
 
     // Extract email details
-    const fromEmail = message.from?.emailAddress?.address || 'unknown@unknown.com'
+    const fromEmail = message.from?.emailAddress?.address
+
+    // Skip emails without a valid sender (corrupted/draft emails)
+    if (!fromEmail || fromEmail.trim() === '') {
+      console.log('[Email Import] Skipping email without valid sender', {
+        messageId: message.id,
+        subject: message.subject,
+      })
+      return {
+        success: false,
+        action: 'error',
+        error: 'No valid sender email address',
+        debug: {
+          messageId: message.id,
+          from: 'unknown',
+          to: message.toRecipients?.map((r) => r.emailAddress.address) || [],
+          subject: message.subject || '(no subject)',
+        },
+      }
+    }
+
     const fromName = message.from?.emailAddress?.name || fromEmail
     const toEmails = message.toRecipients?.map((r) => r.emailAddress.address) || []
 
