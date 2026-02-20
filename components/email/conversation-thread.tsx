@@ -242,27 +242,27 @@ export function ConversationThread({ communications }: ConversationThreadProps) 
 
                         {/* Quoted/Previous Email Content */}
                         {hasQuoted && (
-                          <div className="border-t pt-2 mt-3">
+                          <div className="border-t pt-3 mt-3">
                             <button
                               onClick={(e) => toggleQuoted(comm.id, e)}
-                              className="text-xs text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1"
+                              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
                             >
                               {showQuoted ? (
                                 <>
                                   <ChevronUp className="h-3 w-3" />
-                                  Hide quoted text
+                                  Hide previous message
                                 </>
                               ) : (
                                 <>
                                   <ChevronDown className="h-3 w-3" />
-                                  Show quoted text
+                                  Show previous message
                                 </>
                               )}
                             </button>
 
                             {showQuoted && (
                               <div
-                                className="mt-2 pl-3 border-l-2 border-muted text-sm text-muted-foreground prose prose-sm max-w-none opacity-75"
+                                className="mt-3 pl-4 border-l-2 border-muted text-sm text-muted-foreground prose prose-sm max-w-none opacity-60"
                                 dangerouslySetInnerHTML={{
                                   __html: DOMPurify.sanitize(quotedContent, {
                                     ALLOWED_TAGS: [

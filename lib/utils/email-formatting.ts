@@ -152,11 +152,19 @@ export function separateQuotedContent(html: string): {
 } {
   // Common quoted email patterns
   const quotedPatterns = [
+    // Gmail quote
     /<div class="gmail_quote">/i,
+    // Standard blockquote
     /<blockquote/i,
+    // "On [date] [person] wrote:" pattern
     /On .+ wrote:/i,
-    /From: .+\nSent: .+\nTo: .+\nSubject:/i,
-    /_{5,}/,
+    // Microsoft Outlook headers (with or without newlines)
+    /[-_]{10,}/,  // Long dashes/underscores that precede forwarded messages
+    // Outlook-style "From:... Sent:... To:... Subject:" (inline or multi-line)
+    /From:\s*.+?\s*<[^>]+>\s*Sent:\s*.+?\s*To:/i,
+    // Alternative Outlook pattern
+    /From:\s+[^\n<]+\s*<[^>]+>/i,
+    // Quote marker at start of line
     /^>.+/m,
   ]
 
