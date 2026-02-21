@@ -37,12 +37,13 @@ export function MyActionsToday() {
     queryFn: async () => {
       const actions: MyAction[] = []
 
-      // 1. Untriaged emails (high priority)
+      // 1. Untriaged PRIMARY emails only (high priority - actual customer emails)
       const { data: untriagedEmails } = await supabase
         .from('communications')
-        .select('id, subject, from_email, received_at')
+        .select('id, subject, from_email, received_at, category')
         .eq('triage_status', 'untriaged')
         .eq('direction', 'inbound')
+        .eq('category', 'primary')  // ONLY show primary category (customer emails)
         .order('received_at', { ascending: false })
         .limit(5)
 
@@ -52,7 +53,7 @@ export function MyActionsToday() {
           type: 'email',
           title: email.subject || '(no subject)',
           subtitle: `From: ${email.from_email}`,
-          link: `/email-intake?email=${email.id}`,
+          link: `/email-intake`,  // Link to inbox (email will be in Primary tab)
           priority: 'high',
           dueInfo: formatDistanceToNow(new Date(email.received_at), {
             addSuffix: true,
