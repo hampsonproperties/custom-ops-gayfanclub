@@ -58,7 +58,7 @@ export default function InboxRepliesPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Inbox Replies</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Conversations</h1>
           <p className="text-muted-foreground mt-2">
             Customer responses to existing work items that need your attention
           </p>

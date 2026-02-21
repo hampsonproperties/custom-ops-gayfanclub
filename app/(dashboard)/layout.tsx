@@ -85,16 +85,22 @@ export default async function DashboardLayout({
               </p>
             </div>
 
-            <Link href="/follow-ups">
+            <Link href="/email-intake">
               <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
-                <Bell className="h-4 w-4" />
-                Follow-Ups
+                <Mail className="h-4 w-4" />
+                Inbox
               </Button>
             </Link>
             <Link href="/inbox/replies">
               <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <MailCheck className="h-4 w-4" />
-                Inbox Replies
+                Conversations
+              </Button>
+            </Link>
+            <Link href="/follow-ups">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
+                <Bell className="h-4 w-4" />
+                Follow-Ups
               </Button>
             </Link>
             <Link href="/design-queue">
@@ -113,18 +119,6 @@ export default async function DashboardLayout({
               <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <CheckCircle2 className="h-4 w-4" />
                 Approved Designs
-              </Button>
-            </Link>
-            <Link href="/email-intake">
-              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
-                <Mail className="h-4 w-4" />
-                Email Intake
-              </Button>
-            </Link>
-            <Link href="/support-queue">
-              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
-                <Flag className="h-4 w-4" />
-                Support Queue
               </Button>
             </Link>
             <Link href="/batches">

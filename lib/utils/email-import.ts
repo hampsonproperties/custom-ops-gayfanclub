@@ -165,9 +165,18 @@ export async function importEmail(
       }
     }
 
+    // Auto-detect support emails (urgent vs shipping inquiries)
+    let supportType: 'urgent' | 'shipping' | null = null
+    if (!isOutbound && category === 'primary') {
+      supportType = detectSupportType(message.subject || '', plainText)
+      if (supportType) {
+        console.log(`[Email Import] Support detected: ${supportType} - ${fromEmail}`)
+      }
+    }
+
     // Auto-link to work items (unless skipEnrichment)
     let workItemId = null
-    let triageStatus = isOutbound ? 'archived' : 'untriaged'
+    let triageStatus = isOutbound ? 'archived' : (supportType ? 'flagged_support' : 'untriaged')
 
     // Calculate lookback date for various linking strategies
     const emailReceivedDate = new Date(message.receivedDateTime)
@@ -273,7 +282,8 @@ export async function importEmail(
 
       // Strategy: Auto-create lead for primary category emails
       // If email is categorized as "primary" and has no work item, auto-create a lead
-      if (!workItemId && !isOutbound && category === 'primary') {
+      // BUT skip system/vendor emails (PayPal, Stripe, noreply@, etc.)
+      if (!workItemId && !isOutbound && category === 'primary' && shouldAutoCreateLead(fromEmail)) {
         console.log(`[Email Import] Auto-creating lead for primary email from: ${fromEmail}`)
 
         const { data: newWorkItem, error: workItemError } = await supabase
@@ -498,6 +508,117 @@ export async function importEmail(
 }
 
 /**
+ * Urgent support keywords - high priority issues that need immediate attention
+ */
+export const URGENT_SUPPORT_PATTERNS = [
+  /\b(not received|haven't received|didn't receive|never received)\b/i,
+  /\b(wrong|incorrect|mistake)\b/i,
+  /\b(damaged|broken|defective)\b/i,
+  /\b(refund|money back|return)\b/i,
+  /\bmissing\b/i,
+  /\b(complaint|complain)\b/i,
+]
+
+/**
+ * Shipping inquiry keywords - routine support questions about delivery
+ */
+export const SHIPPING_INQUIRY_PATTERNS = [
+  /\b(when will.*ship|ship date|shipping status)\b/i,
+  /\b(tracking|track my order)\b/i,
+  /\b(expedited shipping|rush shipping|faster shipping)\b/i,
+  /\b(delivery date|when.*arrive|eta|estimated delivery)\b/i,
+  /\b(order status|update on.*order|check on.*order)\b/i,
+  /\bchange.*address\b/i,
+  /\b(did.*ship|already ship|still waiting)\b/i,
+]
+
+/**
+ * Detect if email is a support inquiry
+ * Returns: 'urgent' | 'shipping' | null
+ */
+export function detectSupportType(subject: string, body: string): 'urgent' | 'shipping' | null {
+  const subjectLower = subject.toLowerCase()
+  const bodyLower = body.toLowerCase()
+  const combined = `${subjectLower} ${bodyLower}`
+
+  // Check urgent support first (higher priority)
+  if (URGENT_SUPPORT_PATTERNS.some(pattern => pattern.test(combined))) {
+    return 'urgent'
+  }
+
+  // Check shipping inquiries
+  if (SHIPPING_INQUIRY_PATTERNS.some(pattern => pattern.test(combined))) {
+    return 'shipping'
+  }
+
+  return null
+}
+
+/**
+ * System/vendor domains that should NOT auto-create leads
+ * These are service providers, payment processors, and system emails
+ */
+export const SYSTEM_DOMAINS = [
+  // Payment processors
+  'paypal.com',
+  'stripe.com',
+  'square.com',
+  'squareup.com',
+
+  // E-commerce platforms
+  'shopify.com',
+  'orders.shopify.com',
+  'etsy.com',
+
+  // Business software
+  'quickbooks.com',
+  'xero.com',
+  'asana.com',
+  'trello.com',
+  'slack.com',
+  'monday.com',
+
+  // Communications
+  'ringcentral.com',
+  'zoom.us',
+  'calendly.com',
+
+  // Adobe/Documents
+  'adobe.com',
+  'acrobat.com',
+  'docusign.com',
+  'dropbox.com',
+
+  // Dev tools
+  'github.com',
+  'vercel.com',
+  'supabase.com',
+  'heroku.com',
+
+  // Email/Marketing
+  'mailchimp.com',
+  'constantcontact.com',
+  'sendgrid.net',
+  'hubspot.com',
+]
+
+/**
+ * Email patterns that indicate system/automated emails
+ */
+export const SYSTEM_EMAIL_PATTERNS = [
+  /notifications\./i,
+  /noreply@/i,
+  /no-reply@/i,
+  /donotreply@/i,
+  /do-not-reply@/i,
+  /@marketing\./i,
+  /@newsletter\./i,
+  /automated@/i,
+  /bounce@/i,
+  /mailer-daemon@/i,
+]
+
+/**
  * Junk email patterns to filter out
  */
 export const JUNK_EMAIL_PATTERNS = [
@@ -523,6 +644,37 @@ export const FORM_PROVIDER_DOMAINS = [
   'jotform.com',
   'wufoo.com',
 ]
+
+/**
+ * Check if an email should auto-create a lead
+ * Returns false for system/vendor emails even if categorized as "primary"
+ */
+export function shouldAutoCreateLead(fromEmail: string): boolean {
+  const emailLower = fromEmail.toLowerCase()
+
+  // Block system domains (PayPal, Stripe, Shopify, etc.)
+  const isSystemDomain = SYSTEM_DOMAINS.some(domain =>
+    emailLower.includes(domain.toLowerCase())
+  )
+
+  if (isSystemDomain) {
+    console.log(`[Auto-Lead] Blocked system domain: ${fromEmail}`)
+    return false
+  }
+
+  // Block system email patterns (noreply@, notifications., etc.)
+  const isSystemPattern = SYSTEM_EMAIL_PATTERNS.some(pattern =>
+    pattern.test(fromEmail)
+  )
+
+  if (isSystemPattern) {
+    console.log(`[Auto-Lead] Blocked system pattern: ${fromEmail}`)
+    return false
+  }
+
+  // Passed all checks - safe to create lead
+  return true
+}
 
 /**
  * Check if an email should be filtered as junk

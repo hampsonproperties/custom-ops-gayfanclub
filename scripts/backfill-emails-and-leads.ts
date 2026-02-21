@@ -36,6 +36,96 @@ interface EmailRecord {
   received_at: string
 }
 
+// System/vendor domains that should NOT auto-create leads
+const SYSTEM_DOMAINS = [
+  // Payment processors
+  'paypal.com',
+  'stripe.com',
+  'square.com',
+  'squareup.com',
+
+  // E-commerce platforms
+  'shopify.com',
+  'orders.shopify.com',
+  'etsy.com',
+
+  // Business software
+  'quickbooks.com',
+  'xero.com',
+  'asana.com',
+  'trello.com',
+  'slack.com',
+  'monday.com',
+
+  // Communications
+  'ringcentral.com',
+  'zoom.us',
+  'calendly.com',
+
+  // Adobe/Documents
+  'adobe.com',
+  'acrobat.com',
+  'docusign.com',
+  'dropbox.com',
+
+  // Dev tools
+  'github.com',
+  'vercel.com',
+  'supabase.com',
+  'heroku.com',
+
+  // Email/Marketing
+  'mailchimp.com',
+  'constantcontact.com',
+  'sendgrid.net',
+  'hubspot.com',
+]
+
+// Email patterns that indicate system/automated emails
+const SYSTEM_EMAIL_PATTERNS = [
+  /notifications\./i,
+  /noreply@/i,
+  /no-reply@/i,
+  /donotreply@/i,
+  /do-not-reply@/i,
+  /@marketing\./i,
+  /@newsletter\./i,
+  /automated@/i,
+  /bounce@/i,
+  /mailer-daemon@/i,
+]
+
+/**
+ * Check if an email should auto-create a lead
+ * Returns false for system/vendor emails even if categorized as "primary"
+ */
+function shouldAutoCreateLead(fromEmail: string): boolean {
+  const emailLower = fromEmail.toLowerCase()
+
+  // Block system domains (PayPal, Stripe, Shopify, etc.)
+  const isSystemDomain = SYSTEM_DOMAINS.some(domain =>
+    emailLower.includes(domain.toLowerCase())
+  )
+
+  if (isSystemDomain) {
+    console.log(`⏭️  Skipping system domain: ${fromEmail}`)
+    return false
+  }
+
+  // Block system email patterns (noreply@, notifications., etc.)
+  const isSystemPattern = SYSTEM_EMAIL_PATTERNS.some(pattern =>
+    pattern.test(fromEmail)
+  )
+
+  if (isSystemPattern) {
+    console.log(`⏭️  Skipping system pattern: ${fromEmail}`)
+    return false
+  }
+
+  // Passed all checks - safe to create lead
+  return true
+}
+
 async function getMicrosoftGraphToken(): Promise<string> {
   const tenantId = process.env.MICROSOFT_TENANT_ID
   const clientId = process.env.MICROSOFT_CLIENT_ID
@@ -194,6 +284,12 @@ async function autoCreateLeads() {
     const latestEmail = senderEmails[0] // Most recent email
 
     try {
+      // Skip system/vendor emails (PayPal, Stripe, noreply@, etc.)
+      if (!shouldAutoCreateLead(senderEmail)) {
+        skipped++
+        continue
+      }
+
       // Check if this sender already has a work item (even if not linked)
       const { data: existingWorkItem } = await supabase
         .from('work_items')

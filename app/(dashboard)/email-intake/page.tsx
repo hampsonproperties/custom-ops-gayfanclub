@@ -37,6 +37,7 @@ import {
   useEmailThread,
   useMarkEmailAsRead,
   useMoveEmailToCategory,
+  useFlaggedSupportEmails,
 } from '@/lib/hooks/use-communications'
 import { useCreateWorkItem, useWorkItem } from '@/lib/hooks/use-work-items'
 import Link from 'next/link'
@@ -62,6 +63,7 @@ import {
   Check,
   Paperclip,
   ExternalLink,
+  Package,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
@@ -69,7 +71,7 @@ import DOMPurify from 'dompurify'
 import { toast } from 'sonner'
 import { parseEmailAddress, extractEmailPreview } from '@/lib/utils/email-formatting'
 
-type EmailCategory = 'primary' | 'promotional' | 'spam' | 'notifications'
+type EmailCategory = 'primary' | 'promotional' | 'spam' | 'notifications' | 'support'
 
 type Email = {
   id: string
@@ -87,6 +89,72 @@ type Email = {
   is_read: boolean
   triage_status: string
   work_item_id: string | null
+}
+
+// Helper to detect support type from email content
+function detectSupportTypeFromEmail(subject: string | null, bodyPreview: string | null): 'urgent' | 'shipping' | null {
+  const urgentPatterns = [
+    /\b(not received|haven't received|didn't receive|never received)\b/i,
+    /\b(wrong|incorrect|mistake)\b/i,
+    /\b(damaged|broken|defective)\b/i,
+    /\b(refund|money back|return)\b/i,
+    /\bmissing\b/i,
+    /\b(complaint|complain)\b/i,
+  ]
+
+  const shippingPatterns = [
+    /\b(when will.*ship|ship date|shipping status)\b/i,
+    /\b(tracking|track my order)\b/i,
+    /\b(expedited shipping|rush shipping|faster shipping)\b/i,
+    /\b(delivery date|when.*arrive|eta|estimated delivery)\b/i,
+    /\b(order status|update on.*order|check on.*order)\b/i,
+    /\bchange.*address\b/i,
+    /\b(did.*ship|already ship|still waiting)\b/i,
+  ]
+
+  const combined = `${subject || ''} ${bodyPreview || ''}`.toLowerCase()
+
+  if (urgentPatterns.some(pattern => pattern.test(combined))) {
+    return 'urgent'
+  }
+
+  if (shippingPatterns.some(pattern => pattern.test(combined))) {
+    return 'shipping'
+  }
+
+  return null
+}
+
+// Component to show support type badge
+function SupportBadge({ email }: { email: Email }) {
+  if (email.triage_status !== 'flagged_support') return null
+
+  const supportType = detectSupportTypeFromEmail(email.subject, email.body_preview)
+
+  if (supportType === 'urgent') {
+    return (
+      <Badge variant="destructive" className="gap-1 text-xs">
+        <AlertCircle className="h-3 w-3" />
+        Urgent
+      </Badge>
+    )
+  }
+
+  if (supportType === 'shipping') {
+    return (
+      <Badge variant="outline" className="gap-1 text-xs bg-blue-50 text-blue-700 border-blue-200">
+        <Package className="h-3 w-3" />
+        Shipping
+      </Badge>
+    )
+  }
+
+  return (
+    <Badge variant="outline" className="gap-1 text-xs">
+      <Flag className="h-3 w-3" />
+      Support
+    </Badge>
+  )
 }
 
 // Component to show linked work item badge
@@ -129,7 +197,18 @@ export default function EmailIntakePage() {
   const [showReplyForm, setShowReplyForm] = useState(false)
 
   // Hooks
-  const { data: emails, isLoading, refetch } = useEmailsByCategory(activeCategory, 'untriaged')
+  // Fetch emails based on active tab
+  const { data: categoryEmails, isLoading: categoryLoading, refetch: refetchCategory } = useEmailsByCategory(
+    activeCategory === 'support' ? 'primary' : activeCategory,
+    'untriaged'
+  )
+  const { data: supportEmails, isLoading: supportLoading, refetch: refetchSupport } = useFlaggedSupportEmails()
+
+  // Use support emails when on support tab, otherwise use category emails
+  const emails = activeCategory === 'support' ? supportEmails : categoryEmails
+  const isLoading = activeCategory === 'support' ? supportLoading : categoryLoading
+  const refetch = activeCategory === 'support' ? refetchSupport : refetchCategory
+
   const { data: categoryCounts } = useEmailCategoryCounts('untriaged')
   const triageEmail = useTriageEmail()
   const createWorkItem = useCreateWorkItem()
@@ -376,6 +455,8 @@ export default function EmailIntakePage() {
     switch (category) {
       case 'primary':
         return <Inbox className="h-4 w-4" />
+      case 'support':
+        return <Flag className="h-4 w-4" />
       case 'promotional':
         return <Tag className="h-4 w-4" />
       case 'spam':
@@ -402,8 +483,8 @@ export default function EmailIntakePage() {
       {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Email Inbox</h1>
-          <p className="text-muted-foreground">Manage your customer emails</p>
+          <h1 className="text-3xl font-bold">Inbox</h1>
+          <p className="text-muted-foreground">Manage your customer emails and support requests</p>
         </div>
         <Button onClick={() => setShowImportDialog(true)} variant="outline" className="gap-2">
           <Download className="h-4 w-4" />
@@ -460,13 +541,22 @@ export default function EmailIntakePage() {
 
       {/* Category Tabs */}
       <Tabs value={activeCategory} onValueChange={(v) => setActiveCategory(v as EmailCategory)}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="primary" className="gap-2">
             {getCategoryIcon('primary')}
             Primary
             {(categoryCounts?.primary || 0) > 0 && (
               <Badge variant="secondary" className="ml-1">
                 {categoryCounts?.primary || 0}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="support" className="gap-2">
+            <Flag className="h-4 w-4" />
+            Support
+            {supportEmails && supportEmails.length > 0 && (
+              <Badge variant="secondary" className="ml-1">
+                {supportEmails.length}
               </Badge>
             )}
           </TabsTrigger>
@@ -589,6 +679,7 @@ export default function EmailIntakePage() {
                               {!group.latestEmail.is_read && (
                                 <div className="h-2 w-2 rounded-full bg-blue-500" />
                               )}
+                              <SupportBadge email={group.latestEmail} />
                               <LinkedWorkItemBadge workItemId={group.latestEmail.work_item_id} />
                             </div>
                           </div>
