@@ -71,7 +71,8 @@ import DOMPurify from 'dompurify'
 import { toast } from 'sonner'
 import { parseEmailAddress, extractEmailPreview } from '@/lib/utils/email-formatting'
 
-type EmailCategory = 'primary' | 'promotional' | 'spam' | 'notifications' | 'support'
+type EmailCategory = 'primary' | 'promotional' | 'spam' | 'notifications'
+type EmailTab = EmailCategory | 'support'  // Support is a tab, not a category
 
 type Email = {
   id: string
@@ -179,7 +180,7 @@ function LinkedWorkItemBadge({ workItemId }: { workItemId: string | null }) {
 
 export default function EmailIntakePage() {
   const router = useRouter()
-  const [activeCategory, setActiveCategory] = useState<EmailCategory>('primary')
+  const [activeCategory, setActiveCategory] = useState<EmailTab>('primary')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set())
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
@@ -451,8 +452,8 @@ export default function EmailIntakePage() {
     }
   }
 
-  const getCategoryIcon = (category: EmailCategory) => {
-    switch (category) {
+  const getCategoryIcon = (tab: EmailTab) => {
+    switch (tab) {
       case 'primary':
         return <Inbox className="h-4 w-4" />
       case 'support':
@@ -466,8 +467,8 @@ export default function EmailIntakePage() {
     }
   }
 
-  const getCategoryLabel = (category: EmailCategory) => {
-    return category.charAt(0).toUpperCase() + category.slice(1)
+  const getCategoryLabel = (tab: EmailTab) => {
+    return tab.charAt(0).toUpperCase() + tab.slice(1)
   }
 
   if (isLoading) {
@@ -540,7 +541,7 @@ export default function EmailIntakePage() {
       </div>
 
       {/* Category Tabs */}
-      <Tabs value={activeCategory} onValueChange={(v) => setActiveCategory(v as EmailCategory)}>
+      <Tabs value={activeCategory} onValueChange={(v) => setActiveCategory(v as EmailTab)}>
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="primary" className="gap-2">
             {getCategoryIcon('primary')}
