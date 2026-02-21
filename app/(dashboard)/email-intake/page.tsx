@@ -84,12 +84,78 @@ type Email = {
   body_html: string | null
   received_at: string | null
   provider_thread_id: string | null
+  provider_message_id: string | null
   has_attachments: boolean
+  attachments_meta: Array<{
+    id: string
+    name: string
+    contentType: string
+    size: number
+    provider: string
+    provider_attachment_id: string
+  }> | null
   category: EmailCategory
   direction: 'inbound' | 'outbound'
   is_read: boolean
   triage_status: string
   work_item_id: string | null
+}
+
+// Component to display email attachments
+function AttachmentList({
+  attachments,
+  messageId
+}: {
+  attachments: Array<{
+    id: string
+    name: string
+    contentType: string
+    size: number
+    provider_attachment_id: string
+  }>
+  messageId: string | null
+}) {
+  if (!attachments || attachments.length === 0 || !messageId) return null
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  const getFileIcon = (contentType: string) => {
+    if (contentType.startsWith('image/')) return '🖼️'
+    if (contentType.includes('pdf')) return '📄'
+    if (contentType.includes('word') || contentType.includes('document')) return '📝'
+    if (contentType.includes('excel') || contentType.includes('spreadsheet')) return '📊'
+    if (contentType.includes('zip') || contentType.includes('compressed')) return '🗜️'
+    return '📎'
+  }
+
+  return (
+    <div className="mt-3 space-y-2">
+      <p className="text-xs font-medium text-muted-foreground">Attachments:</p>
+      <div className="space-y-1">
+        {attachments.map((attachment) => (
+          <a
+            key={attachment.id}
+            href={`/api/email/attachments/${messageId}/${attachment.provider_attachment_id}`}
+            download={attachment.name}
+            className="flex items-center gap-2 p-2 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors group"
+          >
+            <span className="text-lg">{getFileIcon(attachment.contentType)}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{attachment.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {formatFileSize(attachment.size)}
+              </p>
+            </div>
+            <Download className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          </a>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 // Helper to detect support type from email content
@@ -993,14 +1059,10 @@ export default function EmailIntakePage() {
                           )}
                         </div>
 
-                        {email.has_attachments && (
-                          <div className="mt-3 pt-3 border-t">
-                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                              <Mail className="h-3 w-3" />
-                              Has attachments
-                            </p>
-                          </div>
-                        )}
+                        <AttachmentList
+                          attachments={email.attachments_meta || []}
+                          messageId={email.provider_message_id}
+                        />
                       </div>
                     ))}
                   </div>
@@ -1068,14 +1130,10 @@ export default function EmailIntakePage() {
                       )}
                     </div>
 
-                    {selectedEmail.has_attachments && (
-                      <div className="mt-3 pt-3 border-t">
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Mail className="h-3 w-3" />
-                          Has attachments
-                        </p>
-                      </div>
-                    )}
+                    <AttachmentList
+                      attachments={selectedEmail.attachments_meta || []}
+                      messageId={selectedEmail.provider_message_id}
+                    />
                   </div>
                 )}
 

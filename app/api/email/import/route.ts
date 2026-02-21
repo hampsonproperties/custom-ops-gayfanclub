@@ -33,11 +33,11 @@ export async function POST(request: NextRequest) {
     dateFilter.setDate(dateFilter.getDate() - daysBack)
     const dateFilterISO = dateFilter.toISOString()
 
-    // Fetch recent emails with date filter
+    // Fetch recent emails with date filter (including attachments flag)
     const messages = await client
       .api(`/users/${mailboxEmail}/messages`)
       .select(
-        'id,internetMessageId,subject,from,toRecipients,body,receivedDateTime,sentDateTime,conversationId'
+        'id,internetMessageId,subject,from,toRecipients,body,receivedDateTime,sentDateTime,conversationId,hasAttachments'
       )
       .filter(`receivedDateTime ge ${dateFilterISO}`)
       .top(limit)
@@ -60,6 +60,22 @@ export async function POST(request: NextRequest) {
         filtered++
         console.log(`[Email Import] Filtered junk email from: ${fromEmail}`)
         continue
+      }
+
+      // Fetch attachment metadata if email has attachments
+      if (message.hasAttachments) {
+        try {
+          const attachments = await client
+            .api(`/users/${mailboxEmail}/messages/${message.id}/attachments`)
+            .select('id,name,contentType,size,isInline')
+            .get()
+
+          message.attachments = attachments.value || []
+          console.log(`[Email Import] Fetched ${message.attachments.length} attachments for: ${subject}`)
+        } catch (err) {
+          console.error(`[Email Import] Failed to fetch attachments for ${message.id}:`, err)
+          message.attachments = []
+        }
       }
 
       // Use shared import function (handles deduplication, categorization, auto-linking)

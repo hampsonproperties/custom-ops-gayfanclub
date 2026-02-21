@@ -32,6 +32,14 @@ interface GraphMessage {
   receivedDateTime: string
   sentDateTime?: string
   conversationId: string
+  hasAttachments?: boolean
+  attachments?: Array<{
+    id: string
+    name: string
+    contentType: string
+    size: number
+    isInline: boolean
+  }>
 }
 
 interface EmailImportOptions {
@@ -349,6 +357,20 @@ export async function importEmail(
       }
     }
 
+    // Prepare attachment metadata for storage
+    const attachmentsMeta = message.hasAttachments && message.attachments
+      ? message.attachments
+          .filter(a => !a.isInline)  // Exclude inline images
+          .map(a => ({
+            id: a.id,
+            name: a.name,
+            contentType: a.contentType,
+            size: a.size,
+            provider: 'm365',
+            provider_attachment_id: a.id,
+          }))
+      : null
+
     // Insert the email (should not be a duplicate due to check above)
     // Note: internet_message_id and provider_message_id are optional but indexed for performance
     const { data: communication, error: insertError } = await supabase
@@ -371,6 +393,8 @@ export async function importEmail(
         triage_status: triageStatus,
         category,
         is_read: false,
+        has_attachments: message.hasAttachments || false,
+        attachments_meta: attachmentsMeta,
       })
       .select()
       .single()
