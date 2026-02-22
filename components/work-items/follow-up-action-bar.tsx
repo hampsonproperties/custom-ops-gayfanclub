@@ -8,6 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
@@ -202,35 +203,41 @@ export function FollowUpActionBar({ workItem, onChangeStatus, onCloseLead }: Fol
                     <ChevronDown className="ml-2 h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="z-50">
+                <DropdownMenuContent align="end" className="z-50 w-56">
                   {!workItem.closed_at && onChangeStatus && (
-                    <DropdownMenuItem onClick={onChangeStatus}>
-                      <Edit3 className="mr-2 h-4 w-4" />
-                      Change Status
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuItem onClick={onChangeStatus} className="cursor-pointer">
+                        <Edit3 className="mr-2 h-4 w-4" />
+                        <span>Change Status</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
                   )}
-                  <DropdownMenuItem onClick={() => setSnoozeDialogOpen(true)}>
+                  <DropdownMenuItem onClick={() => setSnoozeDialogOpen(true)} className="cursor-pointer">
                     <Clock className="mr-2 h-4 w-4" />
-                    Snooze Follow-Up
+                    <span>Snooze Follow-Up</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleToggleWaiting}>
+                  <DropdownMenuItem onClick={handleToggleWaiting} className="cursor-pointer">
                     {workItem.is_waiting ? (
                       <>
                         <Play className="mr-2 h-4 w-4" />
-                        Resume Follow-Ups
+                        <span>Resume Follow-Ups</span>
                       </>
                     ) : (
                       <>
                         <Pause className="mr-2 h-4 w-4" />
-                        Mark as Waiting
+                        <span>Mark as Waiting</span>
                       </>
                     )}
                   </DropdownMenuItem>
                   {!workItem.closed_at && onCloseLead && (
-                    <DropdownMenuItem onClick={onCloseLead} className="text-destructive">
-                      <XCircle className="mr-2 h-4 w-4" />
-                      Close Lead
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={onCloseLead} className="cursor-pointer text-destructive focus:text-destructive">
+                        <XCircle className="mr-2 h-4 w-4" />
+                        <span>Close Lead</span>
+                      </DropdownMenuItem>
+                    </>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
