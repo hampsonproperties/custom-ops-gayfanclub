@@ -49,7 +49,7 @@ export default function InboxPage() {
         title: leadForm.title || selectedEmail.subject,
         estimated_value: leadForm.estimated_value ? parseFloat(leadForm.estimated_value) : null,
         notes: leadForm.notes || null,
-      })
+      } as any)
 
       // Link email to work item
       await triageEmail.mutateAsync({
