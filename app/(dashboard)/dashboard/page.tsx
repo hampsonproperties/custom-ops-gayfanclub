@@ -62,7 +62,7 @@ export default function DashboardPage() {
 
       {/* Inbox Badge (if there are untriaged emails) */}
       {untriagedEmails && untriagedEmails.length > 0 && (
-        <Link href="/email-intake">
+        <Link href="/inbox">
           <Card className="border-l-4 border-l-blue-500 hover:shadow-md transition-shadow cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
