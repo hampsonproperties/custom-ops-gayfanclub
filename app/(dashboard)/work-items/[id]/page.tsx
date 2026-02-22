@@ -21,8 +21,12 @@ import { useWorkItem, useUpdateWorkItem } from '@/lib/hooks/use-work-items'
 import { useCommunications } from '@/lib/hooks/use-communications'
 import { useFiles, useUploadFile, useDeleteFile, getFileUrl } from '@/lib/hooks/use-files'
 import { useTimeline } from '@/lib/hooks/use-timeline'
-import { ArrowLeft, Mail, FileText, Info, Send, Upload, File as FileIcon, Trash2, Download, Image as ImageIcon, Clock, CheckCircle, FileUp, Activity, ExternalLink, MailCheck } from 'lucide-react'
+import { ArrowLeft, Mail, FileText, Info, Send, Upload, File as FileIcon, Trash2, Download, Image as ImageIcon, Clock, CheckCircle, FileUp, Activity, ExternalLink, MailCheck, Lock } from 'lucide-react'
 import type { Database } from '@/types/database'
+import { InternalNotes } from '@/components/work-items/internal-notes'
+import { AssignmentManager } from '@/components/work-items/assignment-manager'
+import { TagManager } from '@/components/work-items/tag-manager'
+import { ValueManager } from '@/components/work-items/value-manager'
 
 type FileRecord = Database['public']['Tables']['files']['Row']
 import { formatDistanceToNow } from 'date-fns'
@@ -178,7 +182,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
 
       {/* Key Details */}
       <Card>
-        <CardContent className="p-6">
+        <CardContent className="p-6 space-y-4">
           <div className="grid grid-cols-4 gap-6">
             <div>
               <span className="text-sm text-muted-foreground">Type</span>
@@ -213,6 +217,21 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
               </p>
             </div>
           </div>
+
+          <div className="border-t pt-4 flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Value:</span>
+              <ValueManager workItemId={id} estimatedValue={workItem.estimated_value} />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Assigned:</span>
+              <AssignmentManager workItemId={id} currentAssignee={workItem.assigned_to_email} />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Tags:</span>
+              <TagManager workItemId={id} />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -226,6 +245,10 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
           <TabsTrigger value="communication" className="gap-2">
             <Mail className="h-4 w-4" />
             Communication
+          </TabsTrigger>
+          <TabsTrigger value="notes" className="gap-2">
+            <Lock className="h-4 w-4" />
+            Notes
           </TabsTrigger>
           <TabsTrigger value="files" className="gap-2">
             <FileIcon className="h-4 w-4" />
@@ -412,6 +435,10 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
                 : ''
             }
           />
+        </TabsContent>
+
+        <TabsContent value="notes">
+          <InternalNotes workItemId={id} />
         </TabsContent>
 
         <TabsContent value="files">

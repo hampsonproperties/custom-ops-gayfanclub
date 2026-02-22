@@ -45,7 +45,7 @@ export function useUploadFile() {
     }: {
       workItemId: string
       file: File
-      kind: 'preview' | 'design' | 'proof' | 'other'
+      kind: 'preview' | 'design' | 'proof' | 'other' | 'email_attachment'
       note?: string
     }) => {
       // Get current user

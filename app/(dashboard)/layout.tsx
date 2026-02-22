@@ -67,47 +67,49 @@ export default async function DashboardLayout({
 
           {/* Navigation Links */}
           <nav className="flex-1 p-4 space-y-1">
+            {/* Primary */}
             <Link href="/dashboard">
               <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <LayoutDashboard className="h-4 w-4" />
                 Dashboard
               </Button>
             </Link>
-            <Link href="/work-items">
+
+            <div className="pt-4 pb-2">
+              <p className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Sales & Leads
+              </p>
+            </div>
+
+            <Link href="/follow-ups">
               <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
-                <Inbox className="h-4 w-4" />
-                Work Items
+                <Bell className="h-4 w-4" />
+                Sales Leads
+              </Button>
+            </Link>
+            <Link href="/inbox">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
+                <Mail className="h-4 w-4" />
+                Inbox (Triage)
               </Button>
             </Link>
 
             <div className="pt-4 pb-2">
               <p className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Queues
+                Production
               </p>
             </div>
 
-            <Link href="/email-intake">
+            <Link href="/work-items">
               <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
-                <Mail className="h-4 w-4" />
-                Inbox
-              </Button>
-            </Link>
-            <Link href="/inbox/replies">
-              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
-                <MailCheck className="h-4 w-4" />
-                Conversations
-              </Button>
-            </Link>
-            <Link href="/follow-ups">
-              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
-                <Bell className="h-4 w-4" />
-                Leads
+                <Inbox className="h-4 w-4" />
+                All Projects
               </Button>
             </Link>
             <Link href="/design-queue">
               <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <ClipboardCheck className="h-4 w-4" />
-                Customify Review
+                Design Review
               </Button>
             </Link>
             <Link href="/custom-design-queue">
@@ -139,18 +141,6 @@ export default async function DashboardLayout({
               <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <AlertTriangle className="h-4 w-4" />
                 Stuck Items
-              </Button>
-            </Link>
-            <Link href="/admin/import-orders">
-              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
-                <Download className="h-4 w-4" />
-                Import Orders
-              </Button>
-            </Link>
-            <Link href="/test-tools">
-              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
-                <Beaker className="h-4 w-4" />
-                Test Tools
               </Button>
             </Link>
             <Link href="/settings">

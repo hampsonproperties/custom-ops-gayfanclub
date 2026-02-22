@@ -1,9 +1,9 @@
 'use client'
 
 import { formatDistanceToNow } from 'date-fns'
-import { Mail, ArrowDownCircle, ArrowUpCircle, Paperclip, ChevronDown, ChevronUp } from 'lucide-react'
+import { Mail, ArrowDownCircle, ArrowUpCircle, Paperclip, ChevronDown, ChevronUp, Download, FileIcon as FileIconLucide, Image as ImageIcon } from 'lucide-react'
 import { Card } from '@/components/ui/card'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import DOMPurify from 'dompurify'
 import type { Database } from '@/types/database'
 import {
@@ -12,11 +12,86 @@ import {
   separateQuotedContent,
   formatEmailTimestamp,
 } from '@/lib/utils/email-formatting'
+import { createClient } from '@/lib/supabase/client'
+import { getFileUrl } from '@/lib/hooks/use-files'
 
 type Communication = Database['public']['Tables']['communications']['Row']
+type FileRecord = Database['public']['Tables']['files']['Row']
 
 interface ConversationThreadProps {
   communications: Communication[]
+}
+
+// Component to display email attachments from the files table
+function EmailAttachments({ communicationId }: { communicationId: string }) {
+  const [attachments, setAttachments] = useState<FileRecord[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const supabase = createClient()
+
+    async function fetchAttachments() {
+      const { data, error } = await supabase
+        .from('files')
+        .select('*')
+        .eq('communication_id', communicationId)
+        .order('created_at', { ascending: true })
+
+      if (!error && data) {
+        setAttachments(data)
+      }
+      setLoading(false)
+    }
+
+    fetchAttachments()
+  }, [communicationId])
+
+  if (loading || attachments.length === 0) return null
+
+  const formatFileSize = (bytes: number | null): string => {
+    if (!bytes) return 'Unknown size'
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t space-y-2">
+      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+        <Paperclip className="h-3 w-3" />
+        {attachments.length} {attachments.length === 1 ? 'Attachment' : 'Attachments'}
+      </p>
+      <div className="space-y-1.5">
+        {attachments.map((attachment) => {
+          const fileUrl = getFileUrl(attachment)
+          const isImage = attachment.mime_type?.startsWith('image/')
+
+          return (
+            <a
+              key={attachment.id}
+              href={fileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 p-2 rounded-md bg-muted/30 hover:bg-muted/50 transition-colors group"
+            >
+              {isImage ? (
+                <ImageIcon className="h-4 w-4 text-blue-500 flex-shrink-0" />
+              ) : (
+                <FileIconLucide className="h-4 w-4 text-gray-500 flex-shrink-0" />
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{attachment.original_filename}</p>
+                <p className="text-xs text-muted-foreground">
+                  {formatFileSize(attachment.size_bytes)}
+                </p>
+              </div>
+              <Download className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            </a>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 export function ConversationThread({ communications }: ConversationThreadProps) {
@@ -292,6 +367,9 @@ export function ConversationThread({ communications }: ConversationThreadProps) 
                         {comm.body_preview || 'No content available'}
                       </p>
                     )}
+
+                    {/* Email Attachments */}
+                    <EmailAttachments communicationId={comm.id} />
                   </div>
                 </div>
               )}

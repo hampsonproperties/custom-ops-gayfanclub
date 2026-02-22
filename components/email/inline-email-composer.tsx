@@ -6,9 +6,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { FileAttachmentPicker } from './file-attachment-picker'
 import { useSendEmail } from '@/lib/hooks/use-communications'
-import { Send } from 'lucide-react'
+import { useQuickReplyTemplates, applyTemplate } from '@/lib/hooks/use-templates'
+import { Send, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Database } from '@/types/database'
 
@@ -36,6 +43,24 @@ export function InlineEmailComposer({
   const [includeApprovalLink, setIncludeApprovalLink] = useState(false)
 
   const sendEmail = useSendEmail()
+  const { data: templates } = useQuickReplyTemplates()
+
+  const handleUseTemplate = (templateId: string) => {
+    const template = templates?.find((t) => t.id === templateId)
+    if (!template) return
+
+    const variables = {
+      customer_name: workItem.customer_name || 'there',
+      original_subject: defaultSubject || '',
+      work_item_title: workItem.title || '',
+    }
+
+    const { subject: templateSubject, body: templateBody } = applyTemplate(template, variables)
+
+    setSubject(templateSubject)
+    setBody(templateBody)
+    toast.success(`Template "${template.name}" applied`)
+  }
 
   const handleSend = async () => {
     if (!to || !subject || !body) {
@@ -70,11 +95,39 @@ export function InlineEmailComposer({
 
   return (
     <div className="border rounded-lg p-4 space-y-4 bg-card">
-      <div className="space-y-1">
-        <h3 className="font-semibold text-lg">Compose New Email</h3>
-        <p className="text-sm text-muted-foreground">
-          Send an email with optional file attachments and approval links
-        </p>
+      <div className="flex items-start justify-between">
+        <div className="space-y-1">
+          <h3 className="font-semibold text-lg">Compose New Email</h3>
+          <p className="text-sm text-muted-foreground">
+            Send an email with optional file attachments and approval links
+          </p>
+        </div>
+        {templates && templates.length > 0 && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <FileText className="h-4 w-4" />
+                Use Template
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {templates.map((template) => (
+                <DropdownMenuItem
+                  key={template.id}
+                  onClick={() => handleUseTemplate(template.id)}
+                  className="gap-2"
+                >
+                  <span>{template.name}</span>
+                  {template.hotkey && (
+                    <span className="ml-auto text-xs text-muted-foreground">
+                      {template.hotkey}
+                    </span>
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       <div className="space-y-4">

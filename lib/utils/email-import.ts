@@ -5,6 +5,7 @@ import { isFormSubmissionEmail, parseFormEmail, isValidFormSubmission } from '@/
 import { isDuplicateEmail } from '@/lib/utils/email-deduplication'
 import { autoLinkEmailToWorkItem } from '@/lib/utils/order-number-extractor'
 import { addToDLQ } from '@/lib/utils/dead-letter-queue'
+import { downloadAndSaveEmailAttachments } from '@/lib/utils/email-attachments'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -478,6 +479,41 @@ export async function importEmail(
         },
         communicationId: communication.id,
       })
+    }
+
+    // Download and save email attachments (if any)
+    if (attachmentsMeta && attachmentsMeta.length > 0 && !skipEnrichment) {
+      try {
+        console.log(`[Email Import] Downloading ${attachmentsMeta.length} attachments for message ${message.id}`)
+        const attachmentResult = await downloadAndSaveEmailAttachments(
+          communication.id,
+          workItemId,
+          message.id,
+          attachmentsMeta
+        )
+
+        if (attachmentResult.success) {
+          console.log(`[Email Import] Successfully downloaded ${attachmentResult.downloadedCount} attachments`)
+        } else {
+          console.warn(`[Email Import] Attachment download had errors:`, attachmentResult.errors)
+        }
+      } catch (attachmentError) {
+        // Don't fail the import if attachment download fails
+        console.error('[Email Import] Attachment download error:', attachmentError)
+        await addToDLQ({
+          operationType: 'attachment_download',
+          operationKey: `attachments:${message.id}`,
+          errorMessage: attachmentError instanceof Error ? attachmentError.message : 'Unknown error',
+          errorStack: attachmentError instanceof Error ? attachmentError.stack : undefined,
+          operationPayload: {
+            messageId: message.id,
+            communicationId: communication.id,
+            workItemId,
+            attachmentCount: attachmentsMeta.length
+          },
+          communicationId: communication.id,
+        })
+      }
     }
 
     console.log('[Email Import] Successfully imported:', {

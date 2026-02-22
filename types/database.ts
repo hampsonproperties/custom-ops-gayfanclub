@@ -13,7 +13,7 @@ export type DesignReviewStatus = 'pending' | 'approved' | 'needs_fix'
 export type CommunicationDirection = 'inbound' | 'outbound'
 export type TriageStatus = 'untriaged' | 'triaged' | 'created_lead' | 'attached' | 'flagged_support' | 'archived'
 export type EmailCategory = 'primary' | 'promotional' | 'spam' | 'notifications'
-export type FileKind = 'preview' | 'design' | 'proof' | 'other'
+export type FileKind = 'preview' | 'design' | 'proof' | 'other' | 'email_attachment'
 export type BatchStatus = 'draft' | 'confirmed' | 'exported'
 export type IntegrationProvider = 'shopify' | 'm365'
 export type IntegrationStatus = 'connected' | 'disconnected' | 'error'
@@ -472,7 +472,8 @@ export interface Database {
       files: {
         Row: {
           id: string
-          work_item_id: string
+          work_item_id: string | null
+          communication_id: string | null
           kind: FileKind
           version: number
           original_filename: string
@@ -489,7 +490,8 @@ export interface Database {
         }
         Insert: {
           id?: string
-          work_item_id: string
+          work_item_id?: string | null
+          communication_id?: string | null
           kind: FileKind
           version?: number
           original_filename: string
@@ -506,7 +508,8 @@ export interface Database {
         }
         Update: {
           id?: string
-          work_item_id?: string
+          work_item_id?: string | null
+          communication_id?: string | null
           kind?: FileKind
           version?: number
           original_filename?: string
