@@ -9,16 +9,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useUpdateWorkItem } from '@/lib/hooks/use-work-items'
+import { useActiveUsers } from '@/lib/hooks/use-users'
 import { UserCircle, Check } from 'lucide-react'
 import { toast } from 'sonner'
-
-// In a real app, you'd fetch this from a users table
-const TEAM_MEMBERS = [
-  'timothy@thegayfanclub.com',
-  'sales@thegayfanclub.com',
-  'sarah@thegayfanclub.com',
-  'ops@thegayfanclub.com',
-]
 
 export function AssignmentManager({
   workItemId,
@@ -28,6 +21,7 @@ export function AssignmentManager({
   currentAssignee: string | null
 }) {
   const updateWorkItem = useUpdateWorkItem()
+  const { data: users = [], isLoading } = useActiveUsers()
 
   const handleAssign = async (email: string | null) => {
     try {
@@ -44,28 +38,36 @@ export function AssignmentManager({
     }
   }
 
+  // Find current assignee's full name if available
+  const currentAssigneeName = users.find((u) => u.email === currentAssignee)?.full_name || currentAssignee
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
+        <Button variant="outline" size="sm" className="gap-2" disabled={isLoading}>
           <UserCircle className="h-4 w-4" />
-          {currentAssignee || 'Unassigned'}
+          {currentAssigneeName || 'Unassigned'}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="z-50">
-        {TEAM_MEMBERS.map((email) => (
+      <DropdownMenuContent align="end" className="w-56 bg-popover">
+        {users.length === 0 && !isLoading && (
+          <div className="px-2 py-1.5 text-sm text-muted-foreground">
+            No users found
+          </div>
+        )}
+        {users.map((user) => (
           <DropdownMenuItem
-            key={email}
-            onClick={() => handleAssign(email)}
+            key={user.id}
+            onClick={() => handleAssign(user.email)}
             className="gap-2"
           >
-            {currentAssignee === email && <Check className="h-4 w-4" />}
-            <span className={currentAssignee !== email ? 'ml-6' : ''}>
-              {email}
+            {currentAssignee === user.email && <Check className="h-4 w-4" />}
+            <span className={currentAssignee !== user.email ? 'ml-6' : ''}>
+              {user.full_name || user.email}
             </span>
           </DropdownMenuItem>
         ))}
-        {currentAssignee && (
+        {currentAssignee && users.length > 0 && (
           <>
             <DropdownMenuItem className="border-t" onClick={() => handleAssign(null)}>
               <span className="ml-6 text-muted-foreground">Unassign</span>
