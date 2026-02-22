@@ -27,6 +27,7 @@ import { InternalNotes } from '@/components/work-items/internal-notes'
 import { AssignmentManager } from '@/components/work-items/assignment-manager'
 import { TagManager } from '@/components/work-items/tag-manager'
 import { ValueManager } from '@/components/work-items/value-manager'
+import { CustomerDetailsEditor } from '@/components/work-items/customer-details-editor'
 
 type FileRecord = Database['public']['Tables']['files']['Row']
 import { formatDistanceToNow } from 'date-fns'
@@ -156,8 +157,23 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
         </Link>
 
         <div className="flex-1">
-          <h1 className="text-3xl font-bold">{workItem.customer_name || 'Unknown Customer'}</h1>
-          <p className="text-muted-foreground">{workItem.title || workItem.customer_email}</p>
+          <h1 className="text-3xl font-bold">
+            {workItem.customer_name || workItem.company_name || workItem.customer_email || 'Unknown Customer'}
+          </h1>
+          <div className="flex items-center gap-2 text-muted-foreground">
+            {workItem.customer_name && workItem.company_name && (
+              <span>{workItem.company_name}</span>
+            )}
+            {workItem.customer_name && !workItem.company_name && workItem.customer_email && (
+              <span>{workItem.customer_email}</span>
+            )}
+            {workItem.title && (
+              <>
+                {(workItem.customer_name || workItem.company_name) && <span>•</span>}
+                <span>{workItem.title}</span>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -536,6 +552,8 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
         </TabsContent>
 
         <TabsContent value="details" className="space-y-4">
+          <CustomerDetailsEditor workItem={workItem} />
+
           <Card>
             <CardHeader>
               <CardTitle>Order Details</CardTitle>
