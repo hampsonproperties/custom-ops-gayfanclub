@@ -87,14 +87,7 @@ type Email = {
   provider_thread_id: string | null
   provider_message_id: string | null
   has_attachments: boolean
-  attachments_meta: Array<{
-    id: string
-    name: string
-    contentType: string
-    size: number
-    provider: string
-    provider_attachment_id: string
-  }> | null
+  attachments_meta: any // Database returns Json type
   category: EmailCategory
   direction: 'inbound' | 'outbound'
   is_read: boolean
