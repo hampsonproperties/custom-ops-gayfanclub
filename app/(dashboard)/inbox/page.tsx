@@ -31,13 +31,12 @@ type EmailTab = EmailCategory | 'support'
 
 type EmailWithMetadata = {
   id: string
-  from_name: string | null
   from_email: string
-  subject: string
+  subject: string | null
   body_preview: string | null
   body_html: string | null
-  received_at: string
-  triage_status: string | null
+  received_at: string | null
+  triage_status: string
   work_item_id: string | null
   category: string | null
 }
@@ -88,11 +87,12 @@ export default function InboxPage() {
     if (!selectedEmail) return
 
     try {
+      const parsedFrom = parseEmailAddress(selectedEmail.from_email)
       const workItem = await createWorkItem.mutateAsync({
         type: 'assisted_project',
         source: 'email',
         status: 'new_inquiry',
-        customer_name: leadForm.customer_name || selectedEmail.from_name || selectedEmail.from_email,
+        customer_name: leadForm.customer_name || parsedFrom.displayName,
         customer_email: leadForm.customer_email || selectedEmail.from_email,
         title: leadForm.title || selectedEmail.subject,
         estimated_value: leadForm.estimated_value ? parseFloat(leadForm.estimated_value) : null,
@@ -140,8 +140,9 @@ export default function InboxPage() {
 
   const openCreateLeadDialog = (email: EmailWithMetadata) => {
     setSelectedEmail(email)
+    const parsedFrom = parseEmailAddress(email.from_email)
     setLeadForm({
-      customer_name: email.from_name || '',
+      customer_name: parsedFrom.displayName,
       customer_email: email.from_email || '',
       title: email.subject || '',
       estimated_value: '',
@@ -261,9 +262,9 @@ export default function InboxPage() {
                           <div className="flex items-center gap-2 mb-1">
                             <Mail className="h-4 w-4 text-muted-foreground" />
                             <span className="font-medium">
-                              {email.from_name || email.from_email}
+                              {parseEmailAddress(email.from_email).displayName}
                             </span>
-                            {email.from_name && (
+                            {parseEmailAddress(email.from_email).name && (
                               <span className="text-sm text-muted-foreground">
                                 &lt;{email.from_email}&gt;
                               </span>
