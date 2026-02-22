@@ -53,8 +53,8 @@ export default function InboxPage() {
 
       // Link email to work item
       await triageEmail.mutateAsync({
-        emailId: selectedEmail.id,
-        action: 'create_lead',
+        id: selectedEmail.id,
+        triageStatus: 'created_lead',
         workItemId: workItem.id,
       })
 
@@ -70,8 +70,8 @@ export default function InboxPage() {
   const handleArchive = async (email: any) => {
     try {
       await triageEmail.mutateAsync({
-        emailId: email.id,
-        action: 'archive',
+        id: email.id,
+        triageStatus: 'archived',
       })
       toast.success('Email archived')
     } catch (error) {
