@@ -40,7 +40,7 @@ export default function InboxPage() {
   const triageEmail = useTriageEmail()
   const createWorkItem = useCreateWorkItem()
 
-  const [selectedEmail, setSelectedEmail] = useState<any>(null)
+  const [selectedEmail, setSelectedEmail] = useState<EmailWithMetadata | null>(null)
   const [showCreateLeadDialog, setShowCreateLeadDialog] = useState(false)
   const [leadForm, setLeadForm] = useState({
     customer_name: '',
@@ -81,7 +81,7 @@ export default function InboxPage() {
     }
   }
 
-  const handleArchive = async (email: any) => {
+  const handleArchive = async (email: EmailWithMetadata) => {
     try {
       await triageEmail.mutateAsync({
         id: email.id,
@@ -93,7 +93,7 @@ export default function InboxPage() {
     }
   }
 
-  const openCreateLeadDialog = (email: any) => {
+  const openCreateLeadDialog = (email: EmailWithMetadata) => {
     setSelectedEmail(email)
     setLeadForm({
       customer_name: email.from_name || '',
@@ -129,7 +129,7 @@ export default function InboxPage() {
       {/* Emails List */}
       {emails && emails.length > 0 ? (
         <div className="space-y-3">
-          {(emails as EmailWithMetadata[]).map((email) => (
+          {(emails as unknown as EmailWithMetadata[]).map((email) => (
             <Card key={email.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-6">
                 <div className="space-y-4">
