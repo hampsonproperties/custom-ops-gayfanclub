@@ -36,7 +36,7 @@ export function AssignmentManager({
         updates: {
           assigned_to_email: email,
           assigned_at: email ? new Date().toISOString() : null,
-        },
+        } as any,
       })
       toast.success(email ? `Assigned to ${email}` : 'Assignment removed')
     } catch (error) {

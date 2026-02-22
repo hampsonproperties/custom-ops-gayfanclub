@@ -23,7 +23,7 @@ export function ValueManager({
       const numValue = value ? parseFloat(value) : null
       await updateWorkItem.mutateAsync({
         id: workItemId,
-        updates: { estimated_value: numValue },
+        updates: { estimated_value: numValue } as any,
       })
       toast.success('Value updated')
       setIsEditing(false)
