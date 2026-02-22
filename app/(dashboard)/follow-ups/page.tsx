@@ -256,8 +256,8 @@ export default function LeadsPage() {
 
                   return (
                     <TableRow key={item.id} className="hover:bg-muted/50">
-                      <TableCell>
-                        <div className="space-y-1">
+                      <TableCell className="py-4">
+                        <div className="space-y-1.5">
                           <Link
                             href={`/work-items/${item.id}`}
                             className="font-medium hover:underline flex items-center gap-1.5"
@@ -268,22 +268,24 @@ export default function LeadsPage() {
                           <div className="text-xs text-muted-foreground truncate">
                             {item.customer_email}
                           </div>
-                          <div className="flex gap-1 flex-wrap">
-                            {priorityBadge}
-                          </div>
+                          {priorityBadge && (
+                            <div className="flex gap-1 flex-wrap pt-0.5">
+                              {priorityBadge}
+                            </div>
+                          )}
                         </div>
                       </TableCell>
 
-                      <TableCell>
+                      <TableCell className="py-4">
                         <Select
                           value={item.status}
                           onValueChange={(value) => handleStatusChange(item.id, value)}
                           disabled={updateStatus.isPending}
                         >
-                          <SelectTrigger className="h-8 text-xs font-medium">
+                          <SelectTrigger className="h-9 text-sm font-medium w-full">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="z-50">
+                          <SelectContent>
                             {STATUS_OPTIONS.map((option) => (
                               <SelectItem key={option.value} value={option.value}>
                                 <span className="flex items-center gap-2">
@@ -296,21 +298,21 @@ export default function LeadsPage() {
                         </Select>
                       </TableCell>
 
-                      <TableCell>
+                      <TableCell className="py-4">
                         <div className="text-sm text-muted-foreground">
                           {lastActivity}
                         </div>
                       </TableCell>
 
-                      <TableCell>
+                      <TableCell className="py-4">
                         <div className="text-sm">
                           {getActionNeeded(item)}
                         </div>
                       </TableCell>
 
-                      <TableCell>
+                      <TableCell className="py-4">
                         {eventInfo ? (
-                          <div className="text-xs">
+                          <div className="text-xs space-y-0.5">
                             <div className={eventInfo.isRush ? 'text-orange-600 font-medium' : 'text-muted-foreground'}>
                               {eventInfo.text}
                             </div>
@@ -323,20 +325,20 @@ export default function LeadsPage() {
                         )}
                       </TableCell>
 
-                      <TableCell className="text-right">
+                      <TableCell className="text-right py-4">
                         <div className="flex items-center justify-end gap-2">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => handleMarkFollowedUp(item.id)}
                             disabled={markFollowedUp.isPending}
-                            className="h-8"
+                            className="h-9 text-sm"
                           >
-                            <Check className="h-3 w-3 mr-1" />
+                            <Check className="h-4 w-4 mr-1.5" />
                             Done
                           </Button>
                           <Link href={`/work-items/${item.id}`}>
-                            <Button size="sm" className="h-8">
+                            <Button size="sm" className="h-9 text-sm">
                               View
                             </Button>
                           </Link>

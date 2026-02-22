@@ -198,34 +198,34 @@ export function FollowUpActionBar({ workItem, onChangeStatus, onCloseLead }: Fol
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="outline">
+                  <Button size="sm" variant="outline" className="gap-2">
                     Actions
-                    <ChevronDown className="ml-2 h-4 w-4" />
+                    <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="z-50 w-56">
+                <DropdownMenuContent align="end" className="w-56">
                   {!workItem.closed_at && onChangeStatus && (
                     <>
-                      <DropdownMenuItem onClick={onChangeStatus} className="cursor-pointer">
-                        <Edit3 className="mr-2 h-4 w-4" />
+                      <DropdownMenuItem onClick={onChangeStatus}>
+                        <Edit3 className="h-4 w-4" />
                         <span>Change Status</span>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                     </>
                   )}
-                  <DropdownMenuItem onClick={() => setSnoozeDialogOpen(true)} className="cursor-pointer">
-                    <Clock className="mr-2 h-4 w-4" />
+                  <DropdownMenuItem onClick={() => setSnoozeDialogOpen(true)}>
+                    <Clock className="h-4 w-4" />
                     <span>Snooze Follow-Up</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleToggleWaiting} className="cursor-pointer">
+                  <DropdownMenuItem onClick={handleToggleWaiting}>
                     {workItem.is_waiting ? (
                       <>
-                        <Play className="mr-2 h-4 w-4" />
+                        <Play className="h-4 w-4" />
                         <span>Resume Follow-Ups</span>
                       </>
                     ) : (
                       <>
-                        <Pause className="mr-2 h-4 w-4" />
+                        <Pause className="h-4 w-4" />
                         <span>Mark as Waiting</span>
                       </>
                     )}
@@ -233,8 +233,8 @@ export function FollowUpActionBar({ workItem, onChangeStatus, onCloseLead }: Fol
                   {!workItem.closed_at && onCloseLead && (
                     <>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={onCloseLead} className="cursor-pointer text-destructive focus:text-destructive">
-                        <XCircle className="mr-2 h-4 w-4" />
+                      <DropdownMenuItem onClick={onCloseLead} className="text-destructive focus:text-destructive">
+                        <XCircle className="h-4 w-4" />
                         <span>Close Lead</span>
                       </DropdownMenuItem>
                     </>

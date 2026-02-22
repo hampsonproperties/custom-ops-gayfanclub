@@ -158,18 +158,15 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
 
         <div className="flex-1">
           <h1 className="text-3xl font-bold">
-            {workItem.customer_name || workItem.company_name || workItem.customer_email || 'Unknown Customer'}
+            {workItem.customer_name || workItem.customer_email || 'Unknown Customer'}
           </h1>
           <div className="flex items-center gap-2 text-muted-foreground">
-            {workItem.customer_name && workItem.company_name && (
-              <span>{workItem.company_name}</span>
-            )}
-            {workItem.customer_name && !workItem.company_name && workItem.customer_email && (
+            {workItem.customer_name && workItem.customer_email && (
               <span>{workItem.customer_email}</span>
             )}
             {workItem.title && (
               <>
-                {(workItem.customer_name || workItem.company_name) && <span>•</span>}
+                {workItem.customer_name && <span>•</span>}
                 <span>{workItem.title}</span>
               </>
             )}
