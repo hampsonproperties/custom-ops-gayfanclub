@@ -18,7 +18,8 @@ import {
   Download,
   Beaker,
   Bell,
-  MailCheck
+  MailCheck,
+  AlertTriangle
 } from 'lucide-react'
 
 export default async function DashboardLayout({
@@ -100,13 +101,13 @@ export default async function DashboardLayout({
             <Link href="/follow-ups">
               <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <Bell className="h-4 w-4" />
-                Follow-Ups
+                Leads
               </Button>
             </Link>
             <Link href="/design-queue">
               <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <ClipboardCheck className="h-4 w-4" />
-                Design Review
+                Customify Review
               </Button>
             </Link>
             <Link href="/custom-design-queue">
@@ -134,6 +135,12 @@ export default async function DashboardLayout({
               </p>
             </div>
 
+            <Link href="/stuck-items">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
+                <AlertTriangle className="h-4 w-4" />
+                Stuck Items
+              </Button>
+            </Link>
             <Link href="/admin/import-orders">
               <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <Download className="h-4 w-4" />

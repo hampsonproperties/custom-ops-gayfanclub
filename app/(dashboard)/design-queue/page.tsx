@@ -84,9 +84,9 @@ export default function DesignQueuePage() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Design Review Queue</h1>
+          <h1 className="text-3xl font-bold">Customify Review Queue</h1>
           <p className="text-muted-foreground">
-            {pendingCount} pending proof{pendingCount !== 1 ? 's' : ''} requiring attention
+            {pendingCount} Customify.ai submission{pendingCount !== 1 ? 's' : ''} requiring review
           </p>
         </div>
 

@@ -40,10 +40,11 @@ export function MyActionsToday() {
       // 1. Untriaged PRIMARY emails only (high priority - actual customer emails)
       const { data: untriagedEmails } = await supabase
         .from('communications')
-        .select('id, subject, from_email, received_at, category')
+        .select('id, subject, from_email, received_at, category, work_item_id, work_item:work_items(id)')
         .eq('triage_status', 'untriaged')
         .eq('direction', 'inbound')
         .eq('category', 'primary')  // ONLY show primary category (customer emails)
+        .is('work_item_id', null)  // Exclude emails already linked to work items (those are in Conversations)
         .order('received_at', { ascending: false })
         .limit(5)
 
@@ -53,7 +54,7 @@ export function MyActionsToday() {
           type: 'email',
           title: email.subject || '(no subject)',
           subtitle: `From: ${email.from_email}`,
-          link: `/email-intake`,  // Link to inbox (email will be in Primary tab)
+          link: `/email-intake`,  // Link to inbox (unlinked emails)
           priority: 'high',
           dueInfo: formatDistanceToNow(new Date(email.received_at), {
             addSuffix: true,
@@ -62,7 +63,32 @@ export function MyActionsToday() {
         })
       })
 
-      // 2. Follow-ups due today (high priority)
+      // 2. Customer replies needing action (linked to work items)
+      const { data: customerReplies } = await supabase
+        .from('communications')
+        .select('id, subject, from_email, received_at, work_item_id, work_item:work_items(id, title, customer_name)')
+        .eq('direction', 'inbound')
+        .is('actioned_at', null)
+        .not('work_item_id', 'is', null)
+        .order('received_at', { ascending: false })
+        .limit(5)
+
+      customerReplies?.forEach((email: any) => {
+        actions.push({
+          id: email.id,
+          type: 'email',
+          title: email.subject || '(no subject)',
+          subtitle: `From: ${email.from_email}`,
+          link: `/work-items/${email.work_item_id}`,  // Link to specific work item
+          priority: 'high',
+          dueInfo: formatDistanceToNow(new Date(email.received_at), {
+            addSuffix: true,
+          }),
+          icon: Mail,
+        })
+      })
+
+      // 3. Follow-ups due today (high priority)
       const { data: followUpsToday } = await supabase
         .from('work_items')
         .select('id, title, customer_name, next_follow_up_at')
@@ -87,7 +113,7 @@ export function MyActionsToday() {
         })
       })
 
-      // 3. Designs awaiting approval (medium priority)
+      // 4. Designs awaiting approval (medium priority)
       const { data: awaitingApproval } = await supabase
         .from('work_items')
         .select('id, title, customer_name, updated_at')
@@ -111,7 +137,7 @@ export function MyActionsToday() {
         })
       })
 
-      // 4. Design review queue (medium priority)
+      // 5. Design review queue (medium priority)
       const { data: designReview } = await supabase
         .from('work_items')
         .select('id, title, customer_name, updated_at')
@@ -136,7 +162,7 @@ export function MyActionsToday() {
         })
       })
 
-      // 5. DLQ failures needing attention (high priority)
+      // 6. DLQ failures needing attention (high priority)
       const { data: dlqFailures } = await supabase
         .from('dead_letter_queue')
         .select('id, operation_type, operation_key, created_at')

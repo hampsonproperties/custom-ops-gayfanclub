@@ -35,23 +35,23 @@ export default function DashboardPage() {
       priority: true
     },
     {
-      title: 'Needs Follow-Up Today',
+      title: 'Sales Leads Today',
       count: followUpToday?.length || 0,
       icon: Clock,
-      link: '/work-items?view=follow-up-today',
+      link: '/follow-ups',
       color: 'text-[#FFC107]',
       bgColor: 'bg-[#FFC107]/10'
     },
     {
-      title: 'Overdue Follow-Ups',
+      title: 'Overdue Sales Leads',
       count: overdueFollowUps?.length || 0,
       icon: AlertCircle,
-      link: '/work-items?view=overdue',
+      link: '/follow-ups',
       color: 'text-[#FF9800]',
       bgColor: 'bg-[#FF9800]/10'
     },
     {
-      title: 'Design Review Queue',
+      title: 'Customify Review Queue',
       count: designReviewQueue?.length || 0,
       icon: ClipboardCheck,
       link: '/design-queue',

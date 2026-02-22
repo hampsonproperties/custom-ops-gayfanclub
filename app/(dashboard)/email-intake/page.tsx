@@ -40,6 +40,7 @@ import {
   useFlaggedSupportEmails,
 } from '@/lib/hooks/use-communications'
 import { useCreateWorkItem, useWorkItem } from '@/lib/hooks/use-work-items'
+import { EmailCategoryMenu } from '@/components/emails/email-category-menu'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -70,6 +71,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import DOMPurify from 'dompurify'
 import { toast } from 'sonner'
 import { parseEmailAddress, extractEmailPreview } from '@/lib/utils/email-formatting'
+import { EmailCategoryMenu } from '@/components/emails/email-category-menu'
 
 type EmailCategory = 'primary' | 'promotional' | 'spam' | 'notifications'
 type EmailTab = EmailCategory | 'support'  // Support is a tab, not a category
@@ -854,48 +856,12 @@ export default function EmailIntakePage() {
                             <Archive className="h-3 w-3" />
                           </Button>
 
-                          {/* More Actions Dropdown */}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button size="sm" variant="ghost">
-                                <MoreVertical className="h-3 w-3" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-background border shadow-lg z-50">
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  handleMoveToCategory(group.latestEmail.id, 'primary', true)
-                                }
-                              >
-                                <Inbox className="h-4 w-4 mr-2" />
-                                Move to Primary & Create Filter
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  handleMoveToCategory(group.latestEmail.id, 'promotional', true)
-                                }
-                              >
-                                <Tag className="h-4 w-4 mr-2" />
-                                Move to Promotional & Create Filter
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  handleMoveToCategory(group.latestEmail.id, 'spam', true)
-                                }
-                              >
-                                <AlertCircle className="h-4 w-4 mr-2" />
-                                Move to Spam & Create Filter
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  handleMoveToCategory(group.latestEmail.id, 'notifications', true)
-                                }
-                              >
-                                <Bell className="h-4 w-4 mr-2" />
-                                Move to Notifications & Create Filter
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          {/* Email Categorization Menu */}
+                          <EmailCategoryMenu
+                            emailId={group.latestEmail.id}
+                            fromEmail={group.latestEmail.from_email}
+                            currentCategory={group.latestEmail.category}
+                          />
                         </div>
                       </div>
                     </div>

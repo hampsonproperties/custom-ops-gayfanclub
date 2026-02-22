@@ -3,124 +3,172 @@
 import { useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { FollowUpItemCard } from '@/components/work-items/follow-up-item-card'
+import { Button } from '@/components/ui/button'
 import {
-  useWorkItems,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { StatusBadge } from '@/components/custom/status-badge'
+import {
   useOverdueFollowUps,
   useFollowUpToday,
   useDueThisWeek,
   useNeedsInitialContact,
   useRushOrders,
   useWaitingOnCustomer,
+  useMarkFollowedUp,
 } from '@/lib/hooks/use-work-items'
 import {
   AlertCircle,
-  Bell,
   Calendar,
-  ChevronDown,
   Clock,
-  Pause,
-  UserPlus,
-  Zap,
   CheckCircle2,
+  ExternalLink,
+  Check,
 } from 'lucide-react'
-import { useState } from 'react'
+import Link from 'next/link'
+import { formatDistanceToNow, format } from 'date-fns'
+import { toast } from 'sonner'
 
-type WorkItem = any // Use proper type from database
+type WorkItem = any
 
-export default function FollowUpsPage() {
-  // Fetch all follow-up queues
+export default function LeadsPage() {
   const { data: overdueItems = [] } = useOverdueFollowUps()
   const { data: todayItems = [] } = useFollowUpToday()
   const { data: weekItems = [] } = useDueThisWeek()
   const { data: needsContactItems = [] } = useNeedsInitialContact()
   const { data: rushItems = [] } = useRushOrders()
   const { data: waitingItems = [] } = useWaitingOnCustomer()
-  const { data: allItems = [] } = useWorkItems()
+  const markFollowedUp = useMarkFollowedUp()
 
-  // Section collapse states
-  const [sectionsOpen, setSectionsOpen] = useState<Record<string, boolean>>({
-    urgent: true,
-    needsContact: true,
-    dueToday: true,
-    rush: true,
-    dueWeek: false,
-    waiting: false,
-  })
+  // Combine and deduplicate all leads
+  const allLeads = useMemo(() => {
+    const leadsMap = new Map()
 
-  const toggleSection = (key: string) => {
-    setSectionsOpen((prev) => ({ ...prev, [key]: !prev[key] }))
+    const addLeads = (items: WorkItem[], priority: number) => {
+      items.forEach(item => {
+        if (!leadsMap.has(item.id)) {
+          leadsMap.set(item.id, { ...item, _priority: priority })
+        }
+      })
+    }
+
+    // Priority order: overdue > needs contact > due today > rush > due week > waiting
+    addLeads(overdueItems, 1)
+    addLeads(needsContactItems, 2)
+    addLeads(todayItems, 3)
+    addLeads(rushItems, 4)
+    addLeads(weekItems, 5)
+    addLeads(waitingItems, 6)
+
+    return Array.from(leadsMap.values()).sort((a, b) => a._priority - b._priority)
+  }, [overdueItems, todayItems, weekItems, needsContactItems, rushItems, waitingItems])
+
+  const handleMarkFollowedUp = async (workItemId: string) => {
+    try {
+      await markFollowedUp.mutateAsync(workItemId)
+      toast.success('Marked as followed up')
+    } catch (error) {
+      toast.error('Failed to mark as followed up')
+    }
   }
 
-  // Categorize urgent items (overdue + awaiting payment/approval)
-  const urgentItems = useMemo(() => {
-    const urgent = [...overdueItems]
-    const urgentStatuses = ['proof_sent', 'awaiting_approval', 'invoice_sent', 'design_fee_sent']
+  const getPipelineStage = (item: WorkItem) => {
+    // Map database status to friendly pipeline stages
+    if (item.requires_initial_contact) return { label: 'New Lead', color: 'bg-purple-600' }
+    if (item.status === 'new_inquiry') return { label: 'Contacted', color: 'bg-blue-600' }
+    if (item.status === 'quote_sent') return { label: 'Quoted', color: 'bg-cyan-600' }
+    if (item.status === 'design_fee_sent') return { label: 'Fee Sent', color: 'bg-yellow-600' }
+    if (item.status === 'invoice_sent') return { label: 'Invoiced', color: 'bg-orange-600' }
+    if (item.status === 'awaiting_payment') return { label: 'Awaiting Payment', color: 'bg-red-600' }
+    return { label: 'In Progress', color: 'bg-gray-600' }
+  }
 
-    allItems.forEach((item: WorkItem) => {
-      if (urgentStatuses.includes(item.status) && !item.closed_at && !item.is_waiting) {
-        // Don't duplicate if already in overdue
-        if (!urgent.find(u => u.id === item.id)) {
-          urgent.push(item)
-        }
-      }
-    })
+  const getActionNeeded = (item: WorkItem) => {
+    if (item.requires_initial_contact) return 'Send initial contact email'
+    if (item.status === 'invoice_sent') return 'Follow up on payment'
+    if (item.status === 'design_fee_sent') return 'Follow up on design fee'
+    if (item.status === 'new_inquiry') return 'Send quote/pricing info'
+    if (item.status === 'quote_sent') return 'Check if they have questions'
+    if (item.status === 'awaiting_payment') return 'Chase payment'
+    return 'Check in with customer'
+  }
 
-    return urgent
-  }, [overdueItems, allItems])
+  const getLastActivity = (item: WorkItem) => {
+    if (item.last_contact_at) {
+      return `Last contact ${formatDistanceToNow(new Date(item.last_contact_at), { addSuffix: true })}`
+    }
+    if (item.created_at) {
+      return `Created ${formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}`
+    }
+    return 'No activity'
+  }
 
-  // Filter out duplicates - priority order: urgent > needsContact > dueToday > rush > dueWeek
-  const urgentIds = new Set(urgentItems.map(i => i.id))
+  const getFollowUpDisplay = (item: WorkItem) => {
+    if (!item.next_follow_up_at) return { text: 'Not scheduled', isOverdue: false }
 
-  const filteredNeedsContact = needsContactItems.filter(
-    (item: WorkItem) => !urgentIds.has(item.id)
-  )
-  const needsContactIds = new Set(filteredNeedsContact.map(i => i.id))
+    const followUpDate = new Date(item.next_follow_up_at)
+    const now = new Date()
+    const isOverdue = followUpDate < now
 
-  const filteredTodayItems = todayItems.filter(
-    (item: WorkItem) => !urgentIds.has(item.id) && !needsContactIds.has(item.id)
-  )
-  const todayIds = new Set(filteredTodayItems.map(i => i.id))
+    return {
+      text: format(followUpDate, 'MMM d, yyyy'),
+      relativeTime: formatDistanceToNow(followUpDate, { addSuffix: true }),
+      isOverdue,
+    }
+  }
 
-  const filteredRushItems = rushItems.filter(
-    (item: WorkItem) => !urgentIds.has(item.id) && !needsContactIds.has(item.id) && !todayIds.has(item.id)
-  )
-  const rushIds = new Set(filteredRushItems.map(i => i.id))
+  const getEventDisplay = (item: WorkItem) => {
+    if (!item.event_date) return null
 
-  const filteredWeekItems = weekItems.filter(
-    (item: WorkItem) =>
-      !urgentIds.has(item.id) &&
-      !needsContactIds.has(item.id) &&
-      !todayIds.has(item.id) &&
-      !rushIds.has(item.id)
-  )
+    const eventDate = new Date(item.event_date)
+    const now = new Date()
+    const daysUntil = Math.ceil((eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 
-  const totalCount =
-    urgentItems.length +
-    filteredNeedsContact.length +
-    filteredTodayItems.length +
-    filteredRushItems.length +
-    filteredWeekItems.length +
-    waitingItems.length
+    return {
+      text: format(eventDate, 'MMM d, yyyy'),
+      daysUntil,
+      isRush: daysUntil < 30,
+    }
+  }
+
+  const getPriorityBadge = (item: WorkItem) => {
+    if (overdueItems.find(i => i.id === item.id)) {
+      return <Badge variant="destructive" className="text-xs">Overdue</Badge>
+    }
+    if (needsContactItems.find(i => i.id === item.id)) {
+      return <Badge className="text-xs bg-purple-600">New</Badge>
+    }
+    if (todayItems.find(i => i.id === item.id)) {
+      return <Badge className="text-xs bg-yellow-600">Due Today</Badge>
+    }
+    if (rushItems.find(i => i.id === item.id)) {
+      return <Badge className="text-xs bg-orange-600">Rush</Badge>
+    }
+    return null
+  }
 
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Follow-Up Queue</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Sales Leads</h1>
           <p className="text-muted-foreground mt-2">
-            Prioritized follow-up tasks across all work items
+            Active inquiries and sales pipeline - close deals and convert to orders
           </p>
         </div>
         <Badge variant="secondary" className="text-lg px-4 py-2">
-          {totalCount} total
+          {allLeads.length} total leads
         </Badge>
       </div>
 
       {/* Empty State */}
-      {totalCount === 0 && (
+      {allLeads.length === 0 && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <div className="rounded-full bg-muted p-4 mb-4">
@@ -128,234 +176,114 @@ export default function FollowUpsPage() {
             </div>
             <h3 className="text-lg font-semibold mb-2">All caught up!</h3>
             <p className="text-muted-foreground text-center max-w-md">
-              No follow-ups need your attention right now. Great work!
+              No sales leads need your attention right now. Great work!
             </p>
           </CardContent>
         </Card>
       )}
 
-      {/* Sections */}
-      <div className="space-y-4">
-        {/* URGENT - Overdue & Blocking */}
-        {urgentItems.length > 0 && (
-          <Collapsible
-            open={sectionsOpen.urgent}
-            onOpenChange={() => toggleSection('urgent')}
-          >
-            <Card className="border-destructive/50">
-              <CollapsibleTrigger className="w-full">
-                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="h-5 w-5 text-destructive" />
-                      <CardTitle className="text-destructive">
-                        🔴 URGENT - Overdue & Blocking
-                      </CardTitle>
-                      <Badge variant="destructive">{urgentItems.length}</Badge>
-                    </div>
-                    <ChevronDown
-                      className={`h-5 w-5 transition-transform ${
-                        sectionsOpen.urgent ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </div>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="space-y-3 pt-0">
-                  {urgentItems.map((item: WorkItem) => (
-                    <FollowUpItemCard key={item.id} workItem={item} />
-                  ))}
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-        )}
+      {/* Leads Table */}
+      {allLeads.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>All Leads</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Pipeline Stage</TableHead>
+                  <TableHead>Last Activity</TableHead>
+                  <TableHead>Next Action</TableHead>
+                  <TableHead>Event Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {allLeads.map((item) => {
+                  const pipelineStage = getPipelineStage(item)
+                  const eventInfo = getEventDisplay(item)
+                  const priorityBadge = getPriorityBadge(item)
+                  const lastActivity = getLastActivity(item)
 
-        {/* NEEDS INITIAL CONTACT - Shopify-first orders */}
-        {filteredNeedsContact.length > 0 && (
-          <Collapsible
-            open={sectionsOpen.needsContact}
-            onOpenChange={() => toggleSection('needsContact')}
-          >
-            <Card className="border-purple-500/50">
-              <CollapsibleTrigger className="w-full">
-                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <UserPlus className="h-5 w-5 text-purple-600" />
-                      <CardTitle className="text-purple-600">
-                        🆕 NEEDS INITIAL CONTACT
-                      </CardTitle>
-                      <Badge variant="secondary" className="bg-purple-100 text-purple-700">
-                        {filteredNeedsContact.length}
-                      </Badge>
-                    </div>
-                    <ChevronDown
-                      className={`h-5 w-5 transition-transform ${
-                        sectionsOpen.needsContact ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </div>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="space-y-3 pt-0">
-                  {filteredNeedsContact.map((item: WorkItem) => (
-                    <FollowUpItemCard key={item.id} workItem={item} />
-                  ))}
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-        )}
+                  return (
+                    <TableRow key={item.id} className="hover:bg-muted/50">
+                      <TableCell>
+                        <div className="space-y-1">
+                          <Link
+                            href={`/work-items/${item.id}`}
+                            className="font-medium hover:underline flex items-center gap-2"
+                          >
+                            {item.customer_name || 'Unnamed Customer'}
+                            <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                          </Link>
+                          <div className="text-xs text-muted-foreground">
+                            {item.customer_email}
+                          </div>
+                          {priorityBadge && <div className="mt-1">{priorityBadge}</div>}
+                        </div>
+                      </TableCell>
 
-        {/* DUE TODAY */}
-        {filteredTodayItems.length > 0 && (
-          <Collapsible
-            open={sectionsOpen.dueToday}
-            onOpenChange={() => toggleSection('dueToday')}
-          >
-            <Card className="border-yellow-500/50">
-              <CollapsibleTrigger className="w-full">
-                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Bell className="h-5 w-5 text-yellow-600" />
-                      <CardTitle className="text-yellow-600">
-                        🟡 DUE TODAY
-                      </CardTitle>
-                      <Badge variant="secondary" className="bg-yellow-100 text-yellow-700">
-                        {filteredTodayItems.length}
-                      </Badge>
-                    </div>
-                    <ChevronDown
-                      className={`h-5 w-5 transition-transform ${
-                        sectionsOpen.dueToday ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </div>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="space-y-3 pt-0">
-                  {filteredTodayItems.map((item: WorkItem) => (
-                    <FollowUpItemCard key={item.id} workItem={item} />
-                  ))}
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-        )}
+                      <TableCell>
+                        <Badge className={`${pipelineStage.color} text-white`}>
+                          {pipelineStage.label}
+                        </Badge>
+                      </TableCell>
 
-        {/* RUSH / TOO LATE - Event <30 days */}
-        {filteredRushItems.length > 0 && (
-          <Collapsible
-            open={sectionsOpen.rush}
-            onOpenChange={() => toggleSection('rush')}
-          >
-            <Card className="border-orange-500/50">
-              <CollapsibleTrigger className="w-full">
-                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-5 w-5 text-orange-600" />
-                      <CardTitle className="text-orange-600">
-                        ⚠️ RUSH / TOO LATE
-                      </CardTitle>
-                      <Badge variant="secondary" className="bg-orange-100 text-orange-700">
-                        {filteredRushItems.length}
-                      </Badge>
-                    </div>
-                    <ChevronDown
-                      className={`h-5 w-5 transition-transform ${
-                        sectionsOpen.rush ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </div>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="space-y-3 pt-0">
-                  {filteredRushItems.map((item: WorkItem) => (
-                    <FollowUpItemCard key={item.id} workItem={item} />
-                  ))}
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-        )}
+                      <TableCell>
+                        <div className="text-sm text-muted-foreground">
+                          {lastActivity}
+                        </div>
+                      </TableCell>
 
-        {/* DUE THIS WEEK */}
-        {filteredWeekItems.length > 0 && (
-          <Collapsible
-            open={sectionsOpen.dueWeek}
-            onOpenChange={() => toggleSection('dueWeek')}
-          >
-            <Card>
-              <CollapsibleTrigger className="w-full">
-                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-5 w-5 text-blue-600" />
-                      <CardTitle>📅 DUE THIS WEEK</CardTitle>
-                      <Badge variant="secondary">{filteredWeekItems.length}</Badge>
-                    </div>
-                    <ChevronDown
-                      className={`h-5 w-5 transition-transform ${
-                        sectionsOpen.dueWeek ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </div>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="space-y-3 pt-0">
-                  {filteredWeekItems.map((item: WorkItem) => (
-                    <FollowUpItemCard key={item.id} workItem={item} />
-                  ))}
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-        )}
+                      <TableCell>
+                        <div className="text-sm">
+                          {getActionNeeded(item)}
+                        </div>
+                      </TableCell>
 
-        {/* WAITING ON CUSTOMER */}
-        {waitingItems.length > 0 && (
-          <Collapsible
-            open={sectionsOpen.waiting}
-            onOpenChange={() => toggleSection('waiting')}
-          >
-            <Card className="border-muted">
-              <CollapsibleTrigger className="w-full">
-                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Pause className="h-5 w-5 text-muted-foreground" />
-                      <CardTitle className="text-muted-foreground">
-                        ⏸️ WAITING ON CUSTOMER
-                      </CardTitle>
-                      <Badge variant="outline">{waitingItems.length}</Badge>
-                    </div>
-                    <ChevronDown
-                      className={`h-5 w-5 transition-transform ${
-                        sectionsOpen.waiting ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </div>
-                </CardHeader>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <CardContent className="space-y-3 pt-0">
-                  {waitingItems.map((item: WorkItem) => (
-                    <FollowUpItemCard key={item.id} workItem={item} />
-                  ))}
-                </CardContent>
-              </CollapsibleContent>
-            </Card>
-          </Collapsible>
-        )}
-      </div>
+                      <TableCell>
+                        {eventInfo ? (
+                          <div className="space-y-1">
+                            <div className={`text-sm ${eventInfo.isRush ? 'text-orange-600 font-medium' : ''}`}>
+                              {eventInfo.text}
+                            </div>
+                            <div className={`text-xs ${eventInfo.isRush ? 'text-orange-600' : 'text-muted-foreground'}`}>
+                              {eventInfo.daysUntil > 0 ? `${eventInfo.daysUntil} days` : 'Past due'}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">No event</span>
+                        )}
+                      </TableCell>
+
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleMarkFollowedUp(item.id)}
+                            disabled={markFollowedUp.isPending}
+                          >
+                            <Check className="h-3 w-3 mr-1" />
+                            Done
+                          </Button>
+                          <Link href={`/work-items/${item.id}`}>
+                            <Button size="sm">
+                              View
+                            </Button>
+                          </Link>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

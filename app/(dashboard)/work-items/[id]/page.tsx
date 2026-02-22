@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { ChangeStatusDialog } from '@/components/work-items/change-status-dialog'
+import { CloseLeadDialog } from '@/components/work-items/close-lead-dialog'
 import { SendApprovalDialog } from '@/components/email/send-approval-dialog'
 import { ConversationThread } from '@/components/email/conversation-thread'
 import { InlineEmailComposer } from '@/components/email/inline-email-composer'
@@ -50,6 +51,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
 
   const [showStatusDialog, setShowStatusDialog] = useState(false)
   const [showApprovalDialog, setShowApprovalDialog] = useState(false)
+  const [showCloseDialog, setShowCloseDialog] = useState(false)
 
 
   const handleUploadFile = async () => {
@@ -145,13 +147,29 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
 
         <div className="flex items-center gap-2">
           <StatusBadge status={workItem.status} />
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => setShowStatusDialog(true)}
-          >
-            Change Status
-          </Button>
+          {!workItem.closed_at && (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => setShowStatusDialog(true)}
+              >
+                Change Status
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCloseDialog(true)}
+              >
+                Close Lead
+              </Button>
+            </>
+          )}
+          {workItem.closed_at && (
+            <span className="text-sm text-muted-foreground">
+              Closed {formatDistanceToNow(new Date(workItem.closed_at), { addSuffix: true })}
+            </span>
+          )}
         </div>
       </div>
 
@@ -705,6 +723,14 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
         workItem={workItem}
         isOpen={showStatusDialog}
         onOpenChange={setShowStatusDialog}
+      />
+
+      {/* Close Lead Dialog */}
+      <CloseLeadDialog
+        workItemId={workItem.id}
+        workItemName={workItem.customer_name || workItem.customer_email || 'this lead'}
+        isOpen={showCloseDialog}
+        onOpenChange={setShowCloseDialog}
       />
 
       {/* Send Approval Email Dialog */}

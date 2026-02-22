@@ -197,10 +197,12 @@ export function useFollowUpToday() {
   return useQuery({
     queryKey: ['work-items', 'follow-up-today'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Only show sales pipeline statuses (not active design work)
+      const { data, error} = await supabase
         .from('work_items')
         .select('*, customer:customers(*)')
         .lte('next_follow_up_at', `${today}T23:59:59`)
+        .in('status', ['new_inquiry', 'quote_sent', 'design_fee_sent', 'invoice_sent', 'awaiting_payment'])
         .is('closed_at', null)
         .order('next_follow_up_at', { ascending: true })
 
@@ -217,10 +219,12 @@ export function useOverdueFollowUps() {
   return useQuery({
     queryKey: ['work-items', 'overdue'],
     queryFn: async () => {
+      // Only show sales pipeline statuses (not active design work)
       const { data, error } = await supabase
         .from('work_items')
         .select('*, customer:customers(*)')
         .lt('next_follow_up_at', now)
+        .in('status', ['new_inquiry', 'quote_sent', 'design_fee_sent', 'invoice_sent', 'awaiting_payment'])
         .is('closed_at', null)
         .order('next_follow_up_at', { ascending: true })
 
@@ -275,12 +279,14 @@ export function useCustomDesignProjects() {
   return useQuery({
     queryKey: ['work-items', 'custom-design-all'],
     queryFn: async () => {
+      // Only show in-progress design work (not sales pipeline)
       const { data, error } = await supabase
         .from('work_items')
         .select('*, customer:customers(*)')
         .eq('type', 'assisted_project')
+        .in('status', ['designing', 'proof_sent', 'awaiting_approval', 'customer_providing_artwork'])
         .is('closed_at', null)
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: false})
 
       if (error) throw error
       return data as WorkItem[]
@@ -385,6 +391,7 @@ export function useNeedsInitialContact() {
         .select('*, customer:customers(*)')
         .eq('requires_initial_contact', true)
         .is('closed_at', null)
+        .in('status', ['new_inquiry', 'quote_sent', 'design_fee_sent', 'invoice_sent', 'awaiting_payment']) // Sales statuses only
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -405,6 +412,7 @@ export function useRushOrders() {
         .select('*, customer:customers(*)')
         .eq('rush_order', true)
         .is('closed_at', null)
+        .in('status', ['new_inquiry', 'quote_sent', 'design_fee_sent', 'invoice_sent', 'awaiting_payment']) // Sales statuses only
         .order('event_date', { ascending: true })
 
       if (error) throw error
@@ -423,13 +431,15 @@ export function useDueThisWeek() {
   return useQuery({
     queryKey: ['work-items', 'due-this-week'],
     queryFn: async () => {
+      // Only show sales pipeline statuses (not active design work)
       const { data, error } = await supabase
         .from('work_items')
         .select('*, customer:customers(*)')
         .gt('next_follow_up_at', today.toISOString())
         .lte('next_follow_up_at', nextWeek.toISOString())
+        .in('status', ['new_inquiry', 'quote_sent', 'design_fee_sent', 'invoice_sent', 'awaiting_payment'])
         .is('closed_at', null)
-        .order('next_follow_up_at', { ascending: true })
+        .order('next_follow_up_at', { ascending: true})
 
       if (error) throw error
       return data as WorkItem[]
@@ -449,6 +459,7 @@ export function useWaitingOnCustomer() {
         .select('*, customer:customers(*)')
         .eq('is_waiting', true)
         .is('closed_at', null)
+        .in('status', ['new_inquiry', 'quote_sent', 'design_fee_sent', 'invoice_sent', 'awaiting_payment']) // Sales statuses only
         .order('updated_at', { ascending: false })
 
       if (error) throw error
@@ -527,6 +538,35 @@ export function useMarkCommunicationActioned() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['inbox-replies'] })
+      queryClient.invalidateQueries({ queryKey: ['work-items'] })
+    },
+  })
+}
+
+// Close work item (archive/cancel)
+export function useCloseWorkItem() {
+  const queryClient = useQueryClient()
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async ({
+      workItemId,
+      reason
+    }: {
+      workItemId: string
+      reason: 'not_interested' | 'spam' | 'cancelled' | 'completed' | 'other'
+    }) => {
+      const { error } = await supabase
+        .from('work_items')
+        .update({
+          closed_at: new Date().toISOString(),
+          status: reason === 'spam' ? 'cancelled' : reason === 'not_interested' ? 'cancelled' : reason
+        })
+        .eq('id', workItemId)
+
+      if (error) throw error
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['work-items'] })
     },
   })

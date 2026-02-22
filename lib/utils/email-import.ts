@@ -588,6 +588,8 @@ export const SYSTEM_DOMAINS = [
   'stripe.com',
   'square.com',
   'squareup.com',
+  'apple.com',
+  'insideapple.apple.com',
 
   // E-commerce platforms
   'shopify.com',

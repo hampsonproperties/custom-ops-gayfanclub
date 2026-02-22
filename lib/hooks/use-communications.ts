@@ -87,6 +87,7 @@ export function useFlaggedSupportEmails() {
         .select('*')
         .eq('direction', 'inbound')
         .eq('triage_status', 'flagged_support')
+        .is('work_item_id', null) // Exclude emails linked to work items (those appear in Conversations)
         .order('received_at', { ascending: false })
 
       if (error) throw error
@@ -263,6 +264,7 @@ export function useEmailsByCategory(
         .select('*')
         .eq('direction', 'inbound') // Only inbound (customer) emails - company emails are marked as outbound
         .eq('category', category)
+        .is('work_item_id', null) // Exclude emails linked to work items (those appear in Conversations)
         .order('received_at', { ascending: false })
 
       if (triageStatus) {
@@ -295,6 +297,7 @@ export function useEmailCategoryCounts(
         .select('category, from_email')
         .eq('direction', 'inbound')
         .neq('from_email', 'sales@thegayfanclub.com') // Exclude system-generated emails
+        .is('work_item_id', null) // Exclude emails linked to work items (those appear in Conversations)
 
       if (triageStatus) {
         query = query.eq('triage_status', triageStatus)
