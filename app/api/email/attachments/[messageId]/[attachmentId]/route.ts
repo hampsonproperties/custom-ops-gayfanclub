@@ -7,10 +7,10 @@ import { Client } from '@microsoft/microsoft-graph-client'
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { messageId: string; attachmentId: string } }
+  { params }: { params: Promise<{ messageId: string; attachmentId: string }> }
 ) {
   try {
-    const { messageId, attachmentId } = params
+    const { messageId, attachmentId } = await params
 
     // Get access token for Microsoft Graph
     const tenantId = process.env.MICROSOFT_TENANT_ID
