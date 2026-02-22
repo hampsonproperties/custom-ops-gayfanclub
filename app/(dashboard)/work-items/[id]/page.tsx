@@ -35,9 +35,20 @@ import { toast } from 'sonner'
 import DOMPurify from 'dompurify'
 import { parseEmailAddress, extractEmailPreview } from '@/lib/utils/email-formatting'
 
+// Extended work item type with fields added in migration
+type WorkItemWithExtras = Database['public']['Tables']['work_items']['Row'] & {
+  estimated_value?: number | null
+  actual_value?: number | null
+  assigned_to_email?: string | null
+  assigned_at?: string | null
+  assigned_by_email?: string | null
+  last_activity_at?: string | null
+}
+
 export default function WorkItemDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const { data: workItem, isLoading } = useWorkItem(id)
+  const { data: workItemData, isLoading } = useWorkItem(id)
+  const workItem = workItemData as WorkItemWithExtras | undefined
   const { data: communications } = useCommunications(id)
   const { data: files } = useFiles(id)
   const { data: timeline } = useTimeline(id)
