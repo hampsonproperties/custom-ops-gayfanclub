@@ -47,6 +47,10 @@
     --destructive: #F44336;
     --destructive-foreground: #FFFFFF;
 
+    /* Popover */
+    --popover: #FFFFFF;
+    --popover-foreground: #212121;
+
     --radius: 0.5rem;
   }
 }
@@ -67,6 +71,8 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
   --color-ring: var(--ring);
 
   /* Pride colors */
