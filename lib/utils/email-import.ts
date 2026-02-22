@@ -501,7 +501,7 @@ export async function importEmail(
         // Don't fail the import if attachment download fails
         console.error('[Email Import] Attachment download error:', attachmentError)
         await addToDLQ({
-          operationType: 'attachment_download',
+          operationType: 'file_download',
           operationKey: `attachments:${message.id}`,
           errorMessage: attachmentError instanceof Error ? attachmentError.message : 'Unknown error',
           errorStack: attachmentError instanceof Error ? attachmentError.stack : undefined,
