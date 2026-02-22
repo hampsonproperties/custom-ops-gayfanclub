@@ -232,11 +232,11 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
           <div className="border-t pt-4 flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Value:</span>
-              <ValueManager workItemId={id} estimatedValue={workItem.estimated_value} />
+              <ValueManager workItemId={id} estimatedValue={workItem?.estimated_value ?? null} />
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Assigned:</span>
-              <AssignmentManager workItemId={id} currentAssignee={workItem.assigned_to_email} />
+              <AssignmentManager workItemId={id} currentAssignee={workItem?.assigned_to_email ?? null} />
             </div>
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">Tags:</span>
