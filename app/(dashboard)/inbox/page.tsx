@@ -21,6 +21,20 @@ import { toast } from 'sonner'
 import { parseEmailAddress } from '@/lib/utils/email-formatting'
 import DOMPurify from 'dompurify'
 
+// Extended type for emails with fields not yet in generated types
+type EmailWithMetadata = {
+  id: string
+  from_name: string | null
+  from_email: string
+  subject: string
+  body_preview: string | null
+  body_html: string | null
+  received_at: string
+  triage_status: string | null
+  work_item_id: string | null
+  category: string | null
+}
+
 export default function InboxPage() {
   const { data: emails, isLoading } = useUntriagedEmails()
   const triageEmail = useTriageEmail()
@@ -115,7 +129,7 @@ export default function InboxPage() {
       {/* Emails List */}
       {emails && emails.length > 0 ? (
         <div className="space-y-3">
-          {emails.map((email) => (
+          {(emails as EmailWithMetadata[]).map((email) => (
             <Card key={email.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-6">
                 <div className="space-y-4">
