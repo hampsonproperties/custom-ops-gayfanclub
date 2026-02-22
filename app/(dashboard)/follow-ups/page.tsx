@@ -1,9 +1,17 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Table,
   TableBody,
@@ -12,7 +20,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { StatusBadge } from '@/components/custom/status-badge'
 import {
   useOverdueFollowUps,
   useFollowUpToday,
@@ -21,20 +28,28 @@ import {
   useRushOrders,
   useWaitingOnCustomer,
   useMarkFollowedUp,
+  useUpdateWorkItemStatus,
 } from '@/lib/hooks/use-work-items'
 import {
-  AlertCircle,
-  Calendar,
-  Clock,
   CheckCircle2,
   ExternalLink,
   Check,
+  Search,
+  User,
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow, format } from 'date-fns'
 import { toast } from 'sonner'
 
 type WorkItem = any
+
+const STATUS_OPTIONS = [
+  { value: 'new_inquiry', label: 'Contacted', color: 'bg-blue-600' },
+  { value: 'quote_sent', label: 'Quoted', color: 'bg-cyan-600' },
+  { value: 'design_fee_sent', label: 'Fee Sent', color: 'bg-yellow-600' },
+  { value: 'invoice_sent', label: 'Invoiced', color: 'bg-orange-600' },
+  { value: 'awaiting_payment', label: 'Awaiting Payment', color: 'bg-red-600' },
+]
 
 export default function LeadsPage() {
   const { data: overdueItems = [] } = useOverdueFollowUps()
@@ -44,6 +59,9 @@ export default function LeadsPage() {
   const { data: rushItems = [] } = useRushOrders()
   const { data: waitingItems = [] } = useWaitingOnCustomer()
   const markFollowedUp = useMarkFollowedUp()
+  const updateStatus = useUpdateWorkItemStatus()
+
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Combine and deduplicate all leads
   const allLeads = useMemo(() => {
@@ -68,6 +86,18 @@ export default function LeadsPage() {
     return Array.from(leadsMap.values()).sort((a, b) => a._priority - b._priority)
   }, [overdueItems, todayItems, weekItems, needsContactItems, rushItems, waitingItems])
 
+  // Filter leads by search query
+  const filteredLeads = useMemo(() => {
+    if (!searchQuery) return allLeads
+
+    const query = searchQuery.toLowerCase()
+    return allLeads.filter(item =>
+      item.customer_name?.toLowerCase().includes(query) ||
+      item.customer_email?.toLowerCase().includes(query) ||
+      item.title?.toLowerCase().includes(query)
+    )
+  }, [allLeads, searchQuery])
+
   const handleMarkFollowedUp = async (workItemId: string) => {
     try {
       await markFollowedUp.mutateAsync(workItemId)
@@ -77,15 +107,24 @@ export default function LeadsPage() {
     }
   }
 
+  const handleStatusChange = async (workItemId: string, newStatus: string) => {
+    try {
+      await updateStatus.mutateAsync({
+        id: workItemId,
+        status: newStatus,
+        note: `Status changed to ${STATUS_OPTIONS.find(s => s.value === newStatus)?.label}`,
+      })
+      toast.success('Status updated')
+    } catch (error) {
+      toast.error('Failed to update status')
+    }
+  }
+
   const getPipelineStage = (item: WorkItem) => {
-    // Map database status to friendly pipeline stages
-    if (item.requires_initial_contact) return { label: 'New Lead', color: 'bg-purple-600' }
-    if (item.status === 'new_inquiry') return { label: 'Contacted', color: 'bg-blue-600' }
-    if (item.status === 'quote_sent') return { label: 'Quoted', color: 'bg-cyan-600' }
-    if (item.status === 'design_fee_sent') return { label: 'Fee Sent', color: 'bg-yellow-600' }
-    if (item.status === 'invoice_sent') return { label: 'Invoiced', color: 'bg-orange-600' }
-    if (item.status === 'awaiting_payment') return { label: 'Awaiting Payment', color: 'bg-red-600' }
-    return { label: 'In Progress', color: 'bg-gray-600' }
+    if (item.requires_initial_contact) return { label: 'New Lead', color: 'bg-purple-600', value: 'new_inquiry' }
+    const option = STATUS_OPTIONS.find(s => s.value === item.status)
+    if (option) return option
+    return { label: 'In Progress', color: 'bg-gray-600', value: item.status }
   }
 
   const getActionNeeded = (item: WorkItem) => {
@@ -108,20 +147,6 @@ export default function LeadsPage() {
     return 'No activity'
   }
 
-  const getFollowUpDisplay = (item: WorkItem) => {
-    if (!item.next_follow_up_at) return { text: 'Not scheduled', isOverdue: false }
-
-    const followUpDate = new Date(item.next_follow_up_at)
-    const now = new Date()
-    const isOverdue = followUpDate < now
-
-    return {
-      text: format(followUpDate, 'MMM d, yyyy'),
-      relativeTime: formatDistanceToNow(followUpDate, { addSuffix: true }),
-      isOverdue,
-    }
-  }
-
   const getEventDisplay = (item: WorkItem) => {
     if (!item.event_date) return null
 
@@ -130,7 +155,7 @@ export default function LeadsPage() {
     const daysUntil = Math.ceil((eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 
     return {
-      text: format(eventDate, 'MMM d, yyyy'),
+      text: format(eventDate, 'MMM d'),
       daysUntil,
       isRush: daysUntil < 30,
     }
@@ -153,12 +178,12 @@ export default function LeadsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Sales Leads</h1>
-          <p className="text-muted-foreground mt-2">
+          <p className="text-muted-foreground mt-1">
             Active inquiries and sales pipeline - close deals and convert to orders
           </p>
         </div>
@@ -167,8 +192,21 @@ export default function LeadsPage() {
         </Badge>
       </div>
 
+      {/* Search Bar */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search by customer name or email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+      </div>
+
       {/* Empty State */}
-      {allLeads.length === 0 && (
+      {filteredLeads.length === 0 && !searchQuery && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <div className="rounded-full bg-muted p-4 mb-4">
@@ -182,8 +220,17 @@ export default function LeadsPage() {
         </Card>
       )}
 
+      {/* Search Empty State */}
+      {filteredLeads.length === 0 && searchQuery && (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <p className="text-muted-foreground">No leads match your search.</p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Leads Table */}
-      {allLeads.length > 0 && (
+      {filteredLeads.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>All Leads</CardTitle>
@@ -192,16 +239,16 @@ export default function LeadsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Pipeline Stage</TableHead>
-                  <TableHead>Last Activity</TableHead>
+                  <TableHead className="w-[250px]">Customer</TableHead>
+                  <TableHead className="w-[180px]">Pipeline Stage</TableHead>
+                  <TableHead className="w-[180px]">Last Activity</TableHead>
                   <TableHead>Next Action</TableHead>
-                  <TableHead>Event Date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="w-[100px]">Event</TableHead>
+                  <TableHead className="w-[160px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {allLeads.map((item) => {
+                {filteredLeads.map((item) => {
                   const pipelineStage = getPipelineStage(item)
                   const eventInfo = getEventDisplay(item)
                   const priorityBadge = getPriorityBadge(item)
@@ -213,22 +260,40 @@ export default function LeadsPage() {
                         <div className="space-y-1">
                           <Link
                             href={`/work-items/${item.id}`}
-                            className="font-medium hover:underline flex items-center gap-2"
+                            className="font-medium hover:underline flex items-center gap-1.5"
                           >
                             {item.customer_name || 'Unnamed Customer'}
                             <ExternalLink className="h-3 w-3 text-muted-foreground" />
                           </Link>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-xs text-muted-foreground truncate">
                             {item.customer_email}
                           </div>
-                          {priorityBadge && <div className="mt-1">{priorityBadge}</div>}
+                          <div className="flex gap-1 flex-wrap">
+                            {priorityBadge}
+                          </div>
                         </div>
                       </TableCell>
 
                       <TableCell>
-                        <Badge className={`${pipelineStage.color} text-white`}>
-                          {pipelineStage.label}
-                        </Badge>
+                        <Select
+                          value={item.status}
+                          onValueChange={(value) => handleStatusChange(item.id, value)}
+                          disabled={updateStatus.isPending}
+                        >
+                          <SelectTrigger className="h-8 text-xs font-medium">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="z-50">
+                            {STATUS_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                <span className="flex items-center gap-2">
+                                  <span className={`h-2 w-2 rounded-full ${option.color}`} />
+                                  {option.label}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
 
                       <TableCell>
@@ -245,16 +310,16 @@ export default function LeadsPage() {
 
                       <TableCell>
                         {eventInfo ? (
-                          <div className="space-y-1">
-                            <div className={`text-sm ${eventInfo.isRush ? 'text-orange-600 font-medium' : ''}`}>
+                          <div className="text-xs">
+                            <div className={eventInfo.isRush ? 'text-orange-600 font-medium' : 'text-muted-foreground'}>
                               {eventInfo.text}
                             </div>
-                            <div className={`text-xs ${eventInfo.isRush ? 'text-orange-600' : 'text-muted-foreground'}`}>
-                              {eventInfo.daysUntil > 0 ? `${eventInfo.daysUntil} days` : 'Past due'}
+                            <div className={eventInfo.isRush ? 'text-orange-600' : 'text-muted-foreground'}>
+                              ({eventInfo.daysUntil}d)
                             </div>
                           </div>
                         ) : (
-                          <span className="text-sm text-muted-foreground">No event</span>
+                          <span className="text-xs text-muted-foreground">-</span>
                         )}
                       </TableCell>
 
@@ -265,12 +330,13 @@ export default function LeadsPage() {
                             variant="outline"
                             onClick={() => handleMarkFollowedUp(item.id)}
                             disabled={markFollowedUp.isPending}
+                            className="h-8"
                           >
                             <Check className="h-3 w-3 mr-1" />
                             Done
                           </Button>
                           <Link href={`/work-items/${item.id}`}>
-                            <Button size="sm">
+                            <Button size="sm" className="h-8">
                               View
                             </Button>
                           </Link>
