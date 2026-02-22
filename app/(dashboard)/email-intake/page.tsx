@@ -71,7 +71,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import DOMPurify from 'dompurify'
 import { toast } from 'sonner'
 import { parseEmailAddress, extractEmailPreview } from '@/lib/utils/email-formatting'
-import { EmailCategoryMenu } from '@/components/emails/email-category-menu'
 
 type EmailCategory = 'primary' | 'promotional' | 'spam' | 'notifications'
 type EmailTab = EmailCategory | 'support'  // Support is a tab, not a category

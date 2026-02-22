@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { useRecategorizeEmail, type EmailCategory } from '@/lib/hooks/use-email-filters'
 import { MoreVertical, Bell, ShoppingBag, AlertOctagon, Mail, Check } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
+import { toast } from 'sonner'
 
 interface EmailCategoryMenuProps {
   emailId: string
@@ -55,7 +55,6 @@ const CATEGORY_OPTIONS = [
 ]
 
 export function EmailCategoryMenu({ emailId, fromEmail, currentCategory }: EmailCategoryMenuProps) {
-  const { toast } = useToast()
   const recategorize = useRecategorizeEmail()
   const [applyToFuture, setApplyToFuture] = useState(true)
   const [useDomain, setUseDomain] = useState(false)
@@ -73,16 +72,9 @@ export function EmailCategoryMenu({ emailId, fromEmail, currentCategory }: Email
       const categoryLabel = CATEGORY_OPTIONS.find((c) => c.value === newCategory)?.label || newCategory
       const scope = applyTo === 'domain' ? `all emails from @${fromEmail.split('@')[1]}` : fromEmail
 
-      toast({
-        title: 'Email recategorized',
-        description: `${categoryLabel.replace('Move to ', '')} - Future emails from ${scope} will be categorized automatically.`,
-      })
+      toast.success(`${categoryLabel.replace('Move to ', '')} - Future emails from ${scope} will be categorized automatically.`)
     } catch (error) {
-      toast({
-        title: 'Failed to recategorize',
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: 'destructive',
-      })
+      toast.error(error instanceof Error ? error.message : 'Failed to recategorize')
     }
   }
 
