@@ -272,7 +272,7 @@ export default function InboxPage() {
                           </div>
                           <div className="text-lg font-semibold mb-1">{email.subject}</div>
                           <div className="text-sm text-muted-foreground">
-                            {formatDistanceToNow(new Date(email.received_at), { addSuffix: true })}
+                            {email.received_at ? formatDistanceToNow(new Date(email.received_at), { addSuffix: true }) : 'No date'}
                           </div>
                         </div>
                         <Badge variant="secondary">{email.category}</Badge>
