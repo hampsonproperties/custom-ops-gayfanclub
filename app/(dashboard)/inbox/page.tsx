@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useState, useMemo } from 'react'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
   Dialog,
   DialogContent,
@@ -13,15 +14,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { useUntriagedEmails, useTriageEmail } from '@/lib/hooks/use-communications'
+import {
+  useEmailsByCategory,
+  useEmailCategoryCounts,
+  useTriageEmail,
+  useFlaggedSupportEmails,
+} from '@/lib/hooks/use-communications'
 import { useCreateWorkItem } from '@/lib/hooks/use-work-items'
-import { Mail, Inbox, Archive, Link as LinkIcon, Plus, CheckCircle } from 'lucide-react'
+import { Mail, Inbox, Archive, Plus, CheckCircle, Search, Tag, AlertCircle, Bell, Flag, User } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import { parseEmailAddress } from '@/lib/utils/email-formatting'
-import DOMPurify from 'dompurify'
 
-// Extended type for emails with fields not yet in generated types
+type EmailCategory = 'primary' | 'promotional' | 'spam' | 'notifications'
+type EmailTab = EmailCategory | 'support'
+
 type EmailWithMetadata = {
   id: string
   from_name: string | null
@@ -36,10 +43,8 @@ type EmailWithMetadata = {
 }
 
 export default function InboxPage() {
-  const { data: emails, isLoading } = useUntriagedEmails()
-  const triageEmail = useTriageEmail()
-  const createWorkItem = useCreateWorkItem()
-
+  const [activeCategory, setActiveCategory] = useState<EmailTab>('primary')
+  const [searchQuery, setSearchQuery] = useState('')
   const [selectedEmail, setSelectedEmail] = useState<EmailWithMetadata | null>(null)
   const [showCreateLeadDialog, setShowCreateLeadDialog] = useState(false)
   const [leadForm, setLeadForm] = useState({
@@ -49,6 +54,35 @@ export default function InboxPage() {
     estimated_value: '',
     notes: '',
   })
+
+  // Fetch emails based on active tab
+  const { data: categoryEmails, isLoading: categoryLoading } = useEmailsByCategory(
+    activeCategory === 'support' ? 'primary' : activeCategory,
+    'untriaged'
+  )
+  const { data: supportEmails, isLoading: supportLoading } = useFlaggedSupportEmails()
+
+  // Use support emails when on support tab, otherwise use category emails
+  const emails = activeCategory === 'support' ? supportEmails : categoryEmails
+  const isLoading = activeCategory === 'support' ? supportLoading : categoryLoading
+
+  const { data: categoryCounts } = useEmailCategoryCounts('untriaged')
+  const triageEmail = useTriageEmail()
+  const createWorkItem = useCreateWorkItem()
+
+  // Filter emails by search query
+  const filteredEmails = useMemo(() => {
+    if (!emails) return []
+    if (!searchQuery.trim()) return emails
+
+    const query = searchQuery.toLowerCase()
+    return (emails as unknown as EmailWithMetadata[]).filter(
+      (email) =>
+        email.from_email.toLowerCase().includes(query) ||
+        email.subject?.toLowerCase().includes(query) ||
+        email.body_preview?.toLowerCase().includes(query)
+    )
+  }, [emails, searchQuery])
 
   const handleCreateLead = async () => {
     if (!selectedEmail) return
@@ -65,7 +99,6 @@ export default function InboxPage() {
         notes: leadForm.notes || null,
       } as any)
 
-      // Link email to work item
       await triageEmail.mutateAsync({
         id: selectedEmail.id,
         triageStatus: 'created_lead',
@@ -93,6 +126,18 @@ export default function InboxPage() {
     }
   }
 
+  const handleFlagSupport = async (email: EmailWithMetadata) => {
+    try {
+      await triageEmail.mutateAsync({
+        id: email.id,
+        triageStatus: 'flagged_support',
+      })
+      toast.success('Email flagged for support')
+    } catch (error) {
+      toast.error('Failed to flag email')
+    }
+  }
+
   const openCreateLeadDialog = (email: EmailWithMetadata) => {
     setSelectedEmail(email)
     setLeadForm({
@@ -103,6 +148,21 @@ export default function InboxPage() {
       notes: '',
     })
     setShowCreateLeadDialog(true)
+  }
+
+  const getCategoryIcon = (tab: EmailTab) => {
+    switch (tab) {
+      case 'primary':
+        return <Inbox className="h-4 w-4" />
+      case 'support':
+        return <Flag className="h-4 w-4" />
+      case 'promotional':
+        return <Tag className="h-4 w-4" />
+      case 'spam':
+        return <AlertCircle className="h-4 w-4" />
+      case 'notifications':
+        return <Bell className="h-4 w-4" />
+    }
   }
 
   if (isLoading) {
@@ -119,84 +179,161 @@ export default function InboxPage() {
       <div>
         <h1 className="text-3xl font-bold flex items-center gap-2">
           <Inbox className="h-8 w-8" />
-          Inbox - Triage New Emails
+          Inbox
         </h1>
         <p className="text-muted-foreground">
-          Quick triage: Create leads, link to existing, or archive
+          Triage customer emails and create leads
         </p>
       </div>
 
-      {/* Emails List */}
-      {emails && emails.length > 0 ? (
-        <div className="space-y-3">
-          {(emails as unknown as EmailWithMetadata[]).map((email) => (
-            <Card key={email.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  {/* Email Header */}
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">
-                          {email.from_name || email.from_email}
-                        </span>
-                        {email.from_name && (
-                          <span className="text-sm text-muted-foreground">
-                            &lt;{email.from_email}&gt;
-                          </span>
-                        )}
+      {/* Search Bar */}
+      <div className="relative flex-1 max-w-md">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search emails by sender, subject, or content..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
+      {/* Category Tabs */}
+      <Tabs value={activeCategory} onValueChange={(v) => setActiveCategory(v as EmailTab)}>
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="primary" className="gap-2">
+            {getCategoryIcon('primary')}
+            Primary
+            {(categoryCounts?.primary || 0) > 0 && (
+              <Badge variant="secondary" className="ml-1">
+                {categoryCounts?.primary || 0}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="support" className="gap-2">
+            <Flag className="h-4 w-4" />
+            Support
+            {supportEmails && supportEmails.length > 0 && (
+              <Badge variant="secondary" className="ml-1">
+                {supportEmails.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="promotional" className="gap-2">
+            {getCategoryIcon('promotional')}
+            Promotional
+            {(categoryCounts?.promotional || 0) > 0 && (
+              <Badge variant="secondary" className="ml-1">
+                {categoryCounts?.promotional || 0}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="spam" className="gap-2">
+            {getCategoryIcon('spam')}
+            Spam
+            {(categoryCounts?.spam || 0) > 0 && (
+              <Badge variant="secondary" className="ml-1">
+                {categoryCounts?.spam || 0}
+              </Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="gap-2">
+            {getCategoryIcon('notifications')}
+            Notifications
+            {(categoryCounts?.notifications || 0) > 0 && (
+              <Badge variant="secondary" className="ml-1">
+                {categoryCounts?.notifications || 0}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={activeCategory} className="mt-6 space-y-3">
+          {/* Emails List */}
+          {filteredEmails.length > 0 ? (
+            <div className="space-y-3">
+              {filteredEmails.map((email) => (
+                <Card key={email.id} className="hover:shadow-md transition-shadow">
+                  <CardContent className="p-6">
+                    <div className="space-y-4">
+                      {/* Email Header */}
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Mail className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">
+                              {email.from_name || email.from_email}
+                            </span>
+                            {email.from_name && (
+                              <span className="text-sm text-muted-foreground">
+                                &lt;{email.from_email}&gt;
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-lg font-semibold mb-1">{email.subject}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {formatDistanceToNow(new Date(email.received_at), { addSuffix: true })}
+                          </div>
+                        </div>
+                        <Badge variant="secondary">{email.category}</Badge>
                       </div>
-                      <div className="text-lg font-semibold mb-1">{email.subject}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {formatDistanceToNow(new Date(email.received_at), { addSuffix: true })}
+
+                      {/* Email Preview */}
+                      <div className="text-sm text-muted-foreground line-clamp-2">
+                        {email.body_preview}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-2 pt-2 border-t">
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => openCreateLeadDialog(email)}
+                          className="gap-2"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Create Lead
+                        </Button>
+                        {activeCategory !== 'support' && (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleFlagSupport(email)}
+                            className="gap-2"
+                          >
+                            <Flag className="h-4 w-4" />
+                            Flag Support
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleArchive(email)}
+                          className="gap-2"
+                        >
+                          <Archive className="h-4 w-4" />
+                          Archive
+                        </Button>
                       </div>
                     </div>
-                    <Badge variant="secondary">{email.category}</Badge>
-                  </div>
-
-                  {/* Email Preview */}
-                  <div className="text-sm text-muted-foreground line-clamp-2">
-                    {email.body_preview}
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex gap-2 pt-2 border-t">
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => openCreateLeadDialog(email)}
-                      className="gap-2"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Create Lead
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleArchive(email)}
-                      className="gap-2"
-                    >
-                      <Archive className="h-4 w-4" />
-                      Archive as Junk
-                    </Button>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="py-16 text-center">
+                <CheckCircle className="h-16 w-16 mx-auto mb-4 text-green-600 opacity-50" />
+                <h3 className="text-xl font-semibold mb-2">
+                  {searchQuery ? 'No emails match your search' : `No ${activeCategory} emails`}
+                </h3>
+                <p className="text-muted-foreground">
+                  {searchQuery ? 'Try a different search term' : 'All caught up!'}
+                </p>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="py-16 text-center">
-            <CheckCircle className="h-16 w-16 mx-auto mb-4 text-green-600 opacity-50" />
-            <h3 className="text-xl font-semibold mb-2">Inbox Zero! 🎉</h3>
-            <p className="text-muted-foreground">
-              All emails have been triaged. New emails will appear here.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Create Lead Dialog */}
       <Dialog open={showCreateLeadDialog} onOpenChange={setShowCreateLeadDialog}>
