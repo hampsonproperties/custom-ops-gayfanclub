@@ -1018,7 +1018,13 @@ export default function EmailIntakePage() {
                         </div>
 
                         <AttachmentList
-                          attachments={email.attachments_meta || []}
+                          attachments={(email.attachments_meta || []) as Array<{
+                            id: string
+                            name: string
+                            contentType: string
+                            size: number
+                            provider_attachment_id: string
+                          }>}
                           messageId={email.provider_message_id}
                         />
                       </div>
@@ -1089,7 +1095,13 @@ export default function EmailIntakePage() {
                     </div>
 
                     <AttachmentList
-                      attachments={selectedEmail.attachments_meta || []}
+                      attachments={(selectedEmail.attachments_meta || []) as Array<{
+                        id: string
+                        name: string
+                        contentType: string
+                        size: number
+                        provider_attachment_id: string
+                      }>}
                       messageId={selectedEmail.provider_message_id}
                     />
                   </div>
