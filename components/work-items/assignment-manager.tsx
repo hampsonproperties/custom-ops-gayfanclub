@@ -52,7 +52,7 @@ export function AssignmentManager({
           {currentAssignee || 'Unassigned'}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="z-50">
         {TEAM_MEMBERS.map((email) => (
           <DropdownMenuItem
             key={email}

@@ -162,24 +162,6 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
 
         <div className="flex items-center gap-2">
           <StatusBadge status={workItem.status} />
-          {!workItem.closed_at && (
-            <>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => setShowStatusDialog(true)}
-              >
-                Change Status
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowCloseDialog(true)}
-              >
-                Close Lead
-              </Button>
-            </>
-          )}
           {workItem.closed_at && (
             <span className="text-sm text-muted-foreground">
               Closed {formatDistanceToNow(new Date(workItem.closed_at), { addSuffix: true })}
@@ -189,7 +171,11 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Follow-Up Action Bar */}
-      <FollowUpActionBar workItem={workItem} />
+      <FollowUpActionBar
+        workItem={workItem}
+        onChangeStatus={() => setShowStatusDialog(true)}
+        onCloseLead={() => setShowCloseDialog(true)}
+      />
 
       {/* Key Details */}
       <Card>

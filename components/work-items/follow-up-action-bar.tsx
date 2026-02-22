@@ -25,6 +25,8 @@ import {
   AlertTriangle,
   UserPlus,
   Calendar,
+  Edit3,
+  XCircle,
 } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import type { Database } from '@/types/database'
@@ -33,9 +35,11 @@ type WorkItem = Database['public']['Tables']['work_items']['Row']
 
 interface FollowUpActionBarProps {
   workItem: WorkItem
+  onChangeStatus?: () => void
+  onCloseLead?: () => void
 }
 
-export function FollowUpActionBar({ workItem }: FollowUpActionBarProps) {
+export function FollowUpActionBar({ workItem, onChangeStatus, onCloseLead }: FollowUpActionBarProps) {
   const [snoozeDialogOpen, setSnoozeDialogOpen] = useState(false)
   const markFollowedUp = useMarkFollowedUp()
   const toggleWaiting = useToggleWaiting()
@@ -198,7 +202,13 @@ export function FollowUpActionBar({ workItem }: FollowUpActionBarProps) {
                     <ChevronDown className="ml-2 h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="z-50">
+                  {!workItem.closed_at && onChangeStatus && (
+                    <DropdownMenuItem onClick={onChangeStatus}>
+                      <Edit3 className="mr-2 h-4 w-4" />
+                      Change Status
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={() => setSnoozeDialogOpen(true)}>
                     <Clock className="mr-2 h-4 w-4" />
                     Snooze Follow-Up
@@ -216,6 +226,12 @@ export function FollowUpActionBar({ workItem }: FollowUpActionBarProps) {
                       </>
                     )}
                   </DropdownMenuItem>
+                  {!workItem.closed_at && onCloseLead && (
+                    <DropdownMenuItem onClick={onCloseLead} className="text-destructive">
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Close Lead
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

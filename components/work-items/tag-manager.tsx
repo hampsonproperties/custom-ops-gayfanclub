@@ -65,7 +65,7 @@ export function TagManager({ workItemId }: { workItemId: string }) {
               Add Tag
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="z-50">
             {availableTags.map((tag) => (
               <DropdownMenuItem
                 key={tag.id}
