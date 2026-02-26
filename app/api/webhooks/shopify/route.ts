@@ -6,6 +6,7 @@ import { detectOrderType } from '@/lib/shopify/detect-order-type'
 import { addToDLQ } from '@/lib/utils/dead-letter-queue'
 import { syncCustomerTags } from '@/lib/shopify/sync-customer-tags'
 import { createCustomerOrder } from '@/lib/shopify/customer-orders'
+import { fetchOrderComments } from '@/lib/shopify/fetch-order-comments'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -544,6 +545,35 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
     // Track order in customer_orders table (Phase 2)
     await createCustomerOrder(supabase, order, orderType, existingWorkItem.id)
 
+    // Sync order comments from Shopify timeline
+    try {
+      const comments = await fetchOrderComments(order.id.toString())
+      for (const comment of comments) {
+        // Check if comment already synced
+        const { data: existingComment } = await supabase
+          .from('work_item_notes')
+          .select('id')
+          .eq('work_item_id', existingWorkItem.id)
+          .eq('source', 'shopify_comment')
+          .eq('external_id', comment.id)
+          .maybeSingle()
+
+        if (!existingComment) {
+          await supabase.from('work_item_notes').insert({
+            work_item_id: existingWorkItem.id,
+            content: `[${comment.author}] ${comment.message}`,
+            author_email: 'shopify-sync@system',
+            source: 'shopify_comment',
+            external_id: comment.id,
+            synced_at: comment.created_at,
+          })
+        }
+      }
+      console.log(`[Shopify] Synced ${comments.length} comments for order ${order.id}`)
+    } catch (error) {
+      console.error('[Shopify] Error syncing comments:', error)
+    }
+
     // Import Customify files for existing work items (if any)
     // Extract file URLs from order
     const customifyFilesForUpdate: Array<{ kind: string; url: string; filename: string }> = []
@@ -848,6 +878,35 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
 
     // Track order in customer_orders table (Phase 2)
     await createCustomerOrder(supabase, order, orderType, newWorkItem.id)
+
+    // Sync order comments from Shopify timeline
+    try {
+      const comments = await fetchOrderComments(order.id.toString())
+      for (const comment of comments) {
+        // Check if comment already synced
+        const { data: existingComment } = await supabase
+          .from('work_item_notes')
+          .select('id')
+          .eq('work_item_id', newWorkItem.id)
+          .eq('source', 'shopify_comment')
+          .eq('external_id', comment.id)
+          .maybeSingle()
+
+        if (!existingComment) {
+          await supabase.from('work_item_notes').insert({
+            work_item_id: newWorkItem.id,
+            content: `[${comment.author}] ${comment.message}`,
+            author_email: 'shopify-sync@system',
+            source: 'shopify_comment',
+            external_id: comment.id,
+            synced_at: comment.created_at,
+          })
+        }
+      }
+      console.log(`[Shopify] Synced ${comments.length} comments for order ${order.id}`)
+    } catch (error) {
+      console.error('[Shopify] Error syncing comments:', error)
+    }
   }
 
   // Create file records for Customify files - download and store in Supabase
