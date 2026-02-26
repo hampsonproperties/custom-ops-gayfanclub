@@ -10,6 +10,18 @@ import { downloadAndSaveEmailAttachments } from '@/lib/utils/email-attachments'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
+/**
+ * Extract a display name from an email address
+ * e.g., "john.doe@example.com" -> "John Doe"
+ */
+function extractNameFromEmail(email: string): string {
+  const localPart = email.split('@')[0]
+  return localPart
+    .split(/[._-]/)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ')
+}
+
 interface GraphMessage {
   id: string
   internetMessageId: string
@@ -124,7 +136,9 @@ export async function importEmail(
       }
     }
 
-    const fromName = message.from?.emailAddress?.name || fromEmail
+    // Extract name from email or use display name
+    const displayName = message.from?.emailAddress?.name
+    const fromName = displayName || extractNameFromEmail(fromEmail)
     const toEmails = message.toRecipients?.map((r) => r.emailAddress.address) || []
 
     // Log raw message data to debug sender issues
@@ -203,7 +217,8 @@ export async function importEmail(
           emailAddress: {
             address: fromEmail
           }
-        }
+        },
+        toRecipients: message.toRecipients
       })
 
       // Strategy: Form submission auto-create lead
@@ -289,9 +304,15 @@ export async function importEmail(
         }
       }
 
-      // Strategy: Auto-create lead for primary category emails
-      // If email is categorized as "primary" and has no work item, auto-create a lead
-      // BUT skip system/vendor emails (PayPal, Stripe, noreply@, etc.)
+      // DISABLED: Auto-create lead for primary category emails
+      // This was too aggressive and created leads from personal emails, notifications, etc.
+      // Leads should be created from:
+      // 1. Form submissions (handled above)
+      // 2. Manual creation by user
+      // 3. Shopify orders (handled separately)
+      //
+      // Keeping this code commented for reference if we want to add smarter intent detection later
+      /*
       if (!workItemId && !isOutbound && category === 'primary' && shouldAutoCreateLead(fromEmail)) {
         console.log(`[Email Import] Auto-creating lead for primary email from: ${fromEmail}`)
 
@@ -356,6 +377,7 @@ export async function importEmail(
           }
         }
       }
+      */
     }
 
     // Prepare attachment metadata for storage
@@ -742,7 +764,7 @@ export function shouldAutoCreateLead(fromEmail: string): boolean {
  * Check if an email should be filtered as junk
  * Excludes form submission emails even if they match junk patterns
  */
-export function isJunkEmail(fromEmail: string, subject?: string): boolean {
+export function isJunkEmail(fromEmail: string, _subject?: string): boolean {
   // Check if this is a form submission email (exempt from junk filter)
   const isFormProvider = FORM_PROVIDER_DOMAINS.some(domain =>
     fromEmail.toLowerCase().includes(domain.toLowerCase())

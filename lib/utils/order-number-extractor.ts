@@ -203,9 +203,11 @@ export async function autoLinkEmailToWorkItem(
     body?: string
     conversationId?: string | null
     from: { emailAddress: { address: string } }
+    toRecipients?: Array<{ emailAddress: { address: string } }>
   }
 ): Promise<string | null> {
   const fromEmail = message.from.emailAddress.address
+  const toEmails = message.toRecipients?.map(r => r.emailAddress.address) || []
   const subject = message.subject || ''
   const body = message.body || ''
 
@@ -253,24 +255,31 @@ export async function autoLinkEmailToWorkItem(
   }
 
   // Strategy 3: Email-based linking (existing - 60-day window)
+  // For inbound emails, check from_email; for outbound emails, check to_emails
   const lookbackDate = new Date()
   lookbackDate.setDate(lookbackDate.getDate() - 60)
 
-  const { data: recentWorkItem } = await supabase
-    .from('work_items')
-    .select('id')
-    .or(`customer_email.eq.${fromEmail},alternate_emails.cs.{${fromEmail}}`)
-    .is('closed_at', null)
-    .gte('updated_at', lookbackDate.toISOString())
-    .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+  // Build list of emails to check (from for inbound, to for outbound)
+  const emailsToCheck = [fromEmail, ...toEmails]
 
-  if (recentWorkItem) {
-    console.log(
-      `[Auto-Link] Linked via email match (60-day window): ${fromEmail} → ${recentWorkItem.id}`
-    )
-    return recentWorkItem.id
+  // Try each email to find a matching work item
+  for (const emailToCheck of emailsToCheck) {
+    const { data: recentWorkItem } = await supabase
+      .from('work_items')
+      .select('id')
+      .or(`customer_email.eq.${emailToCheck},alternate_emails.cs.{${emailToCheck}}`)
+      .is('closed_at', null)
+      .gte('updated_at', lookbackDate.toISOString())
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (recentWorkItem) {
+      console.log(
+        `[Auto-Link] Linked via email match (60-day window): ${emailToCheck} → ${recentWorkItem.id}`
+      )
+      return recentWorkItem.id
+    }
   }
 
   // Strategy 4: Subject title matching (NEW - for "Re: CLACK FAN DESIGN")

@@ -76,11 +76,28 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        // Extract data
+        // Extract customer data
         const customerEmail = order.customer?.email
         const customerName = order.customer
           ? `${order.customer.first_name || ''} ${order.customer.last_name || ''}`.trim()
           : null
+
+        // Extract additional CRM fields from Shopify
+        const phoneNumber = order.customer?.phone || order.customer?.default_address?.phone || null
+        const companyName = order.customer?.default_address?.company || order.shipping_address?.company || null
+
+        // Format address from Shopify default_address
+        let address = null
+        const addr = order.customer?.default_address || order.shipping_address
+        if (addr) {
+          const addressParts = [
+            addr.address1,
+            addr.address2,
+            [addr.city, addr.province_code, addr.zip].filter(Boolean).join(', '),
+            addr.country,
+          ].filter(Boolean)
+          address = addressParts.join('\n')
+        }
 
         let designPreviewUrl = null
         let designDownloadUrl = null
@@ -138,6 +155,10 @@ export async function POST(request: NextRequest) {
             shopify_fulfillment_status: order.fulfillment_status,
             customer_name: customerName,
             customer_email: customerEmail,
+            phone_number: phoneNumber,
+            company_name: companyName,
+            address: address,
+            lead_source: 'shopify',
             quantity,
             grip_color: gripColor,
             design_preview_url: designPreviewUrl,
@@ -147,7 +168,7 @@ export async function POST(request: NextRequest) {
               order_type: orderType,
               order_tags: order.tags,
             },
-          })
+          } as any)
           .select()
           .single()
 

@@ -87,8 +87,15 @@ export default function WorkItemsPage() {
                       <td className="p-4">
                         <Link href={`/work-items/${item.id}`} className="hover:underline">
                           <div>
-                            <p className="font-medium">{item.customer_name || 'Unknown'}</p>
-                            <p className="text-sm text-muted-foreground">{item.title || item.customer_email}</p>
+                            <p className="font-medium">
+                              {item.customer_name || item.customer_email || 'Unknown'}
+                            </p>
+                            {item.title && (
+                              <p className="text-sm text-muted-foreground">{item.title}</p>
+                            )}
+                            {!item.title && item.customer_name && item.customer_email && (
+                              <p className="text-sm text-muted-foreground">{item.customer_email}</p>
+                            )}
                           </div>
                         </Link>
                       </td>

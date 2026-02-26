@@ -694,3 +694,92 @@ export interface Database {
     }
   }
 }
+
+// ============================================================================
+// Shopify Integration Types (Phase 1-3)
+// ============================================================================
+
+export type OrderType = 'customify_order' | 'custom_design_service' | 'custom_bulk_order'
+export type MatchType = 'exact' | 'contains' | 'regex'
+export type SyncType = 'customer_note' | 'customer_tags' | 'order_fulfillment' | 'order_metafield'
+export type SyncStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
+export type ShopifyResourceType = 'customer' | 'order' | 'fulfillment'
+
+/**
+ * Payment event structure for payment_history JSONB field
+ * Tracks individual payment transactions from Shopify
+ */
+export interface PaymentEvent {
+  transaction_id?: string
+  amount: number
+  currency: string
+  status: string
+  kind: string // 'sale', 'capture', 'refund', etc.
+  gateway?: string
+  paid_at?: string
+}
+
+/**
+ * Customer Order record - tracks unlimited orders per customer
+ * Separates order tracking from production work items
+ */
+export interface CustomerOrder {
+  id: string
+  customer_id: string | null
+  work_item_id: string | null
+  shopify_order_id: string
+  shopify_order_number: string
+  shopify_customer_id: string | null
+  order_type: OrderType
+  total_price: number | null
+  currency: string
+  financial_status: string | null
+  fulfillment_status: string | null
+  payment_history: PaymentEvent[]
+  tags: string[]
+  note: string | null
+  line_items: Json
+  shopify_created_at: string | null
+  shopify_updated_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * Shopify Sync Queue Item - tracks bi-directional sync operations
+ * Implements retry logic with exponential backoff
+ */
+export interface ShopifySyncQueueItem {
+  id: string
+  sync_type: SyncType
+  shopify_resource_type: ShopifyResourceType
+  shopify_resource_id: string
+  sync_payload: Record<string, any>
+  work_item_id: string | null
+  customer_id: string | null
+  status: SyncStatus
+  retry_count: number
+  max_retries: number
+  next_retry_at: string | null
+  last_retry_at: string | null
+  shopify_response: Json | null
+  error_message: string | null
+  error_code: string | null
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * Shopify Tag Mapping - maps Shopify customer tags to internal tags
+ * Supports exact match, contains, and regex patterns
+ */
+export interface ShopifyTagMapping {
+  id: string
+  shopify_tag_pattern: string
+  internal_tag_id: string
+  match_type: MatchType
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}

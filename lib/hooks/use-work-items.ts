@@ -15,6 +15,7 @@ interface WorkItemFilters {
   dateFrom?: string
   dateTo?: string
   search?: string
+  includeClosed?: boolean // Default false - only show open items
 }
 
 export function useWorkItems(filters?: WorkItemFilters) {
@@ -27,6 +28,11 @@ export function useWorkItems(filters?: WorkItemFilters) {
         .from('work_items')
         .select('*, customer:customers(*)')
         .order('created_at', { ascending: false })
+
+      // By default, only show open items (not closed)
+      if (!filters?.includeClosed) {
+        query = query.is('closed_at', null)
+      }
 
       if (filters?.type) {
         query = query.eq('type', filters.type)

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { headers } from 'next/headers'
 import crypto from 'crypto'
 import { detectOrderType } from '@/lib/shopify/detect-order-type'
 import { addToDLQ } from '@/lib/utils/dead-letter-queue'
+import { syncCustomerTags } from '@/lib/shopify/sync-customer-tags'
+import { createCustomerOrder } from '@/lib/shopify/customer-orders'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -100,6 +102,10 @@ export async function POST(request: NextRequest) {
       await processOrder(supabase, payload, webhookEventId!)
     } else if (topic === 'fulfillments/create' || topic === 'orders/fulfilled') {
       await processFulfillment(supabase, payload, webhookEventId!)
+    } else if (topic === 'customers/create' || topic === 'customers/update') {
+      await processCustomer(supabase, payload, webhookEventId!)
+    } else if (topic === 'refunds/create') {
+      await processRefund(supabase, payload, webhookEventId!)
     } else {
       // Unknown topic - mark as skipped
       await supabase
@@ -268,6 +274,23 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
   const customerEmail = order.customer?.email
   const customerName = order.customer ? `${order.customer.first_name || ''} ${order.customer.last_name || ''}`.trim() : null
 
+  // Extract additional CRM fields from Shopify
+  const phoneNumber = order.customer?.phone || order.customer?.default_address?.phone || null
+  const companyName = order.customer?.default_address?.company || order.shipping_address?.company || null
+
+  // Format address from Shopify default_address
+  let address = null
+  const addr = order.customer?.default_address || order.shipping_address
+  if (addr) {
+    const addressParts = [
+      addr.address1,
+      addr.address2,
+      [addr.city, addr.province_code, addr.zip].filter(Boolean).join(', '),
+      addr.country,
+    ].filter(Boolean)
+    address = addressParts.join('\n')
+  }
+
   // Try to find existing work item
   let existingWorkItem = null
 
@@ -317,6 +340,25 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
       shopify_financial_status: order.financial_status,
       shopify_fulfillment_status: order.fulfillment_status,
       customer_name: customerName,
+      phone_number: phoneNumber,
+      company_name: companyName,
+      address: address,
+      lead_source: 'shopify',
+    }
+
+    // Extract payment history from transactions
+    const paymentHistory = (order.transactions || []).map((tx: any) => ({
+      transaction_id: tx.id?.toString(),
+      amount: tx.amount,
+      currency: tx.currency,
+      status: tx.status,
+      kind: tx.kind,
+      gateway: tx.gateway,
+      paid_at: tx.processed_at,
+    }))
+
+    if (paymentHistory.length > 0) {
+      updateData.payment_history = JSON.stringify(paymentHistory)
     }
 
     // For design fee orders, update design_fee_order fields
@@ -393,6 +435,49 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
       .update(updateData)
       .eq('id', existingWorkItem.id)
 
+    // Sync customer note from Shopify
+    const customerNote = order.customer?.note?.trim()
+    if (customerNote && customerNote.length > 0) {
+      // Check if we already have this note (by external_id to avoid duplicates)
+      const { data: existingNote } = await supabase
+        .from('work_item_notes')
+        .select('id')
+        .eq('work_item_id', existingWorkItem.id)
+        .eq('source', 'shopify')
+        .eq('external_id', order.customer.id?.toString())
+        .maybeSingle()
+
+      if (!existingNote) {
+        await supabase
+          .from('work_item_notes')
+          .insert({
+            work_item_id: existingWorkItem.id,
+            content: `[Shopify Customer Note]\n${customerNote}`,
+            author_email: 'shopify-sync@system',
+            source: 'shopify',
+            external_id: order.customer.id?.toString(),
+            synced_at: new Date().toISOString(),
+          })
+        console.log(`Synced customer note to work item ${existingWorkItem.id}`)
+      }
+    }
+
+    // Sync customer tags from Shopify
+    const customerTags = order.customer?.tags
+      ?.split(',')
+      .map((t: string) => t.trim())
+      .filter(Boolean) || []
+
+    if (customerTags.length > 0) {
+      const tagSyncResult = await syncCustomerTags(supabase, existingWorkItem.id, customerTags)
+      console.log(
+        `Synced ${tagSyncResult.linked} tags (${tagSyncResult.created} created) to work item ${existingWorkItem.id}`
+      )
+      if (tagSyncResult.errors.length > 0) {
+        console.error('Tag sync errors:', tagSyncResult.errors)
+      }
+    }
+
     // Create status event if status changed
     if (orderType === 'custom_design_service' && existingWorkItem.status !== 'design_fee_paid') {
       await supabase.from('work_item_status_events').insert({
@@ -455,6 +540,9 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
         console.log(`Auto-linked ${recentEmails.length} emails to work item ${existingWorkItem.id}`)
       }
     }
+
+    // Track order in customer_orders table (Phase 2)
+    await createCustomerOrder(supabase, order, orderType, existingWorkItem.id)
 
     // Import Customify files for existing work items (if any)
     // Extract file URLs from order
@@ -645,6 +733,10 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
     shopify_fulfillment_status: order.fulfillment_status,
     customer_name: customerName,
     customer_email: customerEmail,
+    phone_number: phoneNumber,
+    company_name: companyName,
+    address: address,
+    lead_source: 'shopify',
     quantity,
     grip_color: gripColor,
     design_preview_url: designPreviewUrl,
@@ -655,6 +747,21 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
       order_tags: order.tags,
       has_customify_properties: !!designPreviewUrl || !!designDownloadUrl,
     },
+  }
+
+  // Extract payment history from transactions
+  const paymentHistory = (order.transactions || []).map((tx: any) => ({
+    transaction_id: tx.id?.toString(),
+    amount: tx.amount,
+    currency: tx.currency,
+    status: tx.status,
+    kind: tx.kind,
+    gateway: tx.gateway,
+    paid_at: tx.processed_at,
+  }))
+
+  if (paymentHistory.length > 0) {
+    insertData.payment_history = JSON.stringify(paymentHistory)
   }
 
   if (orderType === 'custom_design_service') {
@@ -706,6 +813,41 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
     } catch (followUpError) {
       console.error('[Shopify Webhook] Error calculating follow-up:', followUpError)
     }
+
+    // Sync customer note from Shopify
+    const customerNote = order.customer?.note?.trim()
+    if (customerNote && customerNote.length > 0) {
+      await supabase
+        .from('work_item_notes')
+        .insert({
+          work_item_id: newWorkItem.id,
+          content: `[Shopify Customer Note]\n${customerNote}`,
+          author_email: 'shopify-sync@system',
+          source: 'shopify',
+          external_id: order.customer.id?.toString(),
+          synced_at: new Date().toISOString(),
+        })
+      console.log(`Synced customer note to new work item ${newWorkItem.id}`)
+    }
+
+    // Sync customer tags from Shopify
+    const customerTags = order.customer?.tags
+      ?.split(',')
+      .map((t: string) => t.trim())
+      .filter(Boolean) || []
+
+    if (customerTags.length > 0) {
+      const tagSyncResult = await syncCustomerTags(supabase, newWorkItem.id, customerTags)
+      console.log(
+        `Synced ${tagSyncResult.linked} tags (${tagSyncResult.created} created) to new work item ${newWorkItem.id}`
+      )
+      if (tagSyncResult.errors.length > 0) {
+        console.error('Tag sync errors:', tagSyncResult.errors)
+      }
+    }
+
+    // Track order in customer_orders table (Phase 2)
+    await createCustomerOrder(supabase, order, orderType, newWorkItem.id)
   }
 
   // Create file records for Customify files - download and store in Supabase
@@ -866,4 +1008,237 @@ async function processFulfillment(supabase: any, fulfillment: any, webhookEventI
       processed_at: new Date().toISOString(),
     })
     .eq('id', webhookEventId)
+}
+
+/**
+ * Process customer create/update webhooks
+ * Upserts customer master record and syncs tags
+ */
+async function processCustomer(
+  supabase: SupabaseClient,
+  customer: any,
+  webhookEventId: string
+) {
+  console.log('[Shopify Webhook] Processing customer:', customer.id)
+
+  try {
+    // Upsert customer master record
+    const { data: existingCustomer } = await supabase
+      .from('customers')
+      .select('id')
+      .eq('email', customer.email?.toLowerCase())
+      .maybeSingle()
+
+    const customerData = {
+      email: customer.email?.toLowerCase(),
+      first_name: customer.first_name,
+      last_name: customer.last_name,
+      phone: customer.phone,
+      shopify_customer_id: customer.id?.toString(),
+      tags: customer.tags?.split(',').map((t: string) => t.trim()).filter(Boolean) || [],
+      metadata: {
+        accepts_marketing: customer.accepts_marketing,
+        email_marketing_consent: customer.email_marketing_consent,
+        sms_marketing_consent: customer.sms_marketing_consent,
+        default_address: customer.default_address,
+        shopify_created_at: customer.created_at,
+        shopify_updated_at: customer.updated_at,
+      },
+    }
+
+    if (existingCustomer) {
+      // Update existing customer
+      await supabase
+        .from('customers')
+        .update(customerData)
+        .eq('id', existingCustomer.id)
+
+      console.log(`Updated customer ${existingCustomer.id}`)
+    } else {
+      // Create new customer
+      const { data: newCustomer } = await supabase
+        .from('customers')
+        .insert(customerData)
+        .select('id')
+        .single()
+
+      console.log(`Created new customer ${newCustomer?.id}`)
+    }
+
+    // If customer has a note and linked work items exist, sync note to work_item_notes
+    if (customer.note?.trim()) {
+      const { data: workItems } = await supabase
+        .from('work_items')
+        .select('id')
+        .eq('email', customer.email?.toLowerCase())
+
+      if (workItems && workItems.length > 0) {
+        for (const workItem of workItems) {
+          // Check if note already exists
+          const { data: existingNote } = await supabase
+            .from('work_item_notes')
+            .select('id')
+            .eq('work_item_id', workItem.id)
+            .eq('source', 'shopify')
+            .eq('external_id', customer.id?.toString())
+            .maybeSingle()
+
+          if (!existingNote) {
+            await supabase
+              .from('work_item_notes')
+              .insert({
+                work_item_id: workItem.id,
+                content: `[Shopify Customer Note]\n${customer.note}`,
+                author_email: 'shopify-sync@system',
+                source: 'shopify',
+                external_id: customer.id?.toString(),
+                synced_at: new Date().toISOString(),
+              })
+          }
+        }
+      }
+    }
+
+    // Mark webhook as completed
+    await supabase
+      .from('webhook_events')
+      .update({
+        processing_status: 'completed',
+        processed_at: new Date().toISOString(),
+      })
+      .eq('id', webhookEventId)
+  } catch (error: any) {
+    console.error('[Shopify Webhook] Error processing customer:', error)
+    await supabase
+      .from('webhook_events')
+      .update({
+        processing_status: 'failed',
+        processing_error: error.message,
+      })
+      .eq('id', webhookEventId)
+    throw error
+  }
+}
+
+/**
+ * Process refund create webhooks
+ * Updates payment_history in work_items and customer_orders
+ */
+async function processRefund(
+  supabase: SupabaseClient,
+  refund: any,
+  webhookEventId: string
+) {
+  console.log('[Shopify Webhook] Processing refund:', refund.id)
+
+  try {
+    const orderId = refund.order_id?.toString()
+
+    if (!orderId) {
+      await supabase
+        .from('webhook_events')
+        .update({
+          processing_status: 'failed',
+          processing_error: 'Missing order_id in refund payload',
+        })
+        .eq('id', webhookEventId)
+      return
+    }
+
+    // Get work item(s) for this order
+    const { data: workItems } = await supabase
+      .from('work_items')
+      .select('id, payment_history')
+      .eq('shopify_order_id', orderId)
+
+    if (workItems && workItems.length > 0) {
+      for (const workItem of workItems) {
+        // Parse existing payment history
+        let paymentHistory = []
+        if (workItem.payment_history) {
+          try {
+            paymentHistory = JSON.parse(workItem.payment_history as string)
+          } catch (e) {
+            console.error('Failed to parse payment_history:', e)
+          }
+        }
+
+        // Add refund transactions to payment history
+        const refundTransactions = (refund.transactions || []).map((tx: any) => ({
+          transaction_id: tx.id?.toString(),
+          amount: tx.amount,
+          currency: tx.currency,
+          status: tx.status,
+          kind: 'refund',
+          gateway: tx.gateway,
+          paid_at: tx.created_at,
+        }))
+
+        paymentHistory = [...paymentHistory, ...refundTransactions]
+
+        // Update work item
+        await supabase
+          .from('work_items')
+          .update({
+            payment_history: JSON.stringify(paymentHistory),
+          })
+          .eq('id', workItem.id)
+
+        console.log(`Updated payment history for work item ${workItem.id} with refund`)
+      }
+    }
+
+    // Also update customer_orders if it exists
+    const { data: customerOrders } = await supabase
+      .from('customer_orders')
+      .select('id, payment_history')
+      .eq('shopify_order_id', orderId)
+
+    if (customerOrders && customerOrders.length > 0) {
+      for (const order of customerOrders) {
+        let paymentHistory = order.payment_history || []
+
+        const refundTransactions = (refund.transactions || []).map((tx: any) => ({
+          transaction_id: tx.id?.toString(),
+          amount: tx.amount,
+          currency: tx.currency,
+          status: tx.status,
+          kind: 'refund',
+          gateway: tx.gateway,
+          paid_at: tx.created_at,
+        }))
+
+        paymentHistory = [...paymentHistory, ...refundTransactions]
+
+        await supabase
+          .from('customer_orders')
+          .update({
+            payment_history: paymentHistory,
+            financial_status: 'refunded',
+          })
+          .eq('id', order.id)
+
+        console.log(`Updated customer_orders ${order.id} with refund`)
+      }
+    }
+
+    // Mark webhook as completed
+    await supabase
+      .from('webhook_events')
+      .update({
+        processing_status: 'completed',
+        processed_at: new Date().toISOString(),
+      })
+      .eq('id', webhookEventId)
+  } catch (error: any) {
+    console.error('[Shopify Webhook] Error processing refund:', error)
+    await supabase
+      .from('webhook_events')
+      .update({
+        processing_status: 'failed',
+        processing_error: error.message,
+      })
+      .eq('id', webhookEventId)
+    throw error
+  }
 }
