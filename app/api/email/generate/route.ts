@@ -136,7 +136,7 @@ AVOID:
     const openai = getOpenAIClient()
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-3.5-turbo',
       max_tokens: 1024,
       temperature: 0.7,
       messages: [
@@ -155,7 +155,7 @@ AVOID:
 
     // Generate a subject line
     const subjectCompletion = await openai.chat.completions.create({
-      model: 'gpt-4',
+      model: 'gpt-3.5-turbo',
       max_tokens: 50,
       temperature: 0.7,
       messages: [
