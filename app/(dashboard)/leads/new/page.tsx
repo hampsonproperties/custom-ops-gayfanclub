@@ -371,7 +371,7 @@ export default function NewLeadPage() {
                   <SelectValue placeholder="Assign to yourself" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
                   {/* These will be populated from users table */}
                   <SelectItem value="current">Assign to Me</SelectItem>
                 </SelectContent>

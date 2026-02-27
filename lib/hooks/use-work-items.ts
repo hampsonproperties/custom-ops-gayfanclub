@@ -41,7 +41,14 @@ export function useWorkItems(filters?: WorkItemFilters) {
         query = query.eq('status', filters.status)
       }
       if (filters?.assignedTo) {
-        query = query.eq('assigned_to_user_id', filters.assignedTo)
+        // Handle "me" special case
+        let assignedToUserId = filters.assignedTo
+        if (filters.assignedTo === 'me') {
+          const { data: { user } } = await supabase.auth.getUser()
+          if (!user) throw new Error('Not authenticated')
+          assignedToUserId = user.id
+        }
+        query = query.eq('assigned_to_user_id', assignedToUserId)
       }
       if (filters?.search) {
         // Search across multiple fields:
