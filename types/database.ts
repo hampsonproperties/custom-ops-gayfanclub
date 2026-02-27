@@ -13,6 +13,8 @@ export type DesignReviewStatus = 'pending' | 'approved' | 'needs_fix'
 export type CommunicationDirection = 'inbound' | 'outbound'
 export type TriageStatus = 'untriaged' | 'triaged' | 'created_lead' | 'attached' | 'flagged_support' | 'archived'
 export type EmailCategory = 'primary' | 'promotional' | 'spam' | 'notifications'
+export type EmailPriority = 'high' | 'medium' | 'low'
+export type EmailStatus = 'needs_reply' | 'waiting_on_customer' | 'closed'
 export type FileKind = 'preview' | 'design' | 'proof' | 'other' | 'email_attachment'
 export type BatchStatus = 'draft' | 'confirmed' | 'exported'
 export type IntegrationProvider = 'shopify' | 'm365'
@@ -186,6 +188,10 @@ export interface Database {
           closed_at: string | null
           close_reason: string | null
           reason_included: Json | null
+          revision_count: number
+          proof_sent_at: string | null
+          proof_approved_at: string | null
+          customer_feedback: string | null
           created_at: string
           updated_at: string
         }
@@ -230,6 +236,10 @@ export interface Database {
           closed_at?: string | null
           close_reason?: string | null
           reason_included?: Json | null
+          revision_count?: number
+          proof_sent_at?: string | null
+          proof_approved_at?: string | null
+          customer_feedback?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -274,6 +284,10 @@ export interface Database {
           closed_at?: string | null
           close_reason?: string | null
           reason_included?: Json | null
+          revision_count?: number
+          proof_sent_at?: string | null
+          proof_approved_at?: string | null
+          customer_feedback?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -334,6 +348,9 @@ export interface Database {
           actioned_at: string | null
           sent_at: string | null
           received_at: string | null
+          owner_user_id: string | null
+          priority: EmailPriority
+          email_status: EmailStatus
           created_at: string
           updated_at: string
         }
@@ -360,6 +377,9 @@ export interface Database {
           actioned_at?: string | null
           sent_at?: string | null
           received_at?: string | null
+          owner_user_id?: string | null
+          priority?: EmailPriority
+          email_status?: EmailStatus
           created_at?: string
           updated_at?: string
         }
@@ -386,6 +406,9 @@ export interface Database {
           actioned_at?: string | null
           sent_at?: string | null
           received_at?: string | null
+          owner_user_id?: string | null
+          priority?: EmailPriority
+          email_status?: EmailStatus
           created_at?: string
           updated_at?: string
         }
@@ -536,6 +559,12 @@ export interface Database {
           tracking_number: string | null
           shipped_at: string | null
           notes: string | null
+          alibaba_order_number: string | null
+          drip_email_1_sent_at: string | null
+          drip_email_2_sent_at: string | null
+          drip_email_3_sent_at: string | null
+          drip_email_4_sent_at: string | null
+          drip_email_4_skipped: boolean
           created_at: string
           updated_at: string
         }
@@ -549,6 +578,12 @@ export interface Database {
           tracking_number?: string | null
           shipped_at?: string | null
           notes?: string | null
+          alibaba_order_number?: string | null
+          drip_email_1_sent_at?: string | null
+          drip_email_2_sent_at?: string | null
+          drip_email_3_sent_at?: string | null
+          drip_email_4_sent_at?: string | null
+          drip_email_4_skipped?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -562,6 +597,12 @@ export interface Database {
           tracking_number?: string | null
           shipped_at?: string | null
           notes?: string | null
+          alibaba_order_number?: string | null
+          drip_email_1_sent_at?: string | null
+          drip_email_2_sent_at?: string | null
+          drip_email_3_sent_at?: string | null
+          drip_email_4_sent_at?: string | null
+          drip_email_4_skipped?: boolean
           created_at?: string
           updated_at?: string
         }
