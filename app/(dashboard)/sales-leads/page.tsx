@@ -246,12 +246,12 @@ export default function SalesLeadsPage() {
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-9 w-9">
                                   <AvatarFallback className="text-xs bg-primary/10">
-                                    {getInitials(lead.name, lead.email)}
+                                    {getInitials(lead.customer_name, lead.customer_email)}
                                   </AvatarFallback>
                                 </Avatar>
                                 <div>
                                   <p className="font-medium text-sm hover:underline">
-                                    {lead.name || lead.email || 'Unknown'}
+                                    {lead.customer_name || lead.customer_email || 'Unknown'}
                                   </p>
                                   <div className="mt-0.5">
                                     <StatusBadge status={lead.status} />
@@ -262,10 +262,10 @@ export default function SalesLeadsPage() {
                           </td>
                           <td className="p-3">
                             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                              {lead.company ? (
+                              {lead.company_name ? (
                                 <>
                                   <Building2 className="h-3.5 w-3.5" />
-                                  {lead.company}
+                                  {lead.company_name}
                                 </>
                               ) : (
                                 <span className="text-muted-foreground/50">-</span>
@@ -274,12 +274,12 @@ export default function SalesLeadsPage() {
                           </td>
                           <td className="p-3">
                             <span className="text-sm text-muted-foreground">
-                              {lead.email || '-'}
+                              {lead.customer_email || '-'}
                             </span>
                           </td>
                           <td className="p-3">
                             <span className="text-sm text-muted-foreground">
-                              {lead.phone || '-'}
+                              {lead.phone_number || '-'}
                             </span>
                           </td>
                           <td className="p-3">
@@ -307,7 +307,7 @@ export default function SalesLeadsPage() {
                                 className="h-8 w-8 p-0"
                                 asChild
                               >
-                                <a href={`mailto:${lead.email}`}>
+                                <a href={`mailto:${lead.customer_email}`}>
                                   <Mail className="h-4 w-4" />
                                 </a>
                               </Button>
