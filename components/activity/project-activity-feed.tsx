@@ -127,6 +127,12 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
         tasks = []
       }
 
+      // Helper to extract user object (Supabase sometimes returns array for relations)
+      const getUserObject = (user: any) => {
+        if (!user) return { id: '', full_name: 'Unknown', email: '' }
+        return Array.isArray(user) ? user[0] : user
+      }
+
       // Combine all activities
       const allActivities: ActivityItem[] = [
         ...(notes || []).map(note => ({
@@ -135,7 +141,7 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
           content: note.content,
           created_at: note.created_at,
           starred: note.starred,
-          user: note.created_by_user || { id: '', full_name: 'Unknown', email: '' },
+          user: getUserObject(note.created_by_user),
         })),
         ...(emails || []).map(email => ({
           id: email.id,
@@ -145,7 +151,7 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
           created_at: email.created_at,
           delivered_at: email.delivered_at,
           opened_at: email.opened_at,
-          user: email.sent_by_user || { id: '', full_name: 'System', email: '' },
+          user: getUserObject(email.sent_by_user),
         })),
         ...(tasks || []).map(task => ({
           id: task.id,
@@ -154,8 +160,8 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
           created_at: task.created_at,
           due_date: task.due_date,
           completed: task.completed,
-          user: task.created_by_user || { id: '', full_name: 'Unknown', email: '' },
-          assigned_to: task.assigned_to,
+          user: getUserObject(task.created_by_user),
+          assigned_to: getUserObject(task.assigned_to),
         })),
       ]
 
