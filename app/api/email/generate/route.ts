@@ -5,9 +5,15 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!,
-})
+// Lazy initialize OpenAI client to avoid build-time errors
+function getOpenAIClient() {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY environment variable is not set')
+  }
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  })
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -127,6 +133,8 @@ AVOID:
 - Making promises about timing unless specified`
 
     // Generate email using OpenAI
+    const openai = getOpenAIClient()
+
     const completion = await openai.chat.completions.create({
       model: 'gpt-4',
       max_tokens: 1024,
