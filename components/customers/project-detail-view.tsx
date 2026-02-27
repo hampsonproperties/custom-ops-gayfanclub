@@ -22,6 +22,7 @@ import {
 import { StatusBadge } from '@/components/custom/status-badge'
 import { format, formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
+import { ProjectActivityFeed } from '@/components/activity/project-activity-feed'
 
 interface ProjectDetailViewProps {
   projectId: string
@@ -91,43 +92,7 @@ export function ProjectDetailView({ projectId, customerId, customerName }: Proje
     },
   })
 
-  // Fetch project timeline/activity
-  const { data: timeline } = useQuery({
-    queryKey: ['project-timeline', projectId],
-    queryFn: async () => {
-      const supabase = createClient()
-
-      // Get status change events
-      const { data: statusChanges, error: statusError } = await supabase
-        .from('work_item_status_changes')
-        .select('*, user:users(full_name, email)')
-        .eq('work_item_id', projectId)
-        .order('changed_at', { ascending: false })
-
-      // Get notes
-      const { data: notesList, error: notesError } = await supabase
-        .from('work_item_notes')
-        .select('*, created_by_user:users!created_by_user_id(full_name, email)')
-        .eq('work_item_id', projectId)
-        .order('created_at', { ascending: false })
-
-      // Get file uploads
-      const { data: filesList, error: filesError } = await supabase
-        .from('files')
-        .select('*, uploaded_by:users(full_name, email)')
-        .eq('work_item_id', projectId)
-        .order('created_at', { ascending: false })
-
-      // Combine and sort by date
-      const allEvents = [
-        ...(statusChanges || []).map(e => ({ ...e, type: 'status_change', timestamp: e.changed_at })),
-        ...(notesList || []).map(e => ({ ...e, type: 'note', timestamp: e.created_at })),
-        ...(filesList || []).map(e => ({ ...e, type: 'file', timestamp: e.created_at })),
-      ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-
-      return allEvents
-    },
-  })
+  // Timeline is now handled by ProjectActivityFeed component
 
   const handleBack = () => {
     router.push(`/customers/${customerId}`)
@@ -223,49 +188,13 @@ export function ProjectDetailView({ projectId, customerId, customerName }: Proje
           </TabsTrigger>
         </TabsList>
 
-        {/* Activity Tab */}
-        <TabsContent value="activity" className="space-y-4 mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Project Timeline</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {timeline && timeline.length > 0 ? (
-                <div className="space-y-4">
-                  {timeline.map((event: any, index) => (
-                    <div key={`${event.type}-${event.id || index}`} className="flex gap-4 border-l-2 border-muted pl-4 pb-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-sm">
-                            {event.type === 'status_change' && 'Status Changed'}
-                            {event.type === 'note' && 'Note Added'}
-                            {event.type === 'file' && 'File Uploaded'}
-                          </span>
-                          <Badge variant="outline" className="text-xs">
-                            {event.type === 'status_change' && event.user?.full_name}
-                            {event.type === 'note' && event.created_by_user?.full_name}
-                            {event.type === 'file' && event.uploaded_by?.full_name}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(new Date(event.timestamp), { addSuffix: true })}
-                          </span>
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {event.type === 'status_change' && `Changed status to: ${event.new_status}`}
-                          {event.type === 'note' && event.content}
-                          {event.type === 'file' && `Uploaded: ${event.filename}`}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  No activity yet
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        {/* Activity Tab - Follow Up Boss Style */}
+        <TabsContent value="activity" className="mt-6">
+          <ProjectActivityFeed
+            projectId={projectId}
+            customerId={customerId}
+            customerEmail={project.customer?.email || ''}
+          />
         </TabsContent>
 
         {/* Files Tab */}
