@@ -261,7 +261,7 @@ export function InvoiceManager({ workItem }: InvoiceManagerProps) {
               )}
               <p className="text-sm text-muted-foreground">
                 {workItem.shopify_draft_order_id
-                  ? '✓ Invoice #' + (workItem.shopify_draft_order_number || 'sent')
+                  ? '✓ Production invoice sent'
                   : '→ Custom fan production'}
               </p>
             </div>
