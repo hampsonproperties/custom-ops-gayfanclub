@@ -8,7 +8,9 @@ import { useState, useEffect } from 'react'
 import type { Database } from '@/types/database'
 import { formatDistanceToNow } from 'date-fns'
 
-type WorkItem = Database['public']['Tables']['work_items']['Row']
+type WorkItem = Database['public']['Tables']['work_items']['Row'] & {
+  shopify_customer_id?: string | null
+}
 
 interface ShopifyOrder {
   id: string
