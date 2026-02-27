@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
   SelectContent,
@@ -32,12 +33,15 @@ import {
   Filter,
   ArrowRight,
   Calendar,
+  LayoutGrid,
+  List as ListIcon,
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
+import { CustomerKanban } from '@/components/customers/customer-kanban'
 
 interface Customer {
   id: string
@@ -62,6 +66,7 @@ interface CustomerStats {
 }
 
 export default function CustomersPage() {
+  const [view, setView] = useState<'pipeline' | 'list'>('pipeline')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'with_projects' | 'no_projects'>('all')
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
@@ -264,33 +269,54 @@ export default function CustomersPage() {
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader className="pb-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name, email..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={filterStatus} onValueChange={(value: any) => setFilterStatus(value)}>
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <Filter className="mr-2 h-4 w-4" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Customers</SelectItem>
-                <SelectItem value="with_projects">With Projects</SelectItem>
-                <SelectItem value="no_projects">No Projects</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </CardHeader>
-        <CardContent>
+      {/* View Tabs */}
+      <Tabs value={view} onValueChange={(v) => setView(v as 'pipeline' | 'list')}>
+        <div className="flex items-center justify-between mb-4">
+          <TabsList>
+            <TabsTrigger value="pipeline" className="gap-2">
+              <LayoutGrid className="h-4 w-4" />
+              Pipeline
+            </TabsTrigger>
+            <TabsTrigger value="list" className="gap-2">
+              <ListIcon className="h-4 w-4" />
+              List
+            </TabsTrigger>
+          </TabsList>
+        </div>
+
+        {/* Pipeline View */}
+        <TabsContent value="pipeline" className="mt-0">
+          <CustomerKanban />
+        </TabsContent>
+
+        {/* List View */}
+        <TabsContent value="list" className="mt-0">
+          <Card>
+            <CardHeader className="pb-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name, email..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                <Select value={filterStatus} onValueChange={(value: any) => setFilterStatus(value)}>
+                  <SelectTrigger className="w-full sm:w-[200px]">
+                    <Filter className="mr-2 h-4 w-4" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Customers</SelectItem>
+                    <SelectItem value="with_projects">With Projects</SelectItem>
+                    <SelectItem value="no_projects">No Projects</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardHeader>
+            <CardContent>
           {isLoading ? (
             <div className="text-center py-12 text-muted-foreground">
               Loading customers...
@@ -430,6 +456,8 @@ export default function CustomersPage() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
