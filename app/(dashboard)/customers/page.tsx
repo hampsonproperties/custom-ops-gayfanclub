@@ -35,9 +35,11 @@ import {
   Calendar,
   LayoutGrid,
   List as ListIcon,
+  Building2,
+  DollarSign,
 } from 'lucide-react'
 import Link from 'next/link'
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow, format } from 'date-fns'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
@@ -93,6 +95,11 @@ export default function CustomersPage() {
             status,
             created_at,
             updated_at
+          ),
+          assigned_to_user:users!assigned_to_user_id (
+            id,
+            full_name,
+            email
           )
         `)
         .order('updated_at', { ascending: false })
@@ -334,16 +341,20 @@ export default function CustomersPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Customer</TableHead>
-                      <TableHead>Contact</TableHead>
+                      <TableHead>Assigned To</TableHead>
+                      <TableHead>Company</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Phone</TableHead>
                       <TableHead className="text-center">Projects</TableHead>
-                      <TableHead>Last Contact</TableHead>
-                      <TableHead>Shopify</TableHead>
+                      <TableHead>Est. Value</TableHead>
+                      <TableHead>Next Follow-Up</TableHead>
                       <TableHead className="w-[50px]"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {customers.map((customer) => (
                       <TableRow key={customer.id} className="cursor-pointer hover:bg-muted/50">
+                        {/* Customer Name */}
                         <TableCell>
                           <Link href={`/customers/${customer.id}`} className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white font-semibold">
@@ -356,43 +367,83 @@ export default function CustomersPage() {
                             </div>
                           </Link>
                         </TableCell>
+
+                        {/* Assigned To */}
                         <TableCell>
-                          <div className="space-y-1">
+                          {(customer as any).assigned_to_user?.full_name ? (
                             <div className="flex items-center gap-2 text-sm">
-                              <Mail className="h-3.5 w-3.5 text-muted-foreground" />
-                              <span>{customer.email}</span>
+                              <User className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span>{(customer as any).assigned_to_user.full_name}</span>
                             </div>
-                            {customer.phone && (
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <Phone className="h-3.5 w-3.5" />
-                                <span>{customer.phone}</span>
-                              </div>
-                            )}
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Unassigned</span>
+                          )}
+                        </TableCell>
+
+                        {/* Company */}
+                        <TableCell>
+                          {(customer as any).organization_name ? (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span>{(customer as any).organization_name}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+
+                        {/* Email */}
+                        <TableCell>
+                          <div className="flex items-center gap-2 text-sm">
+                            <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="truncate max-w-[200px]">{customer.email}</span>
                           </div>
                         </TableCell>
+
+                        {/* Phone */}
+                        <TableCell>
+                          {customer.phone ? (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span>{customer.phone}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+
+                        {/* Projects Count */}
                         <TableCell className="text-center">
                           <Badge variant={customer.project_count ? 'default' : 'secondary'}>
                             {customer.project_count || 0}
                           </Badge>
                         </TableCell>
+
+                        {/* Estimated Value */}
                         <TableCell>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Calendar className="h-3.5 w-3.5" />
-                            {formatDistanceToNow(new Date(customer.last_contact || customer.created_at), {
-                              addSuffix: true,
-                            })}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {customer.shopify_customer_id ? (
-                            <Badge variant="outline" className="text-xs">
-                              <ShoppingBag className="h-3 w-3 mr-1" />
-                              Linked
-                            </Badge>
+                          {(customer as any).estimated_value ? (
+                            <div className="flex items-center gap-2 text-sm font-medium">
+                              <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span>${((customer as any).estimated_value).toLocaleString()}</span>
+                            </div>
                           ) : (
-                            <span className="text-xs text-muted-foreground">Not linked</span>
+                            <span className="text-xs text-muted-foreground">-</span>
                           )}
                         </TableCell>
+
+                        {/* Next Follow-Up */}
+                        <TableCell>
+                          {(customer as any).next_follow_up_at ? (
+                            <div className="flex items-center gap-2 text-sm">
+                              <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span>{format(new Date((customer as any).next_follow_up_at), 'MMM d, yyyy')}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Not set</span>
+                          )}
+                        </TableCell>
+
+                        {/* Actions */}
                         <TableCell>
                           <Link href={`/customers/${customer.id}`}>
                             <Button variant="ghost" size="sm">
@@ -417,33 +468,58 @@ export default function CustomersPage() {
                             {(customer.display_name || customer.email || 'U').charAt(0).toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0">
+                            {/* Name */}
                             <div className="font-medium text-base mb-1">
                               {customer.display_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'No name'}
                             </div>
-                            <div className="text-sm text-muted-foreground mb-2 truncate">
+
+                            {/* Company */}
+                            {(customer as any).organization_name && (
+                              <div className="text-sm text-muted-foreground mb-1 flex items-center gap-1.5">
+                                <Building2 className="h-3.5 w-3.5" />
+                                <span className="truncate">{(customer as any).organization_name}</span>
+                              </div>
+                            )}
+
+                            {/* Email */}
+                            <div className="text-sm text-muted-foreground mb-1 truncate">
                               {customer.email}
                             </div>
+
+                            {/* Phone */}
                             {customer.phone && (
                               <div className="text-sm text-muted-foreground mb-2">
                                 {customer.phone}
                               </div>
                             )}
-                            <div className="flex items-center gap-2 flex-wrap">
+
+                            {/* Badges Row */}
+                            <div className="flex items-center gap-2 flex-wrap mb-2">
                               <Badge variant={customer.project_count ? 'default' : 'secondary'} className="text-xs">
                                 {customer.project_count || 0} projects
                               </Badge>
-                              {customer.shopify_customer_id && (
+                              {(customer as any).estimated_value && (
                                 <Badge variant="outline" className="text-xs">
-                                  <ShoppingBag className="h-3 w-3 mr-1" />
-                                  Shopify
+                                  <DollarSign className="h-3 w-3 mr-1" />
+                                  ${((customer as any).estimated_value).toLocaleString()}
                                 </Badge>
                               )}
                             </div>
-                            <div className="text-xs text-muted-foreground mt-2">
-                              {formatDistanceToNow(new Date(customer.last_contact || customer.created_at), {
-                                addSuffix: true,
-                              })}
-                            </div>
+
+                            {/* Assigned To */}
+                            {(customer as any).assigned_to_user?.full_name && (
+                              <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1.5">
+                                <User className="h-3 w-3" />
+                                <span>Assigned to {(customer as any).assigned_to_user.full_name}</span>
+                              </div>
+                            )}
+
+                            {/* Next Follow-Up */}
+                            {(customer as any).next_follow_up_at && (
+                              <div className="text-xs text-muted-foreground">
+                                <span className="font-medium">Follow-up:</span> {format(new Date((customer as any).next_follow_up_at), 'MMM d, yyyy')}
+                              </div>
+                            )}
                           </div>
                           <ArrowRight className="h-5 w-5 text-muted-foreground shrink-0" />
                         </div>
