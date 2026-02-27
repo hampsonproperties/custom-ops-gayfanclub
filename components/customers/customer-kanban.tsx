@@ -136,12 +136,12 @@ interface KanbanColumnProps {
 
 function KanbanColumn({ stage, customers }: KanbanColumnProps) {
   return (
-    <div className="flex flex-col min-w-[280px] max-w-[320px] flex-shrink-0">
+    <div className="flex flex-col w-[260px] sm:w-[280px] flex-shrink-0">
       {/* Column Header */}
       <div className="mb-3 sticky top-0 bg-background z-10 pb-2">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-sm">{stage.label}</h3>
-          <Badge variant="secondary" className="text-xs">
+          <h3 className="font-semibold text-sm truncate">{stage.label}</h3>
+          <Badge variant="secondary" className="text-xs ml-2">
             {customers.length}
           </Badge>
         </div>
@@ -150,7 +150,7 @@ function KanbanColumn({ stage, customers }: KanbanColumnProps) {
 
       {/* Customer Cards */}
       <SortableContext items={customers.map(c => c.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex-1 space-y-2 overflow-y-auto">
+        <div className="flex-1 space-y-2 overflow-y-auto min-h-[200px]">
           {customers.length === 0 ? (
             <div className="text-center py-8 text-sm text-muted-foreground">
               No customers
@@ -326,9 +326,9 @@ export function CustomerKanban() {
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
     >
-      <div className="h-full overflow-x-auto">
-        {/* Desktop: Horizontal Kanban */}
-        <div className="hidden md:flex gap-4 p-6 h-full">
+      {/* Desktop: Horizontal Kanban */}
+      <div className="hidden md:block w-full overflow-x-auto">
+        <div className="flex gap-4 p-6 min-h-[600px]">
           {SALES_STAGES.map(stage => (
             <KanbanColumn
               key={stage.id}
@@ -337,6 +337,7 @@ export function CustomerKanban() {
             />
           ))}
         </div>
+      </div>
 
         {/* Mobile: Vertical Stack */}
         <div className="md:hidden space-y-6 p-4">

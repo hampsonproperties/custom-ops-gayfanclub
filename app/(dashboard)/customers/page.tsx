@@ -248,23 +248,23 @@ export default function CustomersPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="pb-3">
             <CardDescription>Total Customers</CardDescription>
-            <CardTitle className="text-3xl">{stats.total}</CardTitle>
+            <CardTitle className="text-2xl sm:text-3xl">{stats.total}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-3">
             <CardDescription>With Active Projects</CardDescription>
-            <CardTitle className="text-3xl">{stats.with_projects}</CardTitle>
+            <CardTitle className="text-2xl sm:text-3xl">{stats.with_projects}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-3">
             <CardDescription>Contacted This Week</CardDescription>
-            <CardTitle className="text-3xl">{stats.recent_contacts}</CardTitle>
+            <CardTitle className="text-2xl sm:text-3xl">{stats.recent_contacts}</CardTitle>
           </CardHeader>
         </Card>
       </div>
