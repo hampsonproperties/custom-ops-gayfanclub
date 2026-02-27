@@ -1,6 +1,6 @@
 'use client'
 
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -49,7 +49,6 @@ import {
 import { InlineEmailComposer } from '@/components/email/inline-email-composer'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { AlternativeContactsManager } from '@/components/customers/alternative-contacts-manager'
-import { ProjectDetailView } from '@/components/customers/project-detail-view'
 
 // Project Card Component with Enhanced Details
 function ProjectCard({ project, customerId }: { project: any; customerId: string }) {
@@ -87,7 +86,7 @@ function ProjectCard({ project, customerId }: { project: any; customerId: string
   })
 
   return (
-    <Link href={`/customers/${customerId}?project=${project.id}`}>
+    <Link href={`/work-items/${project.id}`}>
       <Card className="hover:shadow-md transition-all duration-150 cursor-pointer border-muted/40">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-3">
@@ -537,9 +536,7 @@ function NotesTab({ customerId }: { customerId: string }) {
 // Main Customer Profile Page
 export default function CustomerProfilePage() {
   const params = useParams()
-  const searchParams = useSearchParams()
   const customerId = params.id as string
-  const projectId = searchParams?.get('project')
   const { data: profileData, isLoading } = useCustomerProfile(customerId)
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
 
@@ -577,20 +574,6 @@ export default function CustomerProfilePage() {
 
   const { customer, projects, conversations, stats } = profileData
 
-  // If viewing a specific project, show project detail view
-  if (projectId) {
-    return (
-      <div className="p-6">
-        <ProjectDetailView
-          projectId={projectId}
-          customerId={customerId}
-          customerName={customer.display_name || customer.email}
-        />
-      </div>
-    )
-  }
-
-  // Otherwise show customer overview
   return (
     <div className="p-6 space-y-6">
       {/* Header - PDR v3 Spec */}
