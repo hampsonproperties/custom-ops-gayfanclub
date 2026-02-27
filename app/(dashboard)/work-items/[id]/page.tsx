@@ -28,6 +28,8 @@ import { AssignmentManager } from '@/components/work-items/assignment-manager'
 import { TagManager } from '@/components/work-items/tag-manager'
 import { ValueManager } from '@/components/work-items/value-manager'
 import { CustomerDetailsEditor } from '@/components/work-items/customer-details-editor'
+import { ShopifyInfo } from '@/components/work-items/shopify-info'
+import { InvoiceManager } from '@/components/work-items/invoice-manager'
 
 type FileRecord = Database['public']['Tables']['files']['Row']
 import { formatDistanceToNow } from 'date-fns'
@@ -44,6 +46,8 @@ type WorkItemWithExtras = Database['public']['Tables']['work_items']['Row'] & {
   assigned_at?: string | null
   assigned_by_email?: string | null
   last_activity_at?: string | null
+  company_name?: string | null
+  event_date?: string | null
 }
 
 export default function WorkItemDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -129,6 +133,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
     }
   }
 
+
   if (isLoading) {
     return (
       <div className="p-6">
@@ -147,39 +152,69 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link href="/work-items">
-          <Button variant="ghost" size="sm" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-        </Link>
+      {/* Enhanced Header */}
+      <div className="space-y-4">
+        <div className="flex items-start gap-4">
+          <Link href="/work-items">
+            <Button variant="ghost" size="sm" className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+          </Link>
 
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold">
-            {workItem.customer_name || workItem.customer_email || 'Unknown Customer'}
-          </h1>
-          <div className="flex items-center gap-2 text-muted-foreground">
-            {workItem.customer_name && workItem.customer_email && (
-              <span>{workItem.customer_email}</span>
-            )}
-            {workItem.title && (
-              <>
-                {workItem.customer_name && <span>•</span>}
-                <span>{workItem.title}</span>
-              </>
-            )}
+          <div className="flex-1">
+            {/* Customer Name - Most Prominent */}
+            <h1 className="text-4xl font-bold mb-2">
+              {workItem.customer_name || workItem.customer_email || 'Unknown Customer'}
+            </h1>
+
+            {/* Secondary Info Row */}
+            <div className="flex items-center gap-3 flex-wrap text-sm text-muted-foreground mb-3">
+              {workItem.customer_name && workItem.customer_email && (
+                <span className="flex items-center gap-1">
+                  <Mail className="h-3.5 w-3.5" />
+                  {workItem.customer_email}
+                </span>
+              )}
+              {workItem.company_name && (
+                <>
+                  <span>•</span>
+                  <span>{workItem.company_name}</span>
+                </>
+              )}
+              {workItem.event_date && (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5" />
+                    Event: {new Date(workItem.event_date).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </span>
+                </>
+              )}
+            </div>
+
+            {/* Value & Status Row */}
+            <div className="flex items-center gap-4 flex-wrap">
+              {workItem.estimated_value && (
+                <div className="flex items-center gap-2">
+                  <span className="text-2xl font-bold text-green-600 dark:text-green-400">
+                    ${workItem.estimated_value.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-muted-foreground">estimated value</span>
+                </div>
+              )}
+              <StatusBadge status={workItem.status} />
+              {workItem.closed_at && (
+                <span className="text-sm text-muted-foreground">
+                  Closed {formatDistanceToNow(new Date(workItem.closed_at), { addSuffix: true })}
+                </span>
+              )}
+            </div>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <StatusBadge status={workItem.status} />
-          {workItem.closed_at && (
-            <span className="text-sm text-muted-foreground">
-              Closed {formatDistanceToNow(new Date(workItem.closed_at), { addSuffix: true })}
-            </span>
-          )}
         </div>
       </div>
 
@@ -251,6 +286,11 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
           </div>
         </CardContent>
       </Card>
+
+      {/* Create Invoice Section - Only for leads */}
+      {workItem.type === 'assisted_project' && !workItem.closed_at && (
+        <InvoiceManager workItem={workItem} />
+      )}
 
       {/* Tabs */}
       <Tabs defaultValue="timeline" className="space-y-4">
@@ -412,6 +452,18 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
         </TabsContent>
 
         <TabsContent value="communication" className="space-y-6">
+          {/* Inline Email Composer - MOVED TO TOP */}
+          <InlineEmailComposer
+            workItemId={id}
+            workItem={workItem}
+            defaultTo={workItem.customer_email || ''}
+            defaultSubject={
+              communications && communications.length > 0
+                ? `RE: ${communications[0].subject}`
+                : ''
+            }
+          />
+
           {/* Conversation Thread */}
           {communications && communications.length > 0 && (
             <Card>
@@ -440,18 +492,6 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
               </CardContent>
             </Card>
           )}
-
-          {/* Inline Email Composer */}
-          <InlineEmailComposer
-            workItemId={id}
-            workItem={workItem}
-            defaultTo={workItem.customer_email || ''}
-            defaultSubject={
-              communications && communications.length > 0
-                ? `RE: ${communications[0].subject}`
-                : ''
-            }
-          />
         </TabsContent>
 
         <TabsContent value="notes">
@@ -557,6 +597,11 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
 
         <TabsContent value="details" className="space-y-4">
           <CustomerDetailsEditor workItem={workItem} />
+
+          {/* Shopify Customer Information */}
+          {workItem.customer_email && (
+            <ShopifyInfo workItem={workItem} />
+          )}
 
           <Card>
             <CardHeader>

@@ -3,11 +3,46 @@
 import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
+import { MentionInput } from './mention-input'
 import { useNotes, useCreateNote, useDeleteNote } from '@/lib/hooks/use-notes'
-import { Lock, Plus, Trash2 } from 'lucide-react'
+import { Lock, Plus, Trash2, AtSign } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
+
+// Helper to render note content with highlighted mentions
+function renderNoteWithMentions(content: string) {
+  const mentionRegex = /@(\w+(?:\s+\w+)*)/g
+  const parts = []
+  let lastIndex = 0
+  let match
+
+  while ((match = mentionRegex.exec(content)) !== null) {
+    // Add text before mention
+    if (match.index > lastIndex) {
+      parts.push(content.substring(lastIndex, match.index))
+    }
+
+    // Add highlighted mention
+    parts.push(
+      <span
+        key={match.index}
+        className="inline-flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded font-medium"
+      >
+        <AtSign className="h-3 w-3" />
+        {match[1]}
+      </span>
+    )
+
+    lastIndex = match.index + match[0].length
+  }
+
+  // Add remaining text
+  if (lastIndex < content.length) {
+    parts.push(content.substring(lastIndex))
+  }
+
+  return parts.length > 0 ? parts : content
+}
 
 export function InternalNotes({ workItemId }: { workItemId: string }) {
   const { data: notes, isLoading } = useNotes(workItemId)
@@ -16,6 +51,11 @@ export function InternalNotes({ workItemId }: { workItemId: string }) {
 
   const [isAdding, setIsAdding] = useState(false)
   const [newNote, setNewNote] = useState('')
+  const [mentionedUsers, setMentionedUsers] = useState<Array<{ id: string; name: string }>>([])
+
+  const handleMention = (userId: string, userName: string) => {
+    setMentionedUsers(prev => [...prev, { id: userId, name: userName }])
+  }
 
   const handleAddNote = async () => {
     if (!newNote.trim()) {
@@ -77,10 +117,11 @@ export function InternalNotes({ workItemId }: { workItemId: string }) {
         {/* Add New Note */}
         {isAdding && (
           <div className="border rounded-lg p-4 space-y-3 bg-muted/50">
-            <Textarea
+            <MentionInput
               placeholder="Add internal note (not visible to customer)..."
               value={newNote}
-              onChange={(e) => setNewNote(e.target.value)}
+              onChange={setNewNote}
+              onMention={handleMention}
               rows={3}
               className="bg-background"
             />
@@ -133,7 +174,9 @@ export function InternalNotes({ workItemId }: { workItemId: string }) {
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
-                <div className="text-sm whitespace-pre-wrap">{note.content}</div>
+                <div className="text-sm whitespace-pre-wrap">
+                  {renderNoteWithMentions(note.content)}
+                </div>
               </div>
             ))}
           </div>

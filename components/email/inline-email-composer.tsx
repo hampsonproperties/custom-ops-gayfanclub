@@ -6,18 +6,13 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { FileAttachmentPicker } from './file-attachment-picker'
+import { TemplateSelector } from './template-selector'
 import { useSendEmail } from '@/lib/hooks/use-communications'
-import { useQuickReplyTemplates, applyTemplate } from '@/lib/hooks/use-templates'
-import { Send, FileText } from 'lucide-react'
+import { Send } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Database } from '@/types/database'
+import type { EmailTemplate } from '@/lib/email-templates'
 
 type WorkItem = Database['public']['Tables']['work_items']['Row']
 
@@ -43,23 +38,13 @@ export function InlineEmailComposer({
   const [includeApprovalLink, setIncludeApprovalLink] = useState(false)
 
   const sendEmail = useSendEmail()
-  const { data: templates } = useQuickReplyTemplates()
 
-  const handleUseTemplate = (templateId: string) => {
-    const template = templates?.find((t) => t.id === templateId)
-    if (!template) return
-
-    const variables = {
-      customer_name: workItem.customer_name || 'there',
-      original_subject: defaultSubject || '',
-      work_item_title: workItem.title || '',
-    }
-
-    const { subject: templateSubject, body: templateBody } = applyTemplate(template, variables)
-
-    setSubject(templateSubject)
-    setBody(templateBody)
-    toast.success(`Template "${template.name}" applied`)
+  const handleSelectTemplate = (template: EmailTemplate) => {
+    setSubject(template.subject)
+    setBody(template.body)
+    toast.success(`Template "${template.name}" applied`, {
+      description: 'You can now customize the message before sending',
+    })
   }
 
   const handleSend = async () => {
@@ -102,32 +87,7 @@ export function InlineEmailComposer({
             Send an email with optional file attachments and approval links
           </p>
         </div>
-        {templates && templates.length > 0 && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <FileText className="h-4 w-4" />
-                Use Template
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {templates.map((template) => (
-                <DropdownMenuItem
-                  key={template.id}
-                  onClick={() => handleUseTemplate(template.id)}
-                  className="gap-2"
-                >
-                  <span>{template.name}</span>
-                  {template.hotkey && (
-                    <span className="ml-auto text-xs text-muted-foreground">
-                      {template.hotkey}
-                    </span>
-                  )}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+        <TemplateSelector onSelectTemplate={handleSelectTemplate} />
       </div>
 
       <div className="space-y-4">

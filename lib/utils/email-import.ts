@@ -22,6 +22,28 @@ function extractNameFromEmail(email: string): string {
     .join(' ')
 }
 
+/**
+ * Extract customer name from email subject line
+ * Patterns: "Order from Dylan Cohere", "Dylan Cohere - Custom Fans", "Custom Quote for Dylan Cohere"
+ */
+function extractNameFromSubject(subject: string): string | null {
+  if (!subject) return null
+
+  // Pattern 1: "Order from NAME" or "Quote from NAME"
+  const fromMatch = subject.match(/(?:order|quote|inquiry|request) from ([A-Z][a-z]+ [A-Z][a-z]+)/i)
+  if (fromMatch) return fromMatch[1]
+
+  // Pattern 2: "NAME - Description" (name before dash)
+  const dashMatch = subject.match(/^([A-Z][a-z]+ [A-Z][a-z]+) -/i)
+  if (dashMatch) return dashMatch[1]
+
+  // Pattern 3: "for NAME" or "to NAME"
+  const forMatch = subject.match(/(?:for|to) ([A-Z][a-z]+ [A-Z][a-z]+)/i)
+  if (forMatch) return forMatch[1]
+
+  return null
+}
+
 interface GraphMessage {
   id: string
   internetMessageId: string
@@ -136,9 +158,10 @@ export async function importEmail(
       }
     }
 
-    // Extract name from email or use display name
+    // Extract name with priority: subject line → display name → email address
     const displayName = message.from?.emailAddress?.name
-    const fromName = displayName || extractNameFromEmail(fromEmail)
+    const subjectName = extractNameFromSubject(message.subject || '')
+    const fromName = subjectName || displayName || extractNameFromEmail(fromEmail)
     const toEmails = message.toRecipients?.map((r) => r.emailAddress.address) || []
 
     // Log raw message data to debug sender issues

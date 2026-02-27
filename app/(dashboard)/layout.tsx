@@ -19,7 +19,10 @@ import {
   Beaker,
   Bell,
   MailCheck,
-  AlertTriangle
+  AlertTriangle,
+  Target,
+  Clock,
+  Building2
 } from 'lucide-react'
 
 export default async function DashboardLayout({
@@ -81,16 +84,41 @@ export default async function DashboardLayout({
               </p>
             </div>
 
+            <Link href="/sales-leads">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
+                <Target className="h-4 w-4" />
+                Sales Leads
+              </Button>
+            </Link>
             <Link href="/follow-ups">
               <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
-                <Bell className="h-4 w-4" />
-                Sales Leads
+                <Clock className="h-4 w-4" />
+                Follow-Ups
+              </Button>
+            </Link>
+            <Link href="/retail-accounts">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
+                <Building2 className="h-4 w-4" />
+                Retail Accounts
               </Button>
             </Link>
             <Link href="/inbox">
               <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <Mail className="h-4 w-4" />
-                Inbox (Triage)
+                Email Triage
+              </Button>
+            </Link>
+
+            <div className="pt-4 pb-2">
+              <p className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                Design
+              </p>
+            </div>
+
+            <Link href="/design-projects">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
+                <Palette className="h-4 w-4" />
+                My Design Projects
               </Button>
             </Link>
 

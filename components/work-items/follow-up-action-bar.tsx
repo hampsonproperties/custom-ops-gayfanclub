@@ -118,23 +118,32 @@ export function FollowUpActionBar({ workItem, onChangeStatus, onCloseLead }: Fol
 
   return (
     <>
-      <Card>
+      <Card className={followUpInfo.isOverdue ? 'border-2 border-red-500 dark:border-red-600 bg-red-50/50 dark:bg-red-950/20' : ''}>
         <CardContent className="p-4">
           <div className="flex items-center justify-between gap-4">
             {/* Left Side - Follow-Up Info & Badges */}
             <div className="flex-1 space-y-2">
               <div className="flex items-center gap-3 flex-wrap">
-                {/* Follow-Up Display */}
-                <div
-                  className={`flex items-center gap-2 ${
-                    followUpInfo.isOverdue ? 'text-destructive font-medium' : ''
-                  } ${workItem.is_waiting ? 'text-muted-foreground' : ''}`}
-                >
-                  <Clock className="h-4 w-4" />
-                  <span className="text-sm">
-                    {followUpInfo.isOverdue ? 'Overdue' : 'Follow-up'}: {followUpInfo.text}
-                  </span>
-                </div>
+                {/* Follow-Up Display - Enhanced for Overdue */}
+                {followUpInfo.isOverdue ? (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 border-2 border-red-500 dark:border-red-600 rounded-lg">
+                    <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 animate-pulse" />
+                    <span className="text-sm font-bold text-red-700 dark:text-red-300">
+                      OVERDUE: {followUpInfo.text}
+                    </span>
+                  </div>
+                ) : (
+                  <div
+                    className={`flex items-center gap-2 ${
+                      workItem.is_waiting ? 'text-muted-foreground' : ''
+                    }`}
+                  >
+                    <Clock className="h-4 w-4" />
+                    <span className="text-sm">
+                      Follow-up: {followUpInfo.text}
+                    </span>
+                  </div>
+                )}
 
                 {/* Event Date */}
                 {eventInfo && (
