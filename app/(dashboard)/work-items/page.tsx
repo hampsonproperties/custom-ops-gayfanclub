@@ -11,7 +11,7 @@ import { useWorkItems, useUpdateWorkItemStatus } from '@/lib/hooks/use-work-item
 import { StatusBadge } from '@/components/custom/status-badge'
 import { KanbanBoard } from '@/components/work-items/kanban-board'
 import { Search, Filter, LayoutList, LayoutGrid, Mail, Phone, MoreHorizontal, Building2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, User, Users } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow, format } from 'date-fns'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import {
@@ -30,7 +30,7 @@ export default function WorkItemsPage() {
   const [sortColumn, setSortColumn] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
-  const [filterMode, setFilterMode] = useState<'my-leads' | 'all-leads'>('my-leads')
+  const [filterMode, setFilterMode] = useState<'my-projects' | 'all-projects' | 'need-design'>('all-projects')
 
   // Debounce search input
   useEffect(() => {
@@ -43,7 +43,8 @@ export default function WorkItemsPage() {
 
   const { data: workItems, isLoading } = useWorkItems({
     search: debouncedSearch,
-    assignedTo: filterMode === 'my-leads' ? 'me' : undefined
+    assignedTo: filterMode === 'my-projects' ? 'me' : undefined,
+    status: filterMode === 'need-design' ? 'new_inquiry,awaiting_approval' : undefined
   })
   const updateStatusMutation = useUpdateWorkItemStatus()
 
@@ -157,12 +158,21 @@ export default function WorkItemsPage() {
   const allSelected = sortedWorkItems.length > 0 && selectedItems.size === sortedWorkItems.length
   const someSelected = selectedItems.size > 0 && selectedItems.size < sortedWorkItems.length
 
-  // Calculate stats
-  const activeLeads = workItems?.filter(item => !item.closed_at).length || 0
-  const totalValue = workItems?.reduce((sum, item) => {
-    const value = (item as any).estimated_value || 0
-    return sum + value
-  }, 0) || 0
+  // Calculate production-focused stats
+  const inProductionCount = workItems?.filter(item =>
+    ['in_production', 'approved'].includes(item.status || '')
+  ).length || 0
+
+  const upcomingEventsCount = workItems?.filter(item => {
+    if (!item.event_date) return false
+    const eventDate = new Date(item.event_date)
+    const daysUntil = (eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+    return daysUntil >= 0 && daysUntil <= 7
+  }).length || 0
+
+  const needingDesignCount = workItems?.filter(item =>
+    ['new_inquiry', 'awaiting_approval'].includes(item.status || '')
+  ).length || 0
 
   // Helper function to get initials
   const getInitials = (name?: string | null, email?: string | null) => {
@@ -192,31 +202,31 @@ export default function WorkItemsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Sales Leads</h1>
+          <h1 className="text-3xl font-bold">All Projects</h1>
           <p className="text-muted-foreground">
-            Manage your customer projects and opportunities
+            Track design and production status for all active projects
           </p>
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats - Production Focused */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold">{activeLeads}</div>
-            <p className="text-xs text-muted-foreground">Active Leads</p>
+            <div className="text-2xl font-bold text-blue-600">{inProductionCount}</div>
+            <p className="text-xs text-muted-foreground">In Production</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold">${totalValue.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Pipeline Value</p>
+            <div className="text-2xl font-bold text-orange-600">{upcomingEventsCount}</div>
+            <p className="text-xs text-muted-foreground">Events This Week</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
-            <div className="text-2xl font-bold">-</div>
-            <p className="text-xs text-muted-foreground">Conversion Rate</p>
+            <div className="text-2xl font-bold text-purple-600">{needingDesignCount}</div>
+            <p className="text-xs text-muted-foreground">Awaiting Design</p>
           </CardContent>
         </Card>
       </div>
@@ -225,25 +235,34 @@ export default function WorkItemsPage() {
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col gap-3">
-            {/* Filter Toggle - My Leads / All Leads */}
-            <div className="flex gap-2">
+            {/* Filter Toggle - Production Focused */}
+            <div className="flex gap-2 flex-wrap">
               <Button
-                variant={filterMode === 'my-leads' ? 'default' : 'outline'}
+                variant={filterMode === 'my-projects' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setFilterMode('my-leads')}
+                onClick={() => setFilterMode('my-projects')}
                 className="gap-2 h-9"
               >
                 <User className="h-4 w-4" />
-                My Leads
+                My Projects
               </Button>
               <Button
-                variant={filterMode === 'all-leads' ? 'default' : 'outline'}
+                variant={filterMode === 'all-projects' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setFilterMode('all-leads')}
+                onClick={() => setFilterMode('all-projects')}
                 className="gap-2 h-9"
               >
                 <Users className="h-4 w-4" />
-                All Leads
+                All Projects
+              </Button>
+              <Button
+                variant={filterMode === 'need-design' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilterMode('need-design')}
+                className="gap-2 h-9"
+              >
+                <Search className="h-4 w-4" />
+                Needs Design
               </Button>
             </div>
 
@@ -331,67 +350,25 @@ export default function WorkItemsPage() {
                       />
                     </th>
                     <th className="text-left p-3 font-medium text-sm">
-                      <button
-                        onClick={() => handleSort('name')}
-                        className="flex items-center gap-2 hover:text-foreground transition-colors"
-                      >
-                        Name
-                        {renderSortIcon('name')}
-                      </button>
+                      Project Title
                     </th>
                     <th className="text-left p-3 font-medium text-sm">
-                      <button
-                        onClick={() => handleSort('assigned')}
-                        className="flex items-center gap-2 hover:text-foreground transition-colors"
-                      >
-                        Assigned To
-                        {renderSortIcon('assigned')}
-                      </button>
+                      Customer
                     </th>
                     <th className="text-left p-3 font-medium text-sm">
-                      <button
-                        onClick={() => handleSort('company')}
-                        className="flex items-center gap-2 hover:text-foreground transition-colors"
-                      >
-                        Company
-                        {renderSortIcon('company')}
-                      </button>
+                      Designer
                     </th>
                     <th className="text-left p-3 font-medium text-sm">
-                      <button
-                        onClick={() => handleSort('email')}
-                        className="flex items-center gap-2 hover:text-foreground transition-colors"
-                      >
-                        Email
-                        {renderSortIcon('email')}
-                      </button>
+                      Status
                     </th>
                     <th className="text-left p-3 font-medium text-sm">
-                      <button
-                        onClick={() => handleSort('phone')}
-                        className="flex items-center gap-2 hover:text-foreground transition-colors"
-                      >
-                        Phone
-                        {renderSortIcon('phone')}
-                      </button>
+                      Event Date
+                    </th>
+                    <th className="text-center p-3 font-medium text-sm">
+                      Files
                     </th>
                     <th className="text-left p-3 font-medium text-sm">
-                      <button
-                        onClick={() => handleSort('value')}
-                        className="flex items-center gap-2 hover:text-foreground transition-colors"
-                      >
-                        Est. Value
-                        {renderSortIcon('value')}
-                      </button>
-                    </th>
-                    <th className="text-left p-3 font-medium text-sm">
-                      <button
-                        onClick={() => handleSort('followup')}
-                        className="flex items-center gap-2 hover:text-foreground transition-colors"
-                      >
-                        Next Follow-Up
-                        {renderSortIcon('followup')}
-                      </button>
+                      Updated
                     </th>
                     <th className="text-right p-3 font-medium text-sm">Actions</th>
                   </tr>
@@ -402,132 +379,104 @@ export default function WorkItemsPage() {
                       const extendedItem = item as any
                       return (
                         <tr key={item.id} className="border-b hover:bg-muted/30 transition-colors">
+                          {/* Checkbox */}
                           <td className="w-12 p-3">
                             <Checkbox
                               checked={selectedItems.has(item.id)}
                               onCheckedChange={(checked) => handleSelectItem(item.id, !!checked)}
-                              aria-label={`Select ${item.customer_name || item.customer_email}`}
+                              aria-label={`Select ${item.title || item.customer_name}`}
                               onClick={(e) => e.stopPropagation()}
                             />
                           </td>
+
+                          {/* Project Title */}
                           <td className="p-3">
-                            <Link href={`/work-items/${item.id}`}>
-                              <div className="flex items-center gap-3">
-                                <Avatar className="h-9 w-9">
+                            <Link href={`/work-items/${item.id}`} className="hover:underline">
+                              <p className="font-medium text-sm">
+                                {item.title || `Project for ${item.customer_name || item.customer_email}`}
+                              </p>
+                            </Link>
+                          </td>
+
+                          {/* Customer (with link to customer page) */}
+                          <td className="p-3">
+                            {item.customer_id ? (
+                              <Link href={`/customers/${item.customer_id}`} className="flex items-center gap-2 hover:underline">
+                                <Avatar className="h-6 w-6">
                                   <AvatarFallback className="text-xs bg-primary/10">
                                     {getInitials(item.customer_name, item.customer_email)}
                                   </AvatarFallback>
                                 </Avatar>
-                                <div>
-                                  <p className="font-medium text-sm hover:underline">
-                                    {item.customer_name || item.customer_email || 'Unknown'}
-                                  </p>
-                                  <div className="mt-0.5" onClick={(e) => e.preventDefault()}>
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <button className="cursor-pointer hover:opacity-80 transition-opacity">
-                                          <StatusBadge status={item.status} />
-                                        </button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
-                                        <DropdownMenuLabel>Change Status</DropdownMenuLabel>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'new_lead', e)}>
-                                          New Lead
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'contacted', e)}>
-                                          Contacted
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'in_discussion', e)}>
-                                          In Discussion
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'quoted', e)}>
-                                          Quoted
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'awaiting_approval', e)}>
-                                          Awaiting Approval
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'won', e)}>
-                                          Won
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'lost', e)}>
-                                          Lost
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </div>
-                                </div>
+                                <span className="text-sm">{item.customer_name || item.customer_email}</span>
+                              </Link>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-6 w-6">
+                                  <AvatarFallback className="text-xs bg-gray-100">
+                                    {getInitials(item.customer_name, item.customer_email)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm text-muted-foreground">{item.customer_name || item.customer_email}</span>
                               </div>
-                            </Link>
+                            )}
                           </td>
+
+                          {/* Designer */}
                           <td className="p-3">
-                            <div className="flex items-center gap-2">
-                              {extendedItem.assigned_to ? (
-                                <>
-                                  <Avatar className="h-6 w-6">
-                                    <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
-                                      {getInitials(extendedItem.assigned_to.full_name, extendedItem.assigned_to.email)}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <span className="text-sm">{extendedItem.assigned_to.full_name || extendedItem.assigned_to.email}</span>
-                                </>
-                              ) : (
-                                <span className="text-sm text-muted-foreground/50">Unassigned</span>
-                              )}
-                            </div>
+                            {extendedItem.assigned_to ? (
+                              <div className="flex items-center gap-2">
+                                <Avatar className="h-6 w-6">
+                                  <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
+                                    {getInitials(extendedItem.assigned_to.full_name, extendedItem.assigned_to.email)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="text-sm">{extendedItem.assigned_to.full_name || extendedItem.assigned_to.email}</span>
+                              </div>
+                            ) : (
+                              <span className="text-sm text-muted-foreground/50">Unassigned</span>
+                            )}
                           </td>
+
+                          {/* Production Status */}
                           <td className="p-3">
-                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                              {extendedItem.company_name ? (
-                                <>
-                                  <Building2 className="h-3.5 w-3.5" />
-                                  {extendedItem.company_name}
-                                </>
-                              ) : (
-                                <span className="text-muted-foreground/50">-</span>
-                              )}
-                            </div>
+                            <StatusBadge status={item.status} />
                           </td>
+
+                          {/* Event Date */}
                           <td className="p-3">
-                            <span className="text-sm text-muted-foreground">
-                              {item.customer_email || '-'}
-                            </span>
-                          </td>
-                          <td className="p-3">
-                            <span className="text-sm text-muted-foreground">
-                              {extendedItem.phone_number || '-'}
-                            </span>
-                          </td>
-                          <td className="p-3">
-                            {extendedItem.estimated_value ? (
-                              <div className="flex items-center gap-1.5 text-sm font-medium">
-                                <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-                                {extendedItem.estimated_value.toLocaleString()}
+                            {item.event_date ? (
+                              <div className="text-sm">
+                                <div>{format(new Date(item.event_date), 'MMM d, yyyy')}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {formatDistanceToNow(new Date(item.event_date), { addSuffix: true })}
+                                </div>
                               </div>
                             ) : (
                               <span className="text-sm text-muted-foreground/50">-</span>
                             )}
                           </td>
+
+                          {/* Files Count */}
+                          <td className="p-3 text-center">
+                            {extendedItem.file_count ? (
+                              <Badge variant="outline" className="text-xs">
+                                {extendedItem.file_count}
+                              </Badge>
+                            ) : (
+                              <span className="text-sm text-muted-foreground/50">0</span>
+                            )}
+                          </td>
+
+                          {/* Last Updated */}
                           <td className="p-3">
                             <span className="text-sm text-muted-foreground">
-                              {item.next_follow_up_at
-                                ? formatDistanceToNow(new Date(item.next_follow_up_at), { addSuffix: true })
-                                : '-'}
+                              {formatDistanceToNow(new Date(item.updated_at), { addSuffix: true })}
                             </span>
                           </td>
+
+                          {/* Actions */}
                           <td className="p-3">
                             <div className="flex items-center justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                asChild
-                              >
-                                <Link href={`/work-items/${item.id}?tab=activity&compose=true`}>
-                                  <Mail className="h-4 w-4" />
-                                </Link>
-                              </Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -536,11 +485,16 @@ export default function WorkItemsPage() {
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
                                   <DropdownMenuItem asChild>
-                                    <Link href={`/work-items/${item.id}`}>View Details</Link>
+                                    <Link href={`/work-items/${item.id}`}>View Project</Link>
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem asChild>
-                                    <Link href={`/work-items/${item.id}?tab=activity&compose=true`}>Send Email</Link>
-                                  </DropdownMenuItem>
+                                  {item.customer_id && (
+                                    <DropdownMenuItem asChild>
+                                      <Link href={`/customers/${item.customer_id}`}>View Customer</Link>
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem>Assign Designer</DropdownMenuItem>
+                                  <DropdownMenuItem>Update Status</DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
@@ -551,7 +505,7 @@ export default function WorkItemsPage() {
                   ) : (
                     <tr>
                       <td colSpan={9} className="p-8 text-center text-muted-foreground">
-                        No leads found
+                        No projects found
                       </td>
                     </tr>
                   )}
