@@ -51,7 +51,10 @@ export function ShopifyInfo({ workItem }: { workItem: WorkItem }) {
         if (orderIds.length > 0) {
           params.set('orderIds', orderIds.join(','))
         }
-        if (workItem.customer_email) {
+        // Use customer ID if available (most reliable), fallback to email
+        if (workItem.shopify_customer_id) {
+          params.set('customerId', workItem.shopify_customer_id)
+        } else if (workItem.customer_email) {
           params.set('email', workItem.customer_email)
         }
 
@@ -72,7 +75,7 @@ export function ShopifyInfo({ workItem }: { workItem: WorkItem }) {
     }
 
     fetchOrders()
-  }, [workItem.shopify_order_id, workItem.design_fee_order_id, workItem.shopify_draft_order_id, workItem.customer_email])
+  }, [workItem.shopify_order_id, workItem.design_fee_order_id, workItem.shopify_draft_order_id, workItem.shopify_customer_id, workItem.customer_email])
 
   const getFinancialStatusColor = (status: string) => {
     switch (status.toLowerCase()) {

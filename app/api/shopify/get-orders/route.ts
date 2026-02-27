@@ -5,11 +5,12 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
     const orderIds = searchParams.get('orderIds')?.split(',').filter(Boolean) || []
+    const customerId = searchParams.get('customerId')
     const email = searchParams.get('email')
 
-    if (orderIds.length === 0 && !email) {
+    if (orderIds.length === 0 && !customerId && !email) {
       return NextResponse.json(
-        { error: 'Either orderIds or email parameter required' },
+        { error: 'Either orderIds, customerId, or email parameter required' },
         { status: 400 }
       )
     }
@@ -39,9 +40,31 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Also fetch customer orders by email if provided
+    // Fetch customer orders by customer ID (preferred) or email
     let customerOrders = []
-    if (email) {
+
+    if (customerId) {
+      // Use customer ID - most reliable
+      try {
+        const ordersResponse = await fetch(
+          `https://${shop}/admin/api/2026-01/customers/${customerId}/orders.json`,
+          {
+            headers: {
+              'X-Shopify-Access-Token': accessToken,
+              'Content-Type': 'application/json',
+            },
+          }
+        )
+
+        if (ordersResponse.ok) {
+          const ordersData = await ordersResponse.json()
+          customerOrders = ordersData.orders || []
+        }
+      } catch (error) {
+        console.error('[Shopify] Failed to fetch customer orders by ID:', error)
+      }
+    } else if (email) {
+      // Fallback to email lookup
       try {
         // Search for customer by email
         const customerResponse = await fetch(
@@ -77,7 +100,7 @@ export async function GET(request: NextRequest) {
           }
         }
       } catch (error) {
-        console.error('[Shopify] Failed to fetch customer orders:', error)
+        console.error('[Shopify] Failed to fetch customer orders by email:', error)
       }
     }
 

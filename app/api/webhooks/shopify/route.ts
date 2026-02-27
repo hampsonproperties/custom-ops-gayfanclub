@@ -338,6 +338,7 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
   if (existingWorkItem) {
     // Update existing work item
     const updateData: any = {
+      shopify_customer_id: order.customer?.id?.toString(),
       shopify_financial_status: order.financial_status,
       shopify_fulfillment_status: order.fulfillment_status,
       customer_name: customerName,
@@ -759,6 +760,7 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
     type: workItemType,
     source: 'shopify',
     status: workItemStatus,
+    shopify_customer_id: order.customer?.id?.toString(),
     shopify_financial_status: order.financial_status,
     shopify_fulfillment_status: order.fulfillment_status,
     customer_name: customerName,
