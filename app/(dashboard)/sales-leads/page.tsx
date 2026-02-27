@@ -204,15 +204,15 @@ export default function SalesLeadsPage() {
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="border-b border-muted/30">
+                <thead className="border-b">
                   <tr className="bg-muted/5">
-                    <th className="text-left px-6 py-4 font-medium text-sm text-muted-foreground">Name</th>
-                    <th className="text-left px-6 py-4 font-medium text-sm text-muted-foreground">Company</th>
-                    <th className="text-left px-6 py-4 font-medium text-sm text-muted-foreground">Email</th>
-                    <th className="text-left px-6 py-4 font-medium text-sm text-muted-foreground">Phone</th>
-                    <th className="text-left px-6 py-4 font-medium text-sm text-muted-foreground">Est. Value</th>
-                    <th className="text-left px-6 py-4 font-medium text-sm text-muted-foreground">Next Follow-Up</th>
-                    <th className="text-right px-6 py-4 font-medium text-sm text-muted-foreground">Actions</th>
+                    <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground">Name</th>
+                    <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground">Company</th>
+                    <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground">Email</th>
+                    <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground">Phone</th>
+                    <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground whitespace-nowrap">Est. Value</th>
+                    <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground whitespace-nowrap">Next Follow-Up</th>
+                    <th className="text-right px-4 py-3 font-medium text-xs text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -232,59 +232,61 @@ export default function SalesLeadsPage() {
                     activeLeads.map((lead) => {
                       const extendedLead = lead as any
                       return (
-                        <tr key={lead.id} className="border-b border-muted/30 hover:bg-muted/5 transition-colors">
-                          <td className="px-6 py-4">
+                        <tr key={lead.id} className="border-b hover:bg-muted/30 transition-colors">
+                          <td className="px-4 py-3">
                             <Link href={`/sales-leads/${lead.id}`}>
-                              <div className="flex items-center gap-4">
-                                <Avatar className="h-10 w-10">
-                                  <AvatarFallback className="text-sm font-medium bg-muted">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-9 w-9">
+                                  <AvatarFallback className="text-xs bg-muted">
                                     {getInitials(lead.customer_name, lead.customer_email)}
                                   </AvatarFallback>
                                 </Avatar>
                                 <div>
-                                  <p className="font-medium text-sm hover:underline mb-1.5">
+                                  <p className="font-medium text-sm hover:underline">
                                     {lead.customer_name || lead.customer_email || 'Unknown'}
                                   </p>
-                                  <StatusBadge status={lead.status} />
+                                  <div className="mt-1">
+                                    <StatusBadge status={lead.status} />
+                                  </div>
                                 </div>
                               </div>
                             </Link>
                           </td>
-                          <td className="px-6 py-4">
-                            <span className="text-sm text-foreground">
+                          <td className="px-4 py-3">
+                            <span className="text-sm">
                               {lead.company_name || '-'}
                             </span>
                           </td>
-                          <td className="px-6 py-4">
-                            <span className="text-sm text-foreground">
+                          <td className="px-4 py-3">
+                            <span className="text-sm">
                               {lead.customer_email || '-'}
                             </span>
                           </td>
-                          <td className="px-6 py-4">
-                            <span className="text-sm text-foreground">
+                          <td className="px-4 py-3">
+                            <span className="text-sm">
                               {lead.phone_number || '-'}
                             </span>
                           </td>
-                          <td className="px-6 py-4">
-                            <span className="text-sm text-foreground">
+                          <td className="px-4 py-3">
+                            <span className="text-sm">
                               {extendedLead.estimated_value
                                 ? `$${extendedLead.estimated_value.toLocaleString()}`
                                 : '-'}
                             </span>
                           </td>
-                          <td className="px-6 py-4">
-                            <span className="text-sm text-muted-foreground">
+                          <td className="px-4 py-3">
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">
                               {extendedLead.next_follow_up_at
                                 ? formatDistanceToNow(new Date(extendedLead.next_follow_up_at), { addSuffix: true })
                                 : '-'}
                             </span>
                           </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center justify-end gap-2">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-1">
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-9 w-9 p-0 hover:bg-muted"
+                                className="h-8 w-8 p-0"
                                 asChild
                               >
                                 <a href={`mailto:${lead.customer_email}`}>
@@ -293,7 +295,7 @@ export default function SalesLeadsPage() {
                               </Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-9 w-9 p-0 hover:bg-muted">
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                                     <MoreHorizontal className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
