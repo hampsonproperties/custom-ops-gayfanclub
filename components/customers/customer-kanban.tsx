@@ -339,32 +339,31 @@ export function CustomerKanban() {
         </div>
       </div>
 
-        {/* Mobile: Vertical Stack */}
-        <div className="md:hidden space-y-6 p-4">
-          {SALES_STAGES.map(stage => {
-            const stageCustomers = customersByStage[stage.id] || []
-            if (stageCustomers.length === 0) return null
+      {/* Mobile: Vertical Stack */}
+      <div className="md:hidden space-y-6 p-4">
+        {SALES_STAGES.map(stage => {
+          const stageCustomers = customersByStage[stage.id] || []
+          if (stageCustomers.length === 0) return null
 
-            return (
-              <div key={stage.id} className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-sm">{stage.label}</h3>
-                  <Badge variant="secondary" className="text-xs">
-                    {stageCustomers.length}
-                  </Badge>
-                </div>
-                <div className={cn('h-1 rounded-full', stage.color.split(' ')[0])} />
-                <SortableContext items={stageCustomers.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2">
-                    {stageCustomers.map(customer => (
-                      <CustomerCard key={customer.id} customer={customer} />
-                    ))}
-                  </div>
-                </SortableContext>
+          return (
+            <div key={stage.id} className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold text-sm">{stage.label}</h3>
+                <Badge variant="secondary" className="text-xs">
+                  {stageCustomers.length}
+                </Badge>
               </div>
-            )
-          })}
-        </div>
+              <div className={cn('h-1 rounded-full', stage.color.split(' ')[0])} />
+              <SortableContext items={stageCustomers.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-2">
+                  {stageCustomers.map(customer => (
+                    <CustomerCard key={customer.id} customer={customer} />
+                  ))}
+                </div>
+              </SortableContext>
+            </div>
+          )
+        })}
       </div>
 
       {/* Drag Overlay */}
