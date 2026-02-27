@@ -48,9 +48,10 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { InlineEmailComposer } from '@/components/email/inline-email-composer'
 import { StatusBadge } from '@/components/custom/status-badge'
+import { AlternativeContactsManager } from '@/components/customers/alternative-contacts-manager'
 
-// Project Card Component
-function ProjectCard({ project }: { project: any }) {
+// Project Card Component with Enhanced Details
+function ProjectCard({ project, customerId }: { project: any; customerId: string }) {
   const statusColors: Record<string, string> = {
     new_inquiry: 'bg-blue-100 text-blue-800',
     awaiting_approval: 'bg-yellow-100 text-yellow-800',
@@ -58,6 +59,31 @@ function ProjectCard({ project }: { project: any }) {
     in_production: 'bg-purple-100 text-purple-800',
     shipped: 'bg-gray-100 text-gray-800',
   }
+
+  // Fetch project stats (files, notes count)
+  const { data: projectStats } = useQuery({
+    queryKey: ['project-stats', project.id],
+    queryFn: async () => {
+      const supabase = createClient()
+
+      // Get file count
+      const { count: fileCount } = await supabase
+        .from('files')
+        .select('*', { count: 'exact', head: true })
+        .eq('work_item_id', project.id)
+
+      // Get note count
+      const { count: noteCount } = await supabase
+        .from('work_item_notes')
+        .select('*', { count: 'exact', head: true })
+        .eq('work_item_id', project.id)
+
+      return {
+        fileCount: fileCount || 0,
+        noteCount: noteCount || 0,
+      }
+    },
+  })
 
   return (
     <Link href={`/work-items/${project.id}`}>
@@ -75,7 +101,8 @@ function ProjectCard({ project }: { project: any }) {
             <StatusBadge status={project.status} />
           </div>
         </CardHeader>
-        <CardContent className="pt-0">
+        <CardContent className="pt-0 space-y-3">
+          {/* Project Type and Event Date */}
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <div className="flex items-center gap-4">
               <span className="capitalize">{project.type?.replace(/_/g, ' ')}</span>
@@ -86,10 +113,32 @@ function ProjectCard({ project }: { project: any }) {
                 </span>
               )}
             </div>
-            <ArrowRight className="h-4 w-4" />
           </div>
-          <div className="text-xs text-muted-foreground mt-2">
-            Created {formatDistanceToNow(new Date(project.created_at), { addSuffix: true })}
+
+          {/* Activity Stats */}
+          {projectStats && (
+            <div className="flex items-center gap-4 text-xs">
+              {projectStats.fileCount > 0 && (
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>{projectStats.fileCount} {projectStats.fileCount === 1 ? 'file' : 'files'}</span>
+                </div>
+              )}
+              {projectStats.noteCount > 0 && (
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <StickyNote className="h-3.5 w-3.5" />
+                  <span>{projectStats.noteCount} {projectStats.noteCount === 1 ? 'note' : 'notes'}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-muted-foreground">
+              Created {formatDistanceToNow(new Date(project.created_at), { addSuffix: true })}
+            </div>
+            <ArrowRight className="h-4 w-4 text-muted-foreground" />
           </div>
         </CardContent>
       </Card>
@@ -660,10 +709,14 @@ export default function CustomerProfilePage() {
         {/* Main Content - 2/3 width on desktop */}
         <div className="lg:col-span-2">
           <Tabs defaultValue="projects" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-3 lg:grid-cols-5">
+            <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
               <TabsTrigger value="projects" className="gap-2">
                 <ShoppingBag className="h-4 w-4" />
                 <span className="hidden sm:inline">Projects</span>
+              </TabsTrigger>
+              <TabsTrigger value="contacts" className="gap-2">
+                <User className="h-4 w-4" />
+                <span className="hidden sm:inline">Contacts</span>
               </TabsTrigger>
               <TabsTrigger value="emails" className="gap-2">
                 <MessageSquare className="h-4 w-4" />
@@ -719,11 +772,16 @@ export default function CustomerProfilePage() {
                   </div>
                   <div className="grid grid-cols-1 gap-4">
                     {projects.map((project) => (
-                      <ProjectCard key={project.id} project={project} />
+                      <ProjectCard key={project.id} project={project} customerId={customerId} />
                     ))}
                   </div>
                 </>
               )}
+            </TabsContent>
+
+            {/* Contacts Tab */}
+            <TabsContent value="contacts">
+              <AlternativeContactsManager customerId={customerId} />
             </TabsContent>
 
             {/* Emails/Conversations Tab */}

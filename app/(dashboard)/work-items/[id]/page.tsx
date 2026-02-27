@@ -20,7 +20,8 @@ import { AlternateEmailsManager } from '@/components/work-items/alternate-emails
 import { useWorkItem, useUpdateWorkItem } from '@/lib/hooks/use-work-items'
 import { useCommunications } from '@/lib/hooks/use-communications'
 import { useFiles, useUploadFile, useDeleteFile, getFileUrl } from '@/lib/hooks/use-files'
-import { useTimeline } from '@/lib/hooks/use-timeline'
+import { useTimeline, useToggleTimelineStar } from '@/lib/hooks/use-timeline'
+import { useCreateNote } from '@/lib/hooks/use-notes'
 import { ArrowLeft, Mail, FileText, Send, Upload, File as FileIcon, Trash2, Download, Image as ImageIcon, Clock, CheckCircle, Activity, ExternalLink, Phone, Building2, Calendar, DollarSign, User, Tag } from 'lucide-react'
 import type { Database } from '@/types/database'
 import { InternalNotes } from '@/components/work-items/internal-notes'
@@ -30,6 +31,7 @@ import { ValueManager } from '@/components/work-items/value-manager'
 import { CustomerDetailsEditor } from '@/components/work-items/customer-details-editor'
 import { ShopifyInfo } from '@/components/work-items/shopify-info'
 import { InvoiceManager } from '@/components/work-items/invoice-manager'
+import { EnhancedTimeline } from '@/components/timeline/enhanced-timeline'
 
 type FileRecord = Database['public']['Tables']['files']['Row']
 import { formatDistanceToNow } from 'date-fns'
@@ -63,6 +65,8 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
   const uploadFile = useUploadFile()
   const deleteFile = useDeleteFile()
   const updateWorkItem = useUpdateWorkItem()
+  const createNote = useCreateNote()
+  const toggleStar = useToggleTimelineStar()
 
 
   const [showUploadDialog, setShowUploadDialog] = useState(false)
@@ -313,7 +317,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
 
           {/* Timeline Tab - Default View */}
           <TabsContent value="timeline" className="space-y-4">
-            {/* Quick Email Compose - MOVED TO TOP */}
+            {/* Email Composer at Top */}
             <Card>
               <CardContent className="pt-6">
                 <InlineEmailComposer
@@ -324,46 +328,23 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
               </CardContent>
             </Card>
 
-            {/* Emails Thread - Full HTML Display */}
-            {communications && communications.length > 0 && (
-              <ConversationThread communications={communications} />
-            )}
-
-            {/* Other Timeline Events */}
-            {timeline && timeline.length > 0 && (
-              <div className="space-y-4">
-                {timeline.filter(e => e.type !== 'email').map((event) => (
-                  <Card key={event.id} className="border-l-4 border-l-blue-500">
-                    <CardContent className="pt-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          {event.type === 'note' && <FileText className="h-4 w-4 text-gray-600" />}
-                          {event.type === 'status_change' && <Activity className="h-4 w-4 text-purple-600" />}
-                          <span className="font-medium text-sm">{event.title}</span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(event.timestamp), { addSuffix: true })}
-                        </span>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {event.description}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            {!communications?.length && !timeline?.length && (
-              <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  No activity yet
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Internal Notes */}
-            <InternalNotes workItemId={id} />
+            {/* Enhanced Timeline with Filtering */}
+            <EnhancedTimeline
+              events={timeline || []}
+              onAddNote={async (content: string) => {
+                await createNote.mutateAsync({
+                  workItemId: id,
+                  content,
+                })
+                toast.success('Note added')
+              }}
+              onToggleStar={(eventId: string) => {
+                const event = timeline?.find(e => e.id === eventId)
+                if (event) {
+                  toggleStar.mutate({ eventId, eventType: event.type })
+                }
+              }}
+            />
           </TabsContent>
 
           {/* Details Tab */}

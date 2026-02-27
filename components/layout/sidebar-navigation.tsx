@@ -37,6 +37,18 @@ export function SidebarNavigation() {
         </Button>
       </Link>
 
+      {/* Customers - Primary customer-centric view */}
+      <Link href="/customers">
+        <Button
+          variant={isActive('/customers') ? 'secondary' : 'ghost'}
+          size="sm"
+          className="w-full justify-start gap-3"
+        >
+          <Users className="h-4 w-4" />
+          Customers
+        </Button>
+      </Link>
+
       {/* Inbox */}
       <Link href="/inbox/my-inbox">
         <Button
@@ -46,18 +58,6 @@ export function SidebarNavigation() {
         >
           <Mail className="h-4 w-4" />
           Inbox
-        </Button>
-      </Link>
-
-      {/* Customers */}
-      <Link href="/customers">
-        <Button
-          variant={isActive('/customers') ? 'secondary' : 'ghost'}
-          size="sm"
-          className="w-full justify-start gap-3"
-        >
-          <Users className="h-4 w-4" />
-          Customers
         </Button>
       </Link>
 

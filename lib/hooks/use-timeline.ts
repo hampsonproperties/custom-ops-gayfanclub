@@ -1,14 +1,17 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
 type TimelineEvent = {
   id: string
-  type: 'status_change' | 'email' | 'file_upload' | 'work_item_created' | 'note'
+  type: 'status_change' | 'email' | 'file_upload' | 'work_item_created' | 'note' | 'call' | 'text' | 'task' | 'appointment'
   timestamp: string
   title: string
   description: string
+  content?: string
   metadata?: any
   user?: string
+  userEmail?: string
+  starred?: boolean
 }
 
 export function useTimeline(workItemId: string) {
@@ -100,7 +103,7 @@ export function useTimeline(workItemId: string) {
           original_filename,
           note,
           uploaded_by_user_id,
-          users:uploaded_by_user_id (full_name)
+          users:uploaded_by_user_id (full_name, email)
         `)
         .eq('work_item_id', workItemId)
         .order('created_at', { ascending: false })
@@ -118,6 +121,38 @@ export function useTimeline(workItemId: string) {
             description: `${file.kind} file: ${file.original_filename}${displayNote ? ` - ${displayNote}` : ''}`,
             metadata: { kind: file.kind, filename: file.original_filename },
             user: file.users?.full_name || 'Customer',
+            userEmail: file.users?.email,
+          })
+        })
+      }
+
+      // Get notes
+      const { data: notes } = await supabase
+        .from('work_item_notes')
+        .select(`
+          id,
+          content,
+          created_at,
+          starred,
+          author_email,
+          created_by_user_id,
+          users:created_by_user_id (full_name, email)
+        `)
+        .eq('work_item_id', workItemId)
+        .order('created_at', { ascending: false })
+
+      if (notes) {
+        notes.forEach((note: any) => {
+          events.push({
+            id: note.id,
+            type: 'note',
+            timestamp: note.created_at,
+            title: 'Note',
+            description: note.content.substring(0, 200) + (note.content.length > 200 ? '...' : ''),
+            content: note.content,
+            user: note.users?.full_name || note.author_email?.split('@')[0] || 'Unknown',
+            userEmail: note.users?.email || note.author_email,
+            starred: note.starred || false,
           })
         })
       }
@@ -128,5 +163,42 @@ export function useTimeline(workItemId: string) {
       return events
     },
     enabled: !!workItemId,
+  })
+}
+
+export function useToggleTimelineStar() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ eventId, eventType }: { eventId: string; eventType: string }) => {
+      const supabase = createClient()
+
+      // Only notes support starring currently
+      if (eventType !== 'note') {
+        throw new Error('Only notes can be starred')
+      }
+
+      // Get current starred status
+      const { data: note } = await supabase
+        .from('work_item_notes')
+        .select('starred')
+        .eq('id', eventId)
+        .single()
+
+      const newStarred = !note?.starred
+
+      const { error } = await supabase
+        .from('work_item_notes')
+        .update({ starred: newStarred })
+        .eq('id', eventId)
+
+      if (error) throw error
+
+      return { eventId, starred: newStarred }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['timeline'] })
+      queryClient.invalidateQueries({ queryKey: ['notes'] })
+    },
   })
 }
