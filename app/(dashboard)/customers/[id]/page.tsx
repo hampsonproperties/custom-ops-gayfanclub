@@ -782,26 +782,26 @@ export default function CustomerProfilePage() {
         {/* Main Content - 2/3 width on desktop */}
         <div className="lg:col-span-2">
           <Tabs defaultValue="projects" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
-              <TabsTrigger value="projects" className="gap-2">
+            <TabsList className="w-full h-auto flex-wrap justify-start p-1 gap-1">
+              <TabsTrigger value="projects" className="gap-2 flex-1 min-w-[100px] h-11">
                 <ShoppingBag className="h-4 w-4" />
-                <span className="hidden sm:inline">Projects</span>
+                <span>Projects</span>
               </TabsTrigger>
-              <TabsTrigger value="contacts" className="gap-2">
+              <TabsTrigger value="contacts" className="gap-2 flex-1 min-w-[100px] h-11">
                 <User className="h-4 w-4" />
-                <span className="hidden sm:inline">Contacts</span>
+                <span>Contacts</span>
               </TabsTrigger>
-              <TabsTrigger value="activity" className="gap-2">
+              <TabsTrigger value="activity" className="gap-2 flex-1 min-w-[100px] h-11">
                 <MessageSquare className="h-4 w-4" />
-                <span className="hidden sm:inline">Activity</span>
+                <span>Activity</span>
               </TabsTrigger>
-              <TabsTrigger value="shopify" className="gap-2">
+              <TabsTrigger value="shopify" className="gap-2 flex-1 min-w-[100px] h-11">
                 <ShoppingBag className="h-4 w-4" />
-                <span className="hidden sm:inline">Shopify</span>
+                <span>Shopify</span>
               </TabsTrigger>
-              <TabsTrigger value="files" className="gap-2">
+              <TabsTrigger value="files" className="gap-2 flex-1 min-w-[100px] h-11">
                 <FileText className="h-4 w-4" />
-                <span className="hidden sm:inline">Files</span>
+                <span>Files</span>
               </TabsTrigger>
             </TabsList>
 

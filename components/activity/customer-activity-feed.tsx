@@ -197,7 +197,17 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
         }),
       })
 
-      if (!response.ok) throw new Error('Failed to generate email')
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData.error || 'Failed to generate email'
+
+        if (errorMessage.includes('OPENAI_API_KEY')) {
+          toast.error('AI email generation is not configured yet. Please contact your administrator to set up the OpenAI API key.')
+        } else {
+          toast.error(errorMessage)
+        }
+        throw new Error(errorMessage)
+      }
 
       const { subject, body } = await response.json()
       setEmailSubject(subject)
@@ -205,8 +215,7 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
       setAiPrompt('')
       toast.success('Email generated! Review and edit before sending.')
     } catch (error) {
-      toast.error('Failed to generate email')
-      console.error(error)
+      console.error('Email generation error:', error)
     } finally {
       setIsGenerating(false)
     }
@@ -291,66 +300,70 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
   return (
     <div className="space-y-6">
       {/* Filter Bar */}
-      <Card className="p-3">
-        <div className="flex items-center gap-2 flex-wrap">
+      <Card className="p-2 sm:p-3">
+        <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
           <Button
             variant={filter === 'all' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setFilter('all')}
-            className="gap-2"
+            className="gap-1 sm:gap-2 h-10 px-3 sm:px-4"
           >
-            All <Badge variant="secondary" className="ml-1">{counts.all}</Badge>
+            All <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] flex items-center justify-center">{counts.all}</Badge>
           </Button>
           <Button
             variant={filter === 'starred' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setFilter('starred')}
-            className="gap-2"
+            className="gap-1 sm:gap-2 h-10 px-3 sm:px-4"
           >
             <Star className="h-4 w-4" />
-            Starred <Badge variant="secondary" className="ml-1">{counts.starred}</Badge>
+            <span className="hidden xs:inline">Starred</span>
+            <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] flex items-center justify-center">{counts.starred}</Badge>
           </Button>
           <Button
             variant={filter === 'note' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setFilter('note')}
-            className="gap-2"
+            className="gap-1 sm:gap-2 h-10 px-3 sm:px-4"
           >
             <FileText className="h-4 w-4" />
-            Notes <Badge variant="secondary" className="ml-1">{counts.note}</Badge>
+            <span className="hidden xs:inline">Notes</span>
+            <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] flex items-center justify-center">{counts.note}</Badge>
           </Button>
           <Button
             variant={filter === 'email' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setFilter('email')}
-            className="gap-2"
+            className="gap-1 sm:gap-2 h-10 px-3 sm:px-4"
           >
             <Mail className="h-4 w-4" />
-            Emails <Badge variant="secondary" className="ml-1">{counts.email}</Badge>
+            <span className="hidden xs:inline">Emails</span>
+            <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] flex items-center justify-center">{counts.email}</Badge>
           </Button>
           <Button
             variant={filter === 'task' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setFilter('task')}
-            className="gap-2"
+            className="gap-1 sm:gap-2 h-10 px-3 sm:px-4"
           >
             <CheckSquare className="h-4 w-4" />
-            Tasks <Badge variant="secondary" className="ml-1">{counts.task}</Badge>
+            <span className="hidden xs:inline">Tasks</span>
+            <Badge variant="secondary" className="ml-1 h-5 min-w-[20px] flex items-center justify-center">{counts.task}</Badge>
           </Button>
         </div>
       </Card>
 
       {/* Composer */}
-      <Card className="p-6">
+      <Card className="p-4 sm:p-6">
         <div className="space-y-4">
           {/* Tab Selector */}
           <div className="flex gap-2 border-b">
             <Button
               variant={activeTab === 'note' ? 'ghost' : 'ghost'}
-              size="sm"
+              size="default"
               onClick={() => setActiveTab('note')}
               className={cn(
-                'rounded-b-none border-b-2',
+                'rounded-b-none border-b-2 h-11 px-4',
                 activeTab === 'note' ? 'border-primary' : 'border-transparent'
               )}
             >
@@ -359,10 +372,10 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
             </Button>
             <Button
               variant={activeTab === 'email' ? 'ghost' : 'ghost'}
-              size="sm"
+              size="default"
               onClick={() => setActiveTab('email')}
               className={cn(
-                'rounded-b-none border-b-2',
+                'rounded-b-none border-b-2 h-11 px-4',
                 activeTab === 'email' ? 'border-primary' : 'border-transparent'
               )}
             >
@@ -371,10 +384,10 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
             </Button>
             <Button
               variant={activeTab === 'task' ? 'ghost' : 'ghost'}
-              size="sm"
+              size="default"
               onClick={() => setActiveTab('task')}
               className={cn(
-                'rounded-b-none border-b-2',
+                'rounded-b-none border-b-2 h-11 px-4',
                 activeTab === 'task' ? 'border-primary' : 'border-transparent'
               )}
             >
