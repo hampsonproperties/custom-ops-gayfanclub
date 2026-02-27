@@ -65,7 +65,7 @@ export default function WorkItemsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="container mx-auto py-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -77,7 +77,7 @@ export default function WorkItemsPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold">{activeLeads}</div>
@@ -101,37 +101,39 @@ export default function WorkItemsPage() {
       {/* Search & Filters */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name, email, company, or phone..."
+                placeholder="Search by name, email, company..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                className="pl-9"
+                className="pl-9 h-11 sm:h-9"
               />
             </div>
-            <Button variant="outline" className="gap-2">
-              <Filter className="h-4 w-4" />
-              Filters
-            </Button>
-            <div className="flex border rounded-md">
-              <Button
-                variant={viewMode === 'table' ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('table')}
-                className="rounded-r-none"
-              >
-                <LayoutList className="h-4 w-4" />
+            <div className="flex gap-2">
+              <Button variant="outline" className="gap-2 flex-1 sm:flex-none h-11 sm:h-9">
+                <Filter className="h-4 w-4" />
+                <span className="sm:inline">Filters</span>
               </Button>
-              <Button
-                variant={viewMode === 'pipeline' ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('pipeline')}
-                className="rounded-l-none"
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
+              <div className="hidden sm:flex border rounded-md">
+                <Button
+                  variant={viewMode === 'table' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('table')}
+                  className="rounded-r-none"
+                >
+                  <LayoutList className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'pipeline' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('pipeline')}
+                  className="rounded-l-none"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -141,7 +143,8 @@ export default function WorkItemsPage() {
       {viewMode === 'table' && (
         <Card>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            {/* Desktop Table View - Hidden on mobile */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead className="border-b bg-muted/20">
                   <tr>
@@ -258,6 +261,75 @@ export default function WorkItemsPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Card View - Shown on mobile only */}
+            <div className="md:hidden p-3 space-y-3">
+              {workItems && workItems.length > 0 ? (
+                workItems.map((item) => {
+                  const extendedItem = item as any
+                  return (
+                    <Link key={item.id} href={`/work-items/${item.id}`}>
+                      <Card className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-3">
+                            <Avatar className="h-12 w-12 shrink-0">
+                              <AvatarFallback className="text-sm bg-gradient-to-br from-pink-500 to-purple-600 text-white">
+                                {getInitials(item.customer_name, item.customer_email)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-base mb-1">
+                                {item.customer_name || item.customer_email || 'Unknown'}
+                              </div>
+                              <div className="mb-2">
+                                <StatusBadge status={item.status} />
+                              </div>
+
+                              <div className="space-y-1.5 text-sm text-muted-foreground">
+                                {extendedItem.company_name && (
+                                  <div className="flex items-center gap-2">
+                                    <Building2 className="h-3.5 w-3.5" />
+                                    <span className="truncate">{extendedItem.company_name}</span>
+                                  </div>
+                                )}
+                                {item.customer_email && (
+                                  <div className="flex items-center gap-2">
+                                    <Mail className="h-3.5 w-3.5" />
+                                    <span className="truncate">{item.customer_email}</span>
+                                  </div>
+                                )}
+                                {extendedItem.phone_number && (
+                                  <div className="flex items-center gap-2">
+                                    <Phone className="h-3.5 w-3.5" />
+                                    <span>{extendedItem.phone_number}</span>
+                                  </div>
+                                )}
+                                {extendedItem.estimated_value && (
+                                  <div className="flex items-center gap-2 font-medium text-foreground">
+                                    <DollarSign className="h-3.5 w-3.5" />
+                                    <span>${extendedItem.estimated_value.toLocaleString()}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {item.next_follow_up_at && (
+                                <div className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+                                  Follow up {formatDistanceToNow(new Date(item.next_follow_up_at), { addSuffix: true })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  )
+                })
+              ) : (
+                <div className="p-8 text-center text-muted-foreground">
+                  No leads found
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

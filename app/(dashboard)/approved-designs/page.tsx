@@ -54,15 +54,15 @@ export default function ApprovedDesignsPage() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Approved Designs</h1>
           <p className="text-muted-foreground mt-1">
             Designs approved and ready for production batching
           </p>
         </div>
-        <Badge variant="secondary" className="text-lg px-4 py-2">
+        <Badge variant="secondary" className="text-base sm:text-lg px-3 py-1.5 sm:px-4 sm:py-2">
           <CheckCircle2 className="h-4 w-4 mr-2" />
           {approvedItems.length} Total
         </Badge>
@@ -91,7 +91,7 @@ export default function ApprovedDesignsPage() {
                   {grouped.approved.length}
                 </Badge>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                 {grouped.approved.map((item) => (
                   <Card key={item.id} className="hover:shadow-lg transition-shadow overflow-hidden">
                     {item.design_preview_url && (
@@ -133,20 +133,20 @@ export default function ApprovedDesignsPage() {
                       </div>
                       <div className="flex gap-2">
                         <Link href={`/work-items/${item.id}`} className="flex-1">
-                          <Button size="sm" variant="outline" className="w-full h-8">
-                            <Eye className="h-3 w-3 mr-1" />
+                          <Button size="sm" variant="outline" className="w-full h-11 md:h-9">
+                            <Eye className="h-4 w-4 mr-1" />
                             View
                           </Button>
                         </Link>
                         <Button
                           size="sm"
-                          className="flex-1 h-8"
+                          className="flex-1 h-11 md:h-9"
                           onClick={() => {
                             setSelectedItem(item)
                             setShowMoveDialog(true)
                           }}
                         >
-                          <Package className="h-3 w-3 mr-1" />
+                          <Package className="h-4 w-4 mr-1" />
                           Batch
                         </Button>
                       </div>
@@ -166,7 +166,7 @@ export default function ApprovedDesignsPage() {
                   {grouped.ready_for_batch.length}
                 </Badge>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
                 {grouped.ready_for_batch.map((item) => (
                   <Card key={item.id} className="hover:shadow-lg transition-shadow border-[#00BCD4] overflow-hidden">
                     {item.design_preview_url && (
@@ -207,8 +207,8 @@ export default function ApprovedDesignsPage() {
                         )}
                       </div>
                       <Link href={`/work-items/${item.id}`} className="block">
-                        <Button size="sm" variant="outline" className="w-full h-8">
-                          <Eye className="h-3 w-3 mr-1" />
+                        <Button size="sm" variant="outline" className="w-full h-11 md:h-9">
+                          <Eye className="h-4 w-4 mr-1" />
                           View Details
                         </Button>
                       </Link>
@@ -223,7 +223,7 @@ export default function ApprovedDesignsPage() {
 
       {/* Move to Ready for Batch Dialog */}
       <Dialog open={showMoveDialog} onOpenChange={setShowMoveDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Move to Ready for Batch</DialogTitle>
             <DialogDescription>
@@ -239,14 +239,15 @@ export default function ApprovedDesignsPage() {
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Add any notes about this design..."
+                className="min-h-[80px]"
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowMoveDialog(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowMoveDialog(false)} className="w-full sm:w-auto h-11 sm:h-9">
               Cancel
             </Button>
-            <Button onClick={handleMoveToReadyForBatch}>
+            <Button onClick={handleMoveToReadyForBatch} className="w-full sm:w-auto h-11 sm:h-9">
               Move to Ready for Batch
             </Button>
           </DialogFooter>

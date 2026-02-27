@@ -32,15 +32,15 @@ export default function CustomDesignQueuePage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="container mx-auto py-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Custom Design Queue</h1>
           <p className="text-muted-foreground">Projects where we design for the customer</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant="secondary" className="text-lg px-4 py-2">
+          <Badge variant="secondary" className="text-base sm:text-lg px-3 py-1.5 sm:px-4 sm:py-2">
             {totalActive} Active
           </Badge>
         </div>
@@ -48,15 +48,17 @@ export default function CustomDesignQueuePage() {
 
       {/* Designing Section (We have the ball) */}
       <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-[#9C27B0]/10">
-            <Palette className="h-5 w-5 text-[#9C27B0]" />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="p-2 rounded-lg bg-[#9C27B0]/10">
+              <Palette className="h-5 w-5 text-[#9C27B0]" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-xl font-semibold">Designing</h2>
+              <p className="text-sm text-muted-foreground">We have the ball - need to create/revise design</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-semibold">Designing</h2>
-            <p className="text-sm text-muted-foreground">We have the ball - need to create/revise design</p>
-          </div>
-          <Badge variant="outline" className="ml-auto">
+          <Badge variant="outline">
             {designing?.length || 0}
           </Badge>
         </div>
@@ -92,15 +94,16 @@ export default function CustomDesignQueuePage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="flex-1"
+                      className="flex-1 h-11 sm:h-9"
                       onClick={() => handleStatusChange(item.id, 'proof_sent', 'Sent proof to customer')}
                     >
-                      <Upload className="h-3 w-3 mr-1" />
-                      Mark Proof Sent
+                      <Upload className="h-4 w-4 mr-1" />
+                      <span className="hidden sm:inline">Mark Proof Sent</span>
+                      <span className="sm:hidden">Proof Sent</span>
                     </Button>
                     <Link href={`/work-items/${item.id}`} className="flex-1">
-                      <Button variant="secondary" size="sm" className="w-full">
-                        <ArrowRight className="h-3 w-3 mr-1" />
+                      <Button variant="secondary" size="sm" className="w-full h-11 sm:h-9">
+                        <ArrowRight className="h-4 w-4 mr-1" />
                         Open
                       </Button>
                     </Link>
@@ -121,15 +124,17 @@ export default function CustomDesignQueuePage() {
 
       {/* Awaiting Approval Section (Customer has the ball) */}
       <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-[#FF9800]/10">
-            <Clock className="h-5 w-5 text-[#FF9800]" />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="p-2 rounded-lg bg-[#FF9800]/10">
+              <Clock className="h-5 w-5 text-[#FF9800]" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-xl font-semibold">Awaiting Customer Approval</h2>
+              <p className="text-sm text-muted-foreground">Customer reviewing proof - waiting for feedback</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-semibold">Awaiting Customer Approval</h2>
-            <p className="text-sm text-muted-foreground">Customer reviewing proof - waiting for feedback</p>
-          </div>
-          <Badge variant="outline" className="ml-auto">
+          <Badge variant="outline">
             {awaitingApproval?.length || 0}
           </Badge>
         </div>
@@ -175,14 +180,15 @@ export default function CustomDesignQueuePage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1"
+                        className="flex-1 h-11 sm:h-9"
                         onClick={() => handleStatusChange(item.id, 'in_design', 'Customer requested revisions')}
                       >
-                        Revise Design
+                        <span className="hidden sm:inline">Revise Design</span>
+                        <span className="sm:hidden">Revise</span>
                       </Button>
                       <Link href={`/work-items/${item.id}`} className="flex-1">
-                        <Button variant="secondary" size="sm" className="w-full">
-                          <ArrowRight className="h-3 w-3 mr-1" />
+                        <Button variant="secondary" size="sm" className="w-full h-11 sm:h-9">
+                          <ArrowRight className="h-4 w-4 mr-1" />
                           Open
                         </Button>
                       </Link>
@@ -204,15 +210,17 @@ export default function CustomDesignQueuePage() {
 
       {/* Awaiting Payment Section */}
       <div className="space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-[#4CAF50]/10">
-            <DollarSign className="h-5 w-5 text-[#4CAF50]" />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="p-2 rounded-lg bg-[#4CAF50]/10">
+              <DollarSign className="h-5 w-5 text-[#4CAF50]" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-xl font-semibold">Awaiting Payment</h2>
+              <p className="text-sm text-muted-foreground">Design approved - invoice sent for final order</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-xl font-semibold">Awaiting Payment</h2>
-            <p className="text-sm text-muted-foreground">Design approved - invoice sent for final order</p>
-          </div>
-          <Badge variant="outline" className="ml-auto">
+          <Badge variant="outline">
             {awaitingPayment?.length || 0}
           </Badge>
         </div>
@@ -256,14 +264,14 @@ export default function CustomDesignQueuePage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1"
+                        className="flex-1 h-11 sm:h-9"
                         onClick={() => handleStatusChange(item.id, 'paid_ready_for_batch', 'Payment received')}
                       >
                         Mark Paid
                       </Button>
                       <Link href={`/work-items/${item.id}`} className="flex-1">
-                        <Button variant="secondary" size="sm" className="w-full">
-                          <ArrowRight className="h-3 w-3 mr-1" />
+                        <Button variant="secondary" size="sm" className="w-full h-11 sm:h-9">
+                          <ArrowRight className="h-4 w-4 mr-1" />
                           Open
                         </Button>
                       </Link>

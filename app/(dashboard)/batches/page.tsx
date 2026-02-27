@@ -88,8 +88,8 @@ export default function BatchesPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Batch Builder</h1>
           <p className="text-muted-foreground">Group orders for production and create batch exports</p>
@@ -97,7 +97,7 @@ export default function BatchesPage() {
         <Button
           onClick={() => setShowCreateDialog(true)}
           disabled={!readyItems || readyItems.length === 0}
-          className="gap-2"
+          className="gap-2 w-full sm:w-auto"
         >
           <Plus className="h-4 w-4" />
           Create Batch
@@ -122,24 +122,26 @@ export default function BatchesPage() {
           ) : (
             <div className="space-y-2">
               {readyItems.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/50">
-                  <Checkbox
-                    checked={selectedItems.includes(item.id)}
-                    onCheckedChange={() => handleToggleItem(item.id)}
-                  />
-                  <div className="flex-1">
+                <div key={item.id} className="flex items-start gap-3 p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                  <div className="pt-1">
+                    <Checkbox
+                      checked={selectedItems.includes(item.id)}
+                      onCheckedChange={() => handleToggleItem(item.id)}
+                      className="h-5 w-5"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
                     <Link
                       href={`/work-items/${item.id}`}
-                      className="font-medium hover:underline"
+                      className="font-medium hover:underline block mb-1"
                     >
                       {item.customer_name || item.customer_email}
                     </Link>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                       <span>{item.quantity || 0} units</span>
-                      <span>•</span>
-                      <span>{item.shopify_order_number || 'No order'}</span>
-                      <span>•</span>
-                      <StatusBadge status={item.status} />
+                      <span className="hidden sm:inline">•</span>
+                      <span className="truncate">{item.shopify_order_number || 'No order'}</span>
+                      <StatusBadge status={item.status} className="mt-1 sm:mt-0" />
                     </div>
                   </div>
                 </div>
@@ -167,32 +169,32 @@ export default function BatchesPage() {
           ) : (
             <div className="space-y-3">
               {batches.map((batch) => (
-                <div key={batch.id} className="p-4 border rounded-lg">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1">
+                <div key={batch.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div className="space-y-2 flex-1 min-w-0">
                       <Link
                         href={`/batches/${batch.id}`}
-                        className="font-medium hover:underline"
+                        className="font-medium hover:underline text-lg block"
                       >
                         {batch.name}
                       </Link>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-sm text-muted-foreground">
                         <span>Created {formatDistanceToNow(new Date(batch.created_at), { addSuffix: true })}</span>
                         {batch.confirmed_at && (
                           <>
-                            <span>•</span>
+                            <span className="hidden sm:inline">•</span>
                             <span>Confirmed {formatDistanceToNow(new Date(batch.confirmed_at), { addSuffix: true })}</span>
                           </>
                         )}
                         {batch.exported_at && (
                           <>
-                            <span>•</span>
+                            <span className="hidden sm:inline">•</span>
                             <span>Exported {formatDistanceToNow(new Date(batch.exported_at), { addSuffix: true })}</span>
                           </>
                         )}
                       </div>
                       {batch.tracking_number && (
-                        <div className="flex items-center gap-2 mt-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-950/20 rounded-md w-fit">
+                        <div className="flex items-center gap-2 mt-2 px-3 py-2 bg-blue-50 dark:bg-blue-950/20 rounded-md w-fit">
                           <Truck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                           <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
                             {batch.tracking_number}
@@ -200,20 +202,18 @@ export default function BatchesPage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <StatusBadge
-                        status={batch.status}
-                      />
+                    <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                      <StatusBadge status={batch.status} />
                       {batch.status === 'draft' && (
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleConfirmBatch(batch.id)}
                           disabled={confirmBatch.isPending}
-                          className="gap-2"
+                          className="gap-2 h-11 sm:h-9"
                         >
-                          <CheckCircle className="h-3 w-3" />
-                          Confirm
+                          <CheckCircle className="h-4 w-4" />
+                          <span>Confirm</span>
                         </Button>
                       )}
                       {batch.status === 'confirmed' && (
@@ -222,10 +222,10 @@ export default function BatchesPage() {
                           size="sm"
                           onClick={() => handleExportBatch(batch.id)}
                           disabled={exportBatch.isPending}
-                          className="gap-2"
+                          className="gap-2 h-11 sm:h-9"
                         >
-                          <FileDown className="h-3 w-3" />
-                          Export
+                          <FileDown className="h-4 w-4" />
+                          <span>Export</span>
                         </Button>
                       )}
                     </div>
@@ -239,7 +239,7 @@ export default function BatchesPage() {
 
       {/* Create Batch Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Create New Batch</DialogTitle>
             <DialogDescription>
@@ -254,6 +254,7 @@ export default function BatchesPage() {
                 value={batchName}
                 onChange={(e) => setBatchName(e.target.value)}
                 placeholder="e.g., Batch 2026-01-28"
+                className="h-11"
               />
             </div>
             <div className="space-y-2">
@@ -263,19 +264,23 @@ export default function BatchesPage() {
                   variant="ghost"
                   size="sm"
                   onClick={handleSelectAll}
+                  className="h-9"
                 >
                   {selectedItems.length === readyItems?.length ? 'Deselect All' : 'Select All'}
                 </Button>
               </div>
               <div className="border rounded-lg p-3 max-h-64 overflow-y-auto space-y-2">
                 {readyItems?.map((item) => (
-                  <div key={item.id} className="flex items-center gap-2">
-                    <Checkbox
-                      checked={selectedItems.includes(item.id)}
-                      onCheckedChange={() => handleToggleItem(item.id)}
-                    />
-                    <div className="flex-1 text-sm">
-                      <p className="font-medium">{item.customer_name || item.customer_email}</p>
+                  <div key={item.id} className="flex items-start gap-3 py-2">
+                    <div className="pt-0.5">
+                      <Checkbox
+                        checked={selectedItems.includes(item.id)}
+                        onCheckedChange={() => handleToggleItem(item.id)}
+                        className="h-5 w-5"
+                      />
+                    </div>
+                    <div className="flex-1 text-sm min-w-0">
+                      <p className="font-medium truncate">{item.customer_name || item.customer_email}</p>
                       <p className="text-muted-foreground">
                         {item.quantity || 0} units • {item.shopify_order_number}
                       </p>
@@ -285,13 +290,14 @@ export default function BatchesPage() {
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)} className="w-full sm:w-auto h-11 sm:h-9">
               Cancel
             </Button>
             <Button
               onClick={handleCreateBatch}
               disabled={createBatch.isPending || !batchName.trim() || selectedItems.length === 0}
+              className="w-full sm:w-auto h-11 sm:h-9"
             >
               Create Batch ({selectedItems.length} items)
             </Button>
