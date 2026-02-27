@@ -65,7 +65,7 @@ function CustomerCard({ customer, isDragging = false }: CustomerCardProps) {
     if (name) {
       return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
     }
-    return email.charAt(0).toUpperCase()
+    return (email || 'U').charAt(0).toUpperCase()
   }
 
   return (
@@ -207,14 +207,22 @@ export function CustomerKanban() {
             .select('*', { count: 'exact', head: true })
             .eq('customer_id', customer.id)
 
-          // Get last communication
-          const { data: lastComm } = await supabase
-            .from('communications')
-            .select('created_at')
-            .eq('customer_id', customer.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single()
+          // Get last communication (wrapped in try-catch for backward compatibility)
+          let lastComm = null
+          try {
+            const { data } = await supabase
+              .from('communications')
+              .select('created_at')
+              .eq('customer_id', customer.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single()
+
+            lastComm = data
+          } catch (error) {
+            // customer_id column might not exist yet - that's okay
+            console.debug('Could not fetch last communication:', error)
+          }
 
           return {
             ...customer,
