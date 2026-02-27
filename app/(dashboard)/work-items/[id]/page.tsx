@@ -50,6 +50,7 @@ type WorkItemWithExtras = Database['public']['Tables']['work_items']['Row'] & {
   event_date?: string | null
   phone_number?: string | null
   address?: string | null
+  alternate_emails?: string[] | null
 }
 
 export default function WorkItemDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -319,28 +320,25 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
                     <CardContent className="pt-4">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex items-center gap-2">
-                          {event.event_type === 'email_sent' && <Mail className="h-4 w-4 text-blue-600" />}
-                          {event.event_type === 'email_received' && <Mail className="h-4 w-4 text-green-600" />}
-                          {event.event_type === 'note' && <FileText className="h-4 w-4 text-gray-600" />}
-                          {event.event_type === 'status_change' && <Activity className="h-4 w-4 text-purple-600" />}
+                          {event.type === 'email' && event.metadata?.direction === 'outbound' && <Mail className="h-4 w-4 text-blue-600" />}
+                          {event.type === 'email' && event.metadata?.direction === 'inbound' && <Mail className="h-4 w-4 text-green-600" />}
+                          {event.type === 'note' && <FileText className="h-4 w-4 text-gray-600" />}
+                          {event.type === 'status_change' && <Activity className="h-4 w-4 text-purple-600" />}
 
                           <span className="font-medium text-sm">
-                            {event.event_type === 'email_sent' && 'Email Sent'}
-                            {event.event_type === 'email_received' && 'Email Received'}
-                            {event.event_type === 'note' && 'Note Added'}
-                            {event.event_type === 'status_change' && 'Status Changed'}
+                            {event.title}
                           </span>
                         </div>
                         <span className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(event.created_at), { addSuffix: true })}
+                          {formatDistanceToNow(new Date(event.timestamp), { addSuffix: true })}
                         </span>
                       </div>
 
                       <div className="text-sm text-muted-foreground line-clamp-2">
-                        {event.summary}
+                        {event.description}
                       </div>
 
-                      {event.event_type.startsWith('email') && (
+                      {event.type === 'email' && (
                         <Button variant="link" size="sm" className="p-0 h-auto mt-2">
                           View full email →
                         </Button>
@@ -362,9 +360,8 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
               <CardContent className="pt-6">
                 <InlineEmailComposer
                   workItemId={id}
-                  customerEmail={workItem.customer_email || ''}
-                  customerName={workItem.customer_name}
-                  onSent={() => {}}
+                  workItem={workItem}
+                  onSendSuccess={() => {}}
                 />
               </CardContent>
             </Card>
@@ -424,14 +421,14 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
                     <label className="text-sm font-medium text-muted-foreground mb-2 block">Assigned To</label>
                     <AssignmentManager
                       workItemId={id}
-                      currentAssignee={workItem.assigned_to_email}
+                      currentAssignee={workItem.assigned_to_email ?? null}
                     />
                   </div>
                   <div>
                     <label className="text-sm font-medium text-muted-foreground mb-2 block">Estimated Value</label>
                     <ValueManager
                       workItemId={id}
-                      estimatedValue={workItem.estimated_value}
+                      estimatedValue={workItem.estimated_value ?? null}
                     />
                   </div>
                 </div>
@@ -444,7 +441,11 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
             </Card>
 
             <CustomerDetailsEditor workItem={workItem} />
-            <AlternateEmailsManager workItemId={id} />
+            <AlternateEmailsManager
+              workItemId={id}
+              customerEmail={workItem.customer_email || ''}
+              alternateEmails={workItem.alternate_emails || []}
+            />
           </TabsContent>
 
           {/* Files Tab */}
@@ -509,23 +510,22 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
 
       {/* Dialogs */}
       <ChangeStatusDialog
-        open={showStatusDialog}
+        isOpen={showStatusDialog}
         onOpenChange={setShowStatusDialog}
         workItem={workItem}
       />
 
       <CloseLeadDialog
-        open={showCloseDialog}
+        isOpen={showCloseDialog}
         onOpenChange={setShowCloseDialog}
         workItemId={id}
+        workItemName={workItem.customer_name || workItem.customer_email || 'Unknown Customer'}
       />
 
       <SendApprovalDialog
         open={showApprovalDialog}
         onOpenChange={setShowApprovalDialog}
-        workItemId={id}
-        customerEmail={workItem.customer_email || ''}
-        customerName={workItem.customer_name}
+        workItem={workItem}
       />
 
       {/* Upload File Dialog */}
