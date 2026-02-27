@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { RainbowHeader } from '@/components/custom/rainbow-header'
 import { EmailSubscriptionManager } from '@/components/email/subscription-manager'
+import { CommandPalette } from '@/components/search/command-palette'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import {
@@ -57,6 +58,7 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <EmailSubscriptionManager />
+      <CommandPalette />
       <RainbowHeader />
 
       <div className="flex flex-1">
@@ -100,6 +102,12 @@ export default async function DashboardLayout({
               <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
                 <Building2 className="h-4 w-4" />
                 Retail Accounts
+              </Button>
+            </Link>
+            <Link href="/inbox/my-inbox">
+              <Button variant="ghost" size="sm" className="w-full justify-start gap-3">
+                <MailCheck className="h-4 w-4" />
+                My Inbox
               </Button>
             </Link>
             <Link href="/inbox">

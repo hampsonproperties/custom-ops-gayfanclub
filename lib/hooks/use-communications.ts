@@ -412,6 +412,107 @@ export function useMoveEmailToCategory() {
 }
 
 // ============================================================================
+// PRIORITY INBOX HOOKS (Phase 1: PDR v3 Alignment)
+// ============================================================================
+
+/**
+ * Query emails owned by the current user
+ * Sorted by priority: high → medium → low
+ * Filters out closed emails
+ */
+export function useMyInbox() {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['communications', 'my-inbox'],
+    queryFn: async () => {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Not authenticated')
+
+      const { data, error } = await supabase
+        .from('communications')
+        .select('*, work_items!inner(id, title, status, customer_name)')
+        .eq('owner_user_id', user.id)
+        .neq('email_status', 'closed')
+        .order('priority', { ascending: false }) // high first
+        .order('received_at', { ascending: false })
+
+      if (error) throw error
+      return data as (Communication & { work_items: { id: string; title: string | null; status: string; customer_name: string | null } })[]
+    },
+  })
+}
+
+/**
+ * Reassign email ownership to another user
+ */
+export function useReassignEmail() {
+  const queryClient = useQueryClient()
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async ({
+      emailId,
+      newOwnerId
+    }: {
+      emailId: string
+      newOwnerId: string
+    }) => {
+      const { data, error } = await supabase
+        .from('communications')
+        .update({ owner_user_id: newOwnerId })
+        .eq('id', emailId)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['communications'] })
+    },
+  })
+}
+
+/**
+ * Update email priority and status
+ */
+export function useUpdateEmailPriority() {
+  const queryClient = useQueryClient()
+  const supabase = createClient()
+
+  return useMutation({
+    mutationFn: async ({
+      emailId,
+      priority,
+      emailStatus
+    }: {
+      emailId: string
+      priority?: 'high' | 'medium' | 'low'
+      emailStatus?: 'needs_reply' | 'waiting_on_customer' | 'closed'
+    }) => {
+      const updates: CommunicationUpdate = {}
+      if (priority) updates.priority = priority
+      if (emailStatus) updates.email_status = emailStatus
+
+      const { data, error } = await supabase
+        .from('communications')
+        .update(updates)
+        .eq('id', emailId)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['communications'] })
+    },
+  })
+}
+
+// ============================================================================
 // EMAIL FILTER HOOKS
 // ============================================================================
 
