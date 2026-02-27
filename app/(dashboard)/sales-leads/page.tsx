@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   Select,
   SelectContent,
@@ -11,11 +12,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Plus, Search, TrendingUp, DollarSign, Target, Award } from 'lucide-react'
+import { Plus, Search, TrendingUp, DollarSign, Target, Award, LayoutList, LayoutGrid, Mail, MoreHorizontal, Building2 } from 'lucide-react'
 import Link from 'next/link'
-import { LeadCard } from '@/components/leads/lead-card'
 import { useLeads, useLeadStats, type LeadsFilters } from '@/lib/hooks/use-leads'
+import { StatusBadge } from '@/components/custom/status-badge'
+import { formatDistanceToNow } from 'date-fns'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 export default function SalesLeadsPage() {
   const [filters, setFilters] = useState<LeadsFilters>({
@@ -23,6 +30,7 @@ export default function SalesLeadsPage() {
     status: 'all',
     search: '',
   })
+  const [viewMode, setViewMode] = useState<'table' | 'pipeline'>('table')
 
   const { data: leads, isLoading } = useLeads(filters)
   const { data: stats } = useLeadStats()
@@ -30,6 +38,26 @@ export default function SalesLeadsPage() {
   const handleFilterChange = (key: keyof LeadsFilters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }))
   }
+
+  // Helper function to get initials
+  const getInitials = (name?: string | null, email?: string | null) => {
+    if (name) {
+      const parts = name.split(' ')
+      if (parts.length >= 2) {
+        return `${parts[0][0]}${parts[1][0]}`.toUpperCase()
+      }
+      return name.substring(0, 2).toUpperCase()
+    }
+    if (email) {
+      return email.substring(0, 2).toUpperCase()
+    }
+    return '??'
+  }
+
+  // Filter active leads
+  const activeLeads = leads?.filter(
+    (lead) => !['closed_won', 'closed_lost', 'closed_event_cancelled'].includes(lead.status)
+  ) || []
 
   return (
     <div className="p-6 space-y-6">
@@ -154,86 +182,174 @@ export default function SalesLeadsPage() {
                   <SelectItem value="closed_lost">Lost</SelectItem>
                 </SelectContent>
               </Select>
+
+              <div className="flex border rounded-md">
+                <Button
+                  variant={viewMode === 'table' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('table')}
+                  className="rounded-r-none"
+                >
+                  <LayoutList className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'pipeline' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('pipeline')}
+                  className="rounded-l-none"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Tabs for different views */}
-      <Tabs defaultValue="active" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="active">Active Leads</TabsTrigger>
-          <TabsTrigger value="won">Won</TabsTrigger>
-          <TabsTrigger value="lost">Lost/Cancelled</TabsTrigger>
-        </TabsList>
+      {/* Table View */}
+      {viewMode === 'table' && (
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="border-b bg-muted/20">
+                  <tr>
+                    <th className="text-left p-3 font-medium text-sm">Name</th>
+                    <th className="text-left p-3 font-medium text-sm">Company</th>
+                    <th className="text-left p-3 font-medium text-sm">Email</th>
+                    <th className="text-left p-3 font-medium text-sm">Phone</th>
+                    <th className="text-left p-3 font-medium text-sm">Est. Value</th>
+                    <th className="text-left p-3 font-medium text-sm">Next Follow-Up</th>
+                    <th className="text-right p-3 font-medium text-sm">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                        Loading leads...
+                      </td>
+                    </tr>
+                  ) : activeLeads.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                        No active leads found
+                      </td>
+                    </tr>
+                  ) : (
+                    activeLeads.map((lead) => {
+                      const extendedLead = lead as any
+                      return (
+                        <tr key={lead.id} className="border-b hover:bg-muted/30 transition-colors">
+                          <td className="p-3">
+                            <Link href={`/sales-leads/${lead.id}`}>
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-9 w-9">
+                                  <AvatarFallback className="text-xs bg-primary/10">
+                                    {getInitials(lead.name, lead.email)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="font-medium text-sm hover:underline">
+                                    {lead.name || lead.email || 'Unknown'}
+                                  </p>
+                                  <div className="mt-0.5">
+                                    <StatusBadge status={lead.status} />
+                                  </div>
+                                </div>
+                              </div>
+                            </Link>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                              {lead.company ? (
+                                <>
+                                  <Building2 className="h-3.5 w-3.5" />
+                                  {lead.company}
+                                </>
+                              ) : (
+                                <span className="text-muted-foreground/50">-</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <span className="text-sm text-muted-foreground">
+                              {lead.email || '-'}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <span className="text-sm text-muted-foreground">
+                              {lead.phone || '-'}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            {extendedLead.estimated_value ? (
+                              <div className="flex items-center gap-1.5 text-sm font-medium">
+                                <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                                {extendedLead.estimated_value.toLocaleString()}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-muted-foreground/50">-</span>
+                            )}
+                          </td>
+                          <td className="p-3">
+                            <span className="text-sm text-muted-foreground">
+                              {extendedLead.next_follow_up_at
+                                ? formatDistanceToNow(new Date(extendedLead.next_follow_up_at), { addSuffix: true })
+                                : '-'}
+                            </span>
+                          </td>
+                          <td className="p-3">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                asChild
+                              >
+                                <a href={`mailto:${lead.email}`}>
+                                  <Mail className="h-4 w-4" />
+                                </a>
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem asChild>
+                                    <Link href={`/sales-leads/${lead.id}`}>View Details</Link>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem>Change Status</DropdownMenuItem>
+                                  <DropdownMenuItem>Send Email</DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-        <TabsContent value="active" className="space-y-4">
-          {isLoading ? (
-            <div className="text-center py-12 text-muted-foreground">
-              Loading leads...
-            </div>
-          ) : !leads || leads.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <Target className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-lg font-medium mb-2">No leads found</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Get started by creating your first lead
-                </p>
-                <Link href="/leads/new">
-                  <Button className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Create Lead
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {leads
-                .filter(
-                  (lead) =>
-                    !['closed_won', 'closed_lost', 'closed_event_cancelled'].includes(
-                      lead.status
-                    )
-                )
-                .map((lead) => (
-                  <LeadCard key={lead.id} lead={lead} />
-                ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="won" className="space-y-4">
-          {isLoading ? (
-            <div className="text-center py-12 text-muted-foreground">
-              Loading leads...
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {leads
-                ?.filter((lead) => lead.status === 'closed_won')
-                .map((lead) => <LeadCard key={lead.id} lead={lead} />)}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="lost" className="space-y-4">
-          {isLoading ? (
-            <div className="text-center py-12 text-muted-foreground">
-              Loading leads...
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {leads
-                ?.filter((lead) =>
-                  ['closed_lost', 'closed_event_cancelled'].includes(lead.status)
-                )
-                .map((lead) => <LeadCard key={lead.id} lead={lead} />)}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+      {/* Pipeline View - Placeholder */}
+      {viewMode === 'pipeline' && (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <LayoutGrid className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="font-semibold mb-2">Pipeline View Coming Soon</h3>
+            <p className="text-sm text-muted-foreground">
+              Kanban board view will be implemented next
+            </p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
