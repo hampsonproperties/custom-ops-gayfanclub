@@ -104,7 +104,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
     if (!confirm('Are you sure you want to delete this file?')) return
 
     try {
-      await deleteFile.mutateAsync(fileId)
+      await deleteFile.mutateAsync({ fileId, workItemId: id })
       toast.success('File deleted')
     } catch (error) {
       toast.error('Failed to delete file')
@@ -301,7 +301,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
               Details
             </TabsTrigger>
             <TabsTrigger value="files" className="gap-2">
-              <Image as ImageIcon className="h-4 w-4" />
+              <ImageIcon className="h-4 w-4" />
               Files
             </TabsTrigger>
             <TabsTrigger value="orders" className="gap-2">
