@@ -26,7 +26,7 @@ export function useWorkItems(filters?: WorkItemFilters) {
     queryFn: async () => {
       let query = supabase
         .from('work_items')
-        .select('*, customer:customers(*)')
+        .select('*, customer:customers(*), assigned_to:users!assigned_to_user_id(id, full_name, email)')
         .order('created_at', { ascending: false })
 
       // By default, only show open items (not closed)

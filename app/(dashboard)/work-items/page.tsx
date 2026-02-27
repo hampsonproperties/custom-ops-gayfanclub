@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useWorkItems, useUpdateWorkItemStatus } from '@/lib/hooks/use-work-items'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { KanbanBoard } from '@/components/work-items/kanban-board'
-import { Search, Filter, LayoutList, LayoutGrid, Mail, Phone, MoreHorizontal, Building2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { Search, Filter, LayoutList, LayoutGrid, Mail, Phone, MoreHorizontal, Building2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, User, Users } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -30,6 +30,7 @@ export default function WorkItemsPage() {
   const [sortColumn, setSortColumn] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [filterMode, setFilterMode] = useState<'my-leads' | 'all-leads'>('my-leads')
 
   // Debounce search input
   useEffect(() => {
@@ -40,7 +41,10 @@ export default function WorkItemsPage() {
     return () => clearTimeout(timer)
   }, [searchInput])
 
-  const { data: workItems, isLoading } = useWorkItems({ search: debouncedSearch })
+  const { data: workItems, isLoading } = useWorkItems({
+    search: debouncedSearch,
+    assignedTo: filterMode === 'my-leads' ? 'me' : undefined
+  })
   const updateStatusMutation = useUpdateWorkItemStatus()
 
   // Handler for inline status editing
@@ -86,6 +90,10 @@ export default function WorkItemsPage() {
       case 'name':
         aValue = (a.customer_name || a.customer_email || '').toLowerCase()
         bValue = (b.customer_name || b.customer_email || '').toLowerCase()
+        break
+      case 'assigned':
+        aValue = ((aExtended.assigned_to as any)?.full_name || 'Unassigned').toLowerCase()
+        bValue = ((bExtended.assigned_to as any)?.full_name || 'Unassigned').toLowerCase()
         break
       case 'company':
         aValue = (aExtended.company_name || '').toLowerCase()
@@ -216,38 +224,63 @@ export default function WorkItemsPage() {
       {/* Search & Filters */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name, email, company..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className="pl-9 h-11 sm:h-9"
-              />
-            </div>
+          <div className="flex flex-col gap-3">
+            {/* Filter Toggle - My Leads / All Leads */}
             <div className="flex gap-2">
-              <Button variant="outline" className="gap-2 flex-1 sm:flex-none h-11 sm:h-9">
-                <Filter className="h-4 w-4" />
-                <span className="sm:inline">Filters</span>
+              <Button
+                variant={filterMode === 'my-leads' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilterMode('my-leads')}
+                className="gap-2 h-9"
+              >
+                <User className="h-4 w-4" />
+                My Leads
               </Button>
-              <div className="hidden sm:flex border rounded-md">
-                <Button
-                  variant={viewMode === 'table' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('table')}
-                  className="rounded-r-none"
-                >
-                  <LayoutList className="h-4 w-4" />
+              <Button
+                variant={filterMode === 'all-leads' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilterMode('all-leads')}
+                className="gap-2 h-9"
+              >
+                <Users className="h-4 w-4" />
+                All Leads
+              </Button>
+            </div>
+
+            {/* Search and View Toggle */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name, email, company..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="pl-9 h-11 sm:h-9"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="gap-2 flex-1 sm:flex-none h-11 sm:h-9">
+                  <Filter className="h-4 w-4" />
+                  <span className="sm:inline">Filters</span>
                 </Button>
-                <Button
-                  variant={viewMode === 'pipeline' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('pipeline')}
-                  className="rounded-l-none"
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </Button>
+                <div className="hidden sm:flex border rounded-md">
+                  <Button
+                    variant={viewMode === 'table' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('table')}
+                    className="rounded-r-none"
+                  >
+                    <LayoutList className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant={viewMode === 'pipeline' ? 'secondary' : 'ghost'}
+                    size="sm"
+                    onClick={() => setViewMode('pipeline')}
+                    className="rounded-l-none"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -259,8 +292,8 @@ export default function WorkItemsPage() {
         <Card>
           {/* Bulk Action Bar */}
           {selectedItems.size > 0 && (
-            <div className="border-b bg-muted/30 p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div className="border-b bg-muted/30 p-3 flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center justify-between sm:justify-start gap-2">
                 <span className="text-sm font-medium">
                   {selectedItems.size} item{selectedItems.size > 1 ? 's' : ''} selected
                 </span>
@@ -268,16 +301,16 @@ export default function WorkItemsPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setSelectedItems(new Set())}
-                  className="h-8"
+                  className="h-9"
                 >
-                  Clear selection
+                  Clear
                 </Button>
               </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-8">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <Button variant="outline" size="sm" className="h-11 sm:h-9">
                   Bulk Update Status
                 </Button>
-                <Button variant="outline" size="sm" className="h-8">
+                <Button variant="outline" size="sm" className="h-11 sm:h-9">
                   Export Selected
                 </Button>
               </div>
@@ -304,6 +337,15 @@ export default function WorkItemsPage() {
                       >
                         Name
                         {renderSortIcon('name')}
+                      </button>
+                    </th>
+                    <th className="text-left p-3 font-medium text-sm">
+                      <button
+                        onClick={() => handleSort('assigned')}
+                        className="flex items-center gap-2 hover:text-foreground transition-colors"
+                      >
+                        Assigned To
+                        {renderSortIcon('assigned')}
                       </button>
                     </th>
                     <th className="text-left p-3 font-medium text-sm">
@@ -420,6 +462,22 @@ export default function WorkItemsPage() {
                             </Link>
                           </td>
                           <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              {extendedItem.assigned_to ? (
+                                <>
+                                  <Avatar className="h-6 w-6">
+                                    <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
+                                      {getInitials(extendedItem.assigned_to.full_name, extendedItem.assigned_to.email)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="text-sm">{extendedItem.assigned_to.full_name || extendedItem.assigned_to.email}</span>
+                                </>
+                              ) : (
+                                <span className="text-sm text-muted-foreground/50">Unassigned</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3">
                             <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                               {extendedItem.company_name ? (
                                 <>
@@ -492,7 +550,7 @@ export default function WorkItemsPage() {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={8} className="p-8 text-center text-muted-foreground">
+                      <td colSpan={9} className="p-8 text-center text-muted-foreground">
                         No leads found
                       </td>
                     </tr>
@@ -579,6 +637,12 @@ export default function WorkItemsPage() {
                                   <div className="flex items-center gap-2 font-medium text-foreground">
                                     <DollarSign className="h-3.5 w-3.5" />
                                     <span>${extendedItem.estimated_value.toLocaleString()}</span>
+                                  </div>
+                                )}
+                                {extendedItem.assigned_to && (
+                                  <div className="flex items-center gap-2">
+                                    <User className="h-3.5 w-3.5" />
+                                    <span>Assigned to: {extendedItem.assigned_to.full_name || extendedItem.assigned_to.email}</span>
                                   </div>
                                 )}
                               </div>

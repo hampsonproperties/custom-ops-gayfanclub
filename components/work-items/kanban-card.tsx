@@ -4,7 +4,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { Building2, DollarSign, Clock } from 'lucide-react'
+import { Building2, DollarSign, Clock, User } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
 import type { Database } from '@/types/database'
@@ -83,6 +83,12 @@ export function KanbanCard({ item }: KanbanCardProps) {
                 <div className="flex items-center gap-1.5 font-medium">
                   <DollarSign className="h-3 w-3 shrink-0 text-muted-foreground" />
                   <span>${extendedItem.estimated_value.toLocaleString()}</span>
+                </div>
+              )}
+              {extendedItem.assigned_to && (
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <User className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{extendedItem.assigned_to.full_name || extendedItem.assigned_to.email}</span>
                 </div>
               )}
               {item.next_follow_up_at && (

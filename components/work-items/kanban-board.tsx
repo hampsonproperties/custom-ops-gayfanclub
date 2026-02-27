@@ -97,12 +97,12 @@ export function KanbanBoard({ workItems, onStatusChange }: KanbanBoardProps) {
     if (!activeItem) return
 
     // Determine the new status
-    let newStatus = activeItem.status
+    let newStatus: string = activeItem.status
 
     // Check if dropped over a column
     const column = STATUS_COLUMNS.find(col => col.id === overId)
     if (column) {
-      newStatus = column.id
+      newStatus = column.id as string
     } else {
       // Dropped over another item - find its status
       const overItem = workItems.find(item => item.id === overId)
@@ -127,7 +127,8 @@ export function KanbanBoard({ workItems, onStatusChange }: KanbanBoardProps) {
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex gap-4 overflow-x-auto pb-4 min-h-[600px]">
+      {/* Desktop: Horizontal scrolling columns */}
+      <div className="hidden md:flex gap-4 overflow-x-auto pb-4 min-h-[600px]">
         {STATUS_COLUMNS.map(column => (
           <KanbanColumn
             key={column.id}
@@ -137,6 +138,36 @@ export function KanbanBoard({ workItems, onStatusChange }: KanbanBoardProps) {
             items={itemsByStatus[column.id] || []}
             itemCount={itemsByStatus[column.id]?.length || 0}
           />
+        ))}
+      </div>
+
+      {/* Mobile: Vertical stack of collapsible sections */}
+      <div className="md:hidden space-y-4">
+        {STATUS_COLUMNS.map(column => (
+          <div key={column.id} className="space-y-2">
+            {/* Column Header */}
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${column.color}`} />
+                <h3 className="font-semibold text-sm">{column.label}</h3>
+              </div>
+              <Badge variant="secondary" className="text-xs">
+                {itemsByStatus[column.id]?.length || 0}
+              </Badge>
+            </div>
+
+            {/* Cards - No drag-drop on mobile, just display */}
+            <div className="space-y-2">
+              {(itemsByStatus[column.id] || []).map(item => (
+                <KanbanCard key={item.id} item={item} />
+              ))}
+              {(itemsByStatus[column.id]?.length || 0) === 0 && (
+                <div className="text-center text-muted-foreground text-sm py-4 bg-muted/20 rounded-lg">
+                  No items
+                </div>
+              )}
+            </div>
+          </div>
         ))}
       </div>
 
