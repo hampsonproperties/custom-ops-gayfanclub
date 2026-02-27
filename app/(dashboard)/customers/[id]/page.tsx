@@ -50,6 +50,7 @@ import { InlineEmailComposer } from '@/components/email/inline-email-composer'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { AlternativeContactsManager } from '@/components/customers/alternative-contacts-manager'
 import { ProjectDetailView } from '@/components/customers/project-detail-view'
+import { CustomerActivityFeed } from '@/components/activity/customer-activity-feed'
 
 // Project Card Component with Enhanced Details
 function ProjectCard({ project, customerId }: { project: any; customerId: string }) {
@@ -790,14 +791,9 @@ export default function CustomerProfilePage() {
                 <User className="h-4 w-4" />
                 <span className="hidden sm:inline">Contacts</span>
               </TabsTrigger>
-              <TabsTrigger value="emails" className="gap-2">
+              <TabsTrigger value="activity" className="gap-2">
                 <MessageSquare className="h-4 w-4" />
-                <span className="hidden sm:inline">Emails</span>
-                {stats.unread_conversations > 0 && (
-                  <Badge variant="destructive" className="ml-1 h-5 w-5 p-0 text-xs">
-                    {stats.unread_conversations}
-                  </Badge>
-                )}
+                <span className="hidden sm:inline">Activity</span>
               </TabsTrigger>
               <TabsTrigger value="shopify" className="gap-2">
                 <ShoppingBag className="h-4 w-4" />
@@ -806,10 +802,6 @@ export default function CustomerProfilePage() {
               <TabsTrigger value="files" className="gap-2">
                 <FileText className="h-4 w-4" />
                 <span className="hidden sm:inline">Files</span>
-              </TabsTrigger>
-              <TabsTrigger value="notes" className="gap-2">
-                <StickyNote className="h-4 w-4" />
-                <span className="hidden sm:inline">Notes</span>
               </TabsTrigger>
             </TabsList>
 
@@ -856,8 +848,16 @@ export default function CustomerProfilePage() {
               <AlternativeContactsManager customerId={customerId} />
             </TabsContent>
 
-            {/* Emails/Conversations Tab */}
-            <TabsContent value="emails" className="space-y-4">
+            {/* Activity Tab - Follow Up Boss Style */}
+            <TabsContent value="activity" className="space-y-4">
+              <CustomerActivityFeed
+                customerId={customerId}
+                customerEmail={customer.email}
+              />
+            </TabsContent>
+
+            {/* Old Emails Tab - Remove after testing */}
+            <TabsContent value="emails-old" className="space-y-4">
               {selectedConversationId ? (
                 <div>
                   <Button
@@ -928,10 +928,7 @@ export default function CustomerProfilePage() {
               <FilesTab customerId={customerId} />
             </TabsContent>
 
-            {/* Notes Tab */}
-            <TabsContent value="notes">
-              <NotesTab customerId={customerId} />
-            </TabsContent>
+            {/* Notes Tab - Now part of Activity tab */}
           </Tabs>
         </div>
 
