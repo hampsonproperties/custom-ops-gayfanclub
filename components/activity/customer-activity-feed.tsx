@@ -357,42 +357,42 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
       <Card className="p-4 sm:p-6">
         <div className="space-y-4">
           {/* Tab Selector */}
-          <div className="flex gap-2 border-b">
+          <div className="flex gap-1 sm:gap-2 border-b">
             <Button
               variant={activeTab === 'note' ? 'ghost' : 'ghost'}
               size="default"
               onClick={() => setActiveTab('note')}
               className={cn(
-                'rounded-b-none border-b-2 h-11 px-4',
+                'rounded-b-none border-b-2 h-10 sm:h-11 px-3 sm:px-4 flex-1 sm:flex-none',
                 activeTab === 'note' ? 'border-primary' : 'border-transparent'
               )}
             >
-              <FileText className="mr-2 h-4 w-4" />
-              Note
+              <FileText className="mr-1.5 sm:mr-2 h-4 w-4" />
+              <span className="text-sm sm:text-base">Note</span>
             </Button>
             <Button
               variant={activeTab === 'email' ? 'ghost' : 'ghost'}
               size="default"
               onClick={() => setActiveTab('email')}
               className={cn(
-                'rounded-b-none border-b-2 h-11 px-4',
+                'rounded-b-none border-b-2 h-10 sm:h-11 px-3 sm:px-4 flex-1 sm:flex-none',
                 activeTab === 'email' ? 'border-primary' : 'border-transparent'
               )}
             >
-              <Mail className="mr-2 h-4 w-4" />
-              Email
+              <Mail className="mr-1.5 sm:mr-2 h-4 w-4" />
+              <span className="text-sm sm:text-base">Email</span>
             </Button>
             <Button
               variant={activeTab === 'task' ? 'ghost' : 'ghost'}
               size="default"
               onClick={() => setActiveTab('task')}
               className={cn(
-                'rounded-b-none border-b-2 h-11 px-4',
+                'rounded-b-none border-b-2 h-10 sm:h-11 px-3 sm:px-4 flex-1 sm:flex-none',
                 activeTab === 'task' ? 'border-primary' : 'border-transparent'
               )}
             >
-              <CheckSquare className="mr-2 h-4 w-4" />
-              Task
+              <CheckSquare className="mr-1.5 sm:mr-2 h-4 w-4" />
+              <span className="text-sm sm:text-base">Task</span>
             </Button>
           </div>
 
@@ -438,18 +438,19 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
                 <Button
                   onClick={handleGenerateEmail}
                   disabled={isGenerating || !aiPrompt.trim()}
-                  className="gap-2"
+                  className="gap-1.5 sm:gap-2 px-3 sm:px-4"
                   variant="secondary"
                 >
                   {isGenerating ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Generating...
+                      <span className="hidden xs:inline">Generating...</span>
                     </>
                   ) : (
                     <>
                       <Sparkles className="h-4 w-4" />
-                      Generate with AI
+                      <span className="hidden sm:inline">Generate with AI</span>
+                      <span className="sm:hidden">AI</span>
                     </>
                   )}
                 </Button>
@@ -480,23 +481,25 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
                         setEmailSubject('')
                         setEmailContent('')
                       }}
+                      className="h-10"
                     >
                       Clear
                     </Button>
                     <Button
-                      className="rounded-full gap-2"
+                      className="rounded-full gap-1.5 sm:gap-2 h-10"
                       onClick={() => sendEmailMutation.mutate()}
                       disabled={sendEmailMutation.isPending || !emailSubject.trim() || !emailContent.trim()}
                     >
                       {sendEmailMutation.isPending ? (
                         <>
                           <Loader2 className="h-4 w-4 animate-spin" />
-                          Sending...
+                          <span className="hidden xs:inline">Sending...</span>
                         </>
                       ) : (
                         <>
                           <Send className="h-4 w-4" />
-                          Send Email
+                          <span className="hidden xs:inline">Send Email</span>
+                          <span className="xs:hidden">Send</span>
                         </>
                       )}
                     </Button>

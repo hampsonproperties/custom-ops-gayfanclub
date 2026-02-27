@@ -611,22 +611,22 @@ export default function CustomerProfilePage() {
 
   // Otherwise show customer overview
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header - PDR v3 Spec */}
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {/* Back Button */}
         <Link href="/customers">
-          <Button variant="ghost" size="sm" className="gap-2">
+          <Button variant="ghost" size="sm" className="gap-2 h-10">
             <ArrowLeft className="h-4 w-4" />
-            Back to Customers
+            <span>Back to Customers</span>
           </Button>
         </Link>
 
         {/* Customer Header */}
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-bold">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 sm:gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start gap-2 sm:gap-3 mb-2">
+              <h1 className="text-2xl sm:text-3xl font-bold truncate flex-1">
                 {customer.display_name ||
                  (customer.first_name && customer.last_name
                    ? `${customer.first_name} ${customer.last_name}`
@@ -634,30 +634,30 @@ export default function CustomerProfilePage() {
               </h1>
               {/* Status Badge */}
               {(customer as any).status && (
-                <Badge variant="outline" className="text-sm">
+                <Badge variant="outline" className="text-xs sm:text-sm flex-shrink-0">
                   {(customer as any).status}
                 </Badge>
               )}
             </div>
 
             {/* Contact Info and Organization */}
-            <div className="flex flex-wrap items-center gap-4 text-muted-foreground">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
               {(customer as any).organization_name && (
                 <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4" />
-                  <span>{(customer as any).organization_name}</span>
+                  <Building2 className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">{(customer as any).organization_name}</span>
                 </div>
               )}
               {/* Only show email if it's not being used as the name */}
               {(customer.display_name || customer.first_name || customer.last_name) && (
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4" />
-                  <span>{customer.email}</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <Mail className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">{customer.email}</span>
                 </div>
               )}
               {customer.phone && (
                 <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4" />
+                  <Phone className="h-4 w-4 flex-shrink-0" />
                   <span>{customer.phone}</span>
                 </div>
               )}
@@ -675,25 +675,25 @@ export default function CustomerProfilePage() {
             {/* Alternative Contacts */}
             {alternativeContacts && alternativeContacts.length > 0 && (
               <div className="mt-3 pt-3 border-t">
-                <div className="text-sm font-medium text-muted-foreground mb-2">
+                <div className="text-xs sm:text-sm font-medium text-muted-foreground mb-2">
                   Additional Contacts:
                 </div>
-                <div className="flex flex-wrap gap-3">
+                <div className="flex flex-wrap gap-2">
                   {alternativeContacts.map((contact) => (
                     <div
                       key={contact.id}
-                      className="flex items-center gap-2 text-sm bg-muted/50 px-3 py-1.5 rounded-full"
+                      className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm bg-muted/50 px-2.5 sm:px-3 py-1.5 rounded-full"
                     >
-                      <User className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="font-medium">{contact.full_name}</span>
+                      <User className="h-3 sm:h-3.5 w-3 sm:w-3.5 text-muted-foreground flex-shrink-0" />
+                      <span className="font-medium truncate max-w-[120px] sm:max-w-none">{contact.full_name}</span>
                       {contact.role && (
                         <>
-                          <span className="text-muted-foreground">•</span>
-                          <span className="text-muted-foreground">{contact.role}</span>
+                          <span className="text-muted-foreground hidden sm:inline">•</span>
+                          <span className="text-muted-foreground hidden sm:inline truncate">{contact.role}</span>
                         </>
                       )}
                       {contact.is_primary && (
-                        <Badge variant="secondary" className="text-xs ml-1">
+                        <Badge variant="secondary" className="text-[10px] sm:text-xs ml-0.5 sm:ml-1">
                           Primary
                         </Badge>
                       )}
@@ -705,20 +705,22 @@ export default function CustomerProfilePage() {
           </div>
 
           {/* Quick Actions */}
-          <div className="flex items-center gap-2">
-            <Button className="gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button className="gap-2 h-10 flex-1 sm:flex-none">
               <Mail className="h-4 w-4" />
-              Email Customer
+              <span className="hidden xs:inline">Email Customer</span>
+              <span className="xs:hidden">Email</span>
             </Button>
-            <Link href={`/work-items/new?customer_id=${customerId}`}>
-              <Button variant="outline" className="gap-2">
+            <Link href={`/work-items/new?customer_id=${customerId}`} className="flex-1 sm:flex-none">
+              <Button variant="outline" className="gap-2 h-10 w-full">
                 <Plus className="h-4 w-4" />
-                Create Project
+                <span className="hidden xs:inline">Create Project</span>
+                <span className="xs:hidden">Project</span>
               </Button>
             </Link>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon">
+                <Button variant="outline" size="icon" className="h-10 w-10">
                   <MoreVertical className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -783,25 +785,25 @@ export default function CustomerProfilePage() {
         <div className="lg:col-span-2">
           <Tabs defaultValue="projects" className="space-y-4">
             <TabsList className="w-full h-auto flex-wrap justify-start p-1 gap-1">
-              <TabsTrigger value="projects" className="gap-2 flex-1 min-w-[100px] h-11">
-                <ShoppingBag className="h-4 w-4" />
-                <span>Projects</span>
+              <TabsTrigger value="projects" className="gap-1.5 sm:gap-2 flex-1 min-w-[85px] sm:min-w-[100px] h-10 sm:h-11 text-sm">
+                <ShoppingBag className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Projects</span>
               </TabsTrigger>
-              <TabsTrigger value="contacts" className="gap-2 flex-1 min-w-[100px] h-11">
-                <User className="h-4 w-4" />
-                <span>Contacts</span>
+              <TabsTrigger value="contacts" className="gap-1.5 sm:gap-2 flex-1 min-w-[85px] sm:min-w-[100px] h-10 sm:h-11 text-sm">
+                <User className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Contacts</span>
               </TabsTrigger>
-              <TabsTrigger value="activity" className="gap-2 flex-1 min-w-[100px] h-11">
-                <MessageSquare className="h-4 w-4" />
-                <span>Activity</span>
+              <TabsTrigger value="activity" className="gap-1.5 sm:gap-2 flex-1 min-w-[85px] sm:min-w-[100px] h-10 sm:h-11 text-sm">
+                <MessageSquare className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Activity</span>
               </TabsTrigger>
-              <TabsTrigger value="shopify" className="gap-2 flex-1 min-w-[100px] h-11">
-                <ShoppingBag className="h-4 w-4" />
-                <span>Shopify</span>
+              <TabsTrigger value="shopify" className="gap-1.5 sm:gap-2 flex-1 min-w-[85px] sm:min-w-[100px] h-10 sm:h-11 text-sm">
+                <ShoppingBag className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Shopify</span>
               </TabsTrigger>
-              <TabsTrigger value="files" className="gap-2 flex-1 min-w-[100px] h-11">
-                <FileText className="h-4 w-4" />
-                <span>Files</span>
+              <TabsTrigger value="files" className="gap-1.5 sm:gap-2 flex-1 min-w-[85px] sm:min-w-[100px] h-10 sm:h-11 text-sm">
+                <FileText className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Files</span>
               </TabsTrigger>
             </TabsList>
 
