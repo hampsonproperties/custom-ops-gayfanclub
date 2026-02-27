@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -367,8 +367,8 @@ function EmailCard({
   email: any
   onReassign: (email: any) => void
   onUpdateStatus: (emailId: string, status: EmailStatus) => void
-  getPriorityBadge: (priority: PriorityLevel) => JSX.Element
-  getStatusBadge: (status: string) => JSX.Element
+  getPriorityBadge: (priority: PriorityLevel) => React.ReactElement
+  getStatusBadge: (status: string) => React.ReactElement
   getTimeSinceColor: (receivedAt: string | null) => string
 }) {
   return (
