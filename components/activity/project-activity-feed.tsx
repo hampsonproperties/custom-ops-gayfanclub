@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -20,6 +21,8 @@ import {
   Clock,
   CheckCircle,
   Send,
+  Sparkles,
+  Loader2,
 } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -65,6 +68,8 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
   const [noteContent, setNoteContent] = useState('')
   const [emailSubject, setEmailSubject] = useState('')
   const [emailContent, setEmailContent] = useState('')
+  const [aiPrompt, setAiPrompt] = useState('')
+  const [isGenerating, setIsGenerating] = useState(false)
   const [emailThisNote, setEmailThisNote] = useState(false)
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
 
@@ -258,6 +263,75 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
     },
   })
 
+  // AI email generation
+  const handleGenerateEmail = async () => {
+    if (!aiPrompt.trim()) {
+      toast.error('Please enter a prompt for the AI')
+      return
+    }
+
+    setIsGenerating(true)
+    try {
+      const response = await fetch('/api/email/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: aiPrompt,
+          projectId,
+          customerId,
+          customerEmail,
+        }),
+      })
+
+      if (!response.ok) throw new Error('Failed to generate email')
+
+      const { subject, body } = await response.json()
+      setEmailSubject(subject)
+      setEmailContent(body)
+      setAiPrompt('')
+      toast.success('Email generated! Review and edit before sending.')
+    } catch (error) {
+      toast.error('Failed to generate email')
+      console.error(error)
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  // Send email mutation
+  const sendEmailMutation = useMutation({
+    mutationFn: async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+
+      const response = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workItemId: projectId,
+          customerId,
+          to: customerEmail,
+          subject: emailSubject,
+          body: emailContent,
+          sentByUserId: user?.id,
+        }),
+      })
+
+      if (!response.ok) throw new Error('Failed to send email')
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project-activity', projectId] })
+      setEmailSubject('')
+      setEmailContent('')
+      setAiPrompt('')
+      toast.success('Email sent successfully!')
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to send email: ${error.message}`)
+    },
+  })
+
   const toggleExpanded = (id: string) => {
     const newExpanded = new Set(expandedItems)
     if (newExpanded.has(id)) {
@@ -417,25 +491,89 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
 
           {activeTab === 'email' && (
             <>
-              <input
-                type="text"
-                placeholder="Subject"
-                value={emailSubject}
-                onChange={(e) => setEmailSubject(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md text-base"
-              />
-              <Textarea
-                placeholder={`Email to ${customerEmail}...`}
-                value={emailContent}
-                onChange={(e) => setEmailContent(e.target.value)}
-                className="min-h-[120px] resize-none text-base"
-              />
-              <div className="flex justify-end">
-                <Button className="rounded-full gap-2">
-                  <Send className="h-4 w-4" />
-                  Send Email
+              {/* AI Prompt Input */}
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Type a prompt: 'Send quote follow-up' or 'Ask about event details'..."
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleGenerateEmail()
+                    }
+                  }}
+                  className="text-base flex-1"
+                  disabled={isGenerating}
+                />
+                <Button
+                  onClick={handleGenerateEmail}
+                  disabled={isGenerating || !aiPrompt.trim()}
+                  className="gap-2"
+                  variant="secondary"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      Generate with AI
+                    </>
+                  )}
                 </Button>
               </div>
+
+              {/* Generated Email Fields */}
+              {(emailSubject || emailContent) && (
+                <>
+                  <div className="border-t pt-4 mt-4">
+                    <Label className="text-sm text-muted-foreground mb-2 block">Review and edit before sending:</Label>
+                    <Input
+                      placeholder="Subject"
+                      value={emailSubject}
+                      onChange={(e) => setEmailSubject(e.target.value)}
+                      className="text-base mb-3"
+                    />
+                    <Textarea
+                      placeholder={`Email to ${customerEmail}...`}
+                      value={emailContent}
+                      onChange={(e) => setEmailContent(e.target.value)}
+                      className="min-h-[200px] resize-none text-base"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setEmailSubject('')
+                        setEmailContent('')
+                      }}
+                    >
+                      Clear
+                    </Button>
+                    <Button
+                      className="rounded-full gap-2"
+                      onClick={() => sendEmailMutation.mutate()}
+                      disabled={sendEmailMutation.isPending || !emailSubject.trim() || !emailContent.trim()}
+                    >
+                      {sendEmailMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4" />
+                          Send Email
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </>
+              )}
             </>
           )}
 
@@ -539,13 +677,31 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
                   </Button>
                 )}
 
-                {/* Email Status */}
-                {activity.type === 'email' && activity.delivered_at && (
-                  <div className="flex items-center gap-1.5 mt-3 text-sm text-muted-foreground">
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                    <span>
-                      Delivered{activity.opened_at && ' and Opened'} {formatDistanceToNow(new Date(activity.opened_at || activity.delivered_at), { addSuffix: true })}
-                    </span>
+                {/* Email Status & Reply */}
+                {activity.type === 'email' && (
+                  <div className="flex items-center justify-between mt-3">
+                    {activity.delivered_at && (
+                      <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <span>
+                          Delivered{activity.opened_at && ' and Opened'} {formatDistanceToNow(new Date(activity.opened_at || activity.delivered_at), { addSuffix: true })}
+                        </span>
+                      </div>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setActiveTab('email')
+                        setEmailSubject(activity.subject ? `Re: ${activity.subject}` : 'Re: ')
+                        setEmailContent(`\n\n---\nOn ${format(new Date(activity.created_at), 'MMM d, yyyy')} ${activity.user.full_name} wrote:\n\n${activity.content}`)
+                        window.scrollTo({ top: 0, behavior: 'smooth' })
+                      }}
+                      className="gap-2"
+                    >
+                      <Mail className="h-4 w-4" />
+                      Reply
+                    </Button>
                   </div>
                 )}
 

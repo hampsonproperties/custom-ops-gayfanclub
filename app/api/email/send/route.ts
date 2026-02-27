@@ -11,7 +11,7 @@ const jwtSecret = process.env.JWT_SECRET || 'fallback-secret-key'
 
 export async function POST(request: NextRequest) {
   try {
-    const { workItemId, to, subject, body, attachments, includeApprovalLink } =
+    const { workItemId, customerId, to, subject, body, attachments, includeApprovalLink, sentByUserId } =
       await request.json()
 
     if (!to || !subject || !body) {
@@ -233,7 +233,9 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from('communications')
       .insert({
-        work_item_id: workItemId,
+        work_item_id: workItemId || null,
+        customer_id: customerId || null,
+        sent_by_user_id: sentByUserId || null,
         direction: 'outbound',
         from_email: mailboxEmail,
         to_emails: [to],
