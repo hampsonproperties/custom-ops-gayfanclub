@@ -104,22 +104,28 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
         .order('created_at', { ascending: false })
 
       // Fetch tasks (if table exists)
-      const { data: tasks } = await supabase
-        .from('tasks')
-        .select(`
-          id,
-          title,
-          description,
-          created_at,
-          due_date,
-          completed,
-          created_by_user:users!created_by_user_id(id, full_name, email),
-          assigned_to:users!assigned_to_user_id(full_name, email)
-        `)
-        .eq('project_id', projectId)
-        .order('created_at', { ascending: false })
-        .then(res => ({ data: res.data || [] }))
-        .catch(() => ({ data: [] }))
+      let tasks: any[] = []
+      try {
+        const { data: tasksData } = await supabase
+          .from('tasks')
+          .select(`
+            id,
+            title,
+            description,
+            created_at,
+            due_date,
+            completed,
+            created_by_user:users!created_by_user_id(id, full_name, email),
+            assigned_to:users!assigned_to_user_id(full_name, email)
+          `)
+          .eq('project_id', projectId)
+          .order('created_at', { ascending: false })
+
+        tasks = tasksData || []
+      } catch (error) {
+        // Tasks table might not exist yet, that's okay
+        tasks = []
+      }
 
       // Combine all activities
       const allActivities: ActivityItem[] = [
@@ -141,7 +147,7 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
           opened_at: email.opened_at,
           user: email.sent_by_user || { id: '', full_name: 'System', email: '' },
         })),
-        ...(tasks.data || []).map(task => ({
+        ...(tasks || []).map(task => ({
           id: task.id,
           type: 'task' as ActivityType,
           content: task.description || task.title,
