@@ -79,54 +79,46 @@ export default function SalesLeadsPage() {
 
       {/* Stats */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Active Leads
-              </CardTitle>
-              <Target className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.totalLeads}</div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <Card className="border-muted/40">
+            <CardContent className="pt-6 pb-5">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm text-muted-foreground">Active Leads</p>
+                <Target className="h-4 w-4 text-muted-foreground/60" />
+              </div>
+              <div className="text-3xl font-bold">{stats.totalLeads}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Pipeline Value
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+          <Card className="border-muted/40">
+            <CardContent className="pt-6 pb-5">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm text-muted-foreground">Pipeline Value</p>
+                <DollarSign className="h-4 w-4 text-muted-foreground/60" />
+              </div>
+              <div className="text-3xl font-bold">
                 ${stats.totalValue.toLocaleString()}
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Conversion Rate
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.conversionRate}%</div>
+          <Card className="border-muted/40">
+            <CardContent className="pt-6 pb-5">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm text-muted-foreground">Conversion Rate</p>
+                <TrendingUp className="h-4 w-4 text-muted-foreground/60" />
+              </div>
+              <div className="text-3xl font-bold">{stats.conversionRate}%</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Total Revenue
-              </CardTitle>
-              <Award className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+          <Card className="border-muted/40">
+            <CardContent className="pt-6 pb-5">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm text-muted-foreground">Total Revenue</p>
+                <Award className="h-4 w-4 text-muted-foreground/60" />
+              </div>
+              <div className="text-3xl font-bold">
                 ${stats.totalRevenue.toLocaleString()}
               </div>
             </CardContent>
@@ -135,7 +127,7 @@ export default function SalesLeadsPage() {
       )}
 
       {/* Filters */}
-      <Card>
+      <Card className="border-muted/40">
         <CardContent className="pt-6">
           <div className="flex flex-col md:flex-row gap-4">
             {/* Search */}
@@ -208,19 +200,19 @@ export default function SalesLeadsPage() {
 
       {/* Table View */}
       {viewMode === 'table' && (
-        <Card>
+        <Card className="border-muted/40">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="border-b bg-muted/20">
-                  <tr>
-                    <th className="text-left p-3 font-medium text-sm">Name</th>
-                    <th className="text-left p-3 font-medium text-sm">Company</th>
-                    <th className="text-left p-3 font-medium text-sm">Email</th>
-                    <th className="text-left p-3 font-medium text-sm">Phone</th>
-                    <th className="text-left p-3 font-medium text-sm">Est. Value</th>
-                    <th className="text-left p-3 font-medium text-sm">Next Follow-Up</th>
-                    <th className="text-right p-3 font-medium text-sm">Actions</th>
+                <thead className="border-b border-muted/30">
+                  <tr className="bg-muted/5">
+                    <th className="text-left px-6 py-4 font-medium text-sm text-muted-foreground">Name</th>
+                    <th className="text-left px-6 py-4 font-medium text-sm text-muted-foreground">Company</th>
+                    <th className="text-left px-6 py-4 font-medium text-sm text-muted-foreground">Email</th>
+                    <th className="text-left px-6 py-4 font-medium text-sm text-muted-foreground">Phone</th>
+                    <th className="text-left px-6 py-4 font-medium text-sm text-muted-foreground">Est. Value</th>
+                    <th className="text-left px-6 py-4 font-medium text-sm text-muted-foreground">Next Follow-Up</th>
+                    <th className="text-right px-6 py-4 font-medium text-sm text-muted-foreground">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -240,71 +232,59 @@ export default function SalesLeadsPage() {
                     activeLeads.map((lead) => {
                       const extendedLead = lead as any
                       return (
-                        <tr key={lead.id} className="border-b hover:bg-muted/30 transition-colors">
-                          <td className="p-3">
+                        <tr key={lead.id} className="border-b border-muted/30 hover:bg-muted/5 transition-colors">
+                          <td className="px-6 py-4">
                             <Link href={`/sales-leads/${lead.id}`}>
-                              <div className="flex items-center gap-3">
-                                <Avatar className="h-9 w-9">
-                                  <AvatarFallback className="text-xs bg-primary/10">
+                              <div className="flex items-center gap-4">
+                                <Avatar className="h-10 w-10">
+                                  <AvatarFallback className="text-sm font-medium bg-muted">
                                     {getInitials(lead.customer_name, lead.customer_email)}
                                   </AvatarFallback>
                                 </Avatar>
                                 <div>
-                                  <p className="font-medium text-sm hover:underline">
+                                  <p className="font-medium text-sm hover:underline mb-1.5">
                                     {lead.customer_name || lead.customer_email || 'Unknown'}
                                   </p>
-                                  <div className="mt-0.5">
-                                    <StatusBadge status={lead.status} />
-                                  </div>
+                                  <StatusBadge status={lead.status} />
                                 </div>
                               </div>
                             </Link>
                           </td>
-                          <td className="p-3">
-                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                              {lead.company_name ? (
-                                <>
-                                  <Building2 className="h-3.5 w-3.5" />
-                                  {lead.company_name}
-                                </>
-                              ) : (
-                                <span className="text-muted-foreground/50">-</span>
-                              )}
-                            </div>
+                          <td className="px-6 py-4">
+                            <span className="text-sm text-foreground">
+                              {lead.company_name || '-'}
+                            </span>
                           </td>
-                          <td className="p-3">
-                            <span className="text-sm text-muted-foreground">
+                          <td className="px-6 py-4">
+                            <span className="text-sm text-foreground">
                               {lead.customer_email || '-'}
                             </span>
                           </td>
-                          <td className="p-3">
-                            <span className="text-sm text-muted-foreground">
+                          <td className="px-6 py-4">
+                            <span className="text-sm text-foreground">
                               {lead.phone_number || '-'}
                             </span>
                           </td>
-                          <td className="p-3">
-                            {extendedLead.estimated_value ? (
-                              <div className="flex items-center gap-1.5 text-sm font-medium">
-                                <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-                                {extendedLead.estimated_value.toLocaleString()}
-                              </div>
-                            ) : (
-                              <span className="text-sm text-muted-foreground/50">-</span>
-                            )}
+                          <td className="px-6 py-4">
+                            <span className="text-sm text-foreground">
+                              {extendedLead.estimated_value
+                                ? `$${extendedLead.estimated_value.toLocaleString()}`
+                                : '-'}
+                            </span>
                           </td>
-                          <td className="p-3">
+                          <td className="px-6 py-4">
                             <span className="text-sm text-muted-foreground">
                               {extendedLead.next_follow_up_at
                                 ? formatDistanceToNow(new Date(extendedLead.next_follow_up_at), { addSuffix: true })
                                 : '-'}
                             </span>
                           </td>
-                          <td className="p-3">
-                            <div className="flex items-center justify-end gap-1">
+                          <td className="px-6 py-4">
+                            <div className="flex items-center justify-end gap-2">
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-8 w-8 p-0"
+                                className="h-9 w-9 p-0 hover:bg-muted"
                                 asChild
                               >
                                 <a href={`mailto:${lead.customer_email}`}>
@@ -313,7 +293,7 @@ export default function SalesLeadsPage() {
                               </Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                  <Button variant="ghost" size="sm" className="h-9 w-9 p-0 hover:bg-muted">
                                     <MoreHorizontal className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
