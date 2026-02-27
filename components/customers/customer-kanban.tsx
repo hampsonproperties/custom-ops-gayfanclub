@@ -327,8 +327,8 @@ export function CustomerKanban() {
       onDragCancel={handleDragCancel}
     >
       {/* Desktop: Horizontal Kanban */}
-      <div className="hidden md:block w-full overflow-x-auto">
-        <div className="flex gap-3 p-4 min-h-[500px]">
+      <div className="hidden md:block w-full overflow-x-auto -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8">
+        <div className="flex gap-3 py-4 min-h-[500px]">
           {SALES_STAGES.map(stage => (
             <KanbanColumn
               key={stage.id}
@@ -340,7 +340,7 @@ export function CustomerKanban() {
       </div>
 
       {/* Mobile: Vertical Stack */}
-      <div className="md:hidden space-y-6 p-4">
+      <div className="md:hidden space-y-6">
         {SALES_STAGES.map(stage => {
           const stageCustomers = customersByStage[stage.id] || []
           if (stageCustomers.length === 0) return null

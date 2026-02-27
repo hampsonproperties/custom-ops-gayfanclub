@@ -177,10 +177,10 @@ export default function CustomersPage() {
   const stats = customersData?.stats || { total: 0, with_projects: 0, recent_contacts: 0 }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1 min-w-0">
           <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
           <p className="text-muted-foreground mt-1">
             Manage your customer relationships and project history
@@ -188,9 +188,9 @@ export default function CustomersPage() {
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Customer
+            <Button className="flex-shrink-0">
+              <Plus className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">New Customer</span>
             </Button>
           </DialogTrigger>
           <DialogContent>

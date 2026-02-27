@@ -201,7 +201,7 @@ export default function CustomifyOrdersPage() {
   const allChecksPass = reviewChecklist.bleed_ok && reviewChecklist.resolution_ok && reviewChecklist.design_quality_ok
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Customify Orders</h1>
