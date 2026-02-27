@@ -69,7 +69,7 @@ export function EnhancedTimeline({
   onLogCall,
   onCreateTask,
 }: EnhancedTimelineProps) {
-  const [filter, setFilter] = useState<'all' | TimelineEventType>('all')
+  const [filter, setFilter] = useState<'all' | 'starred' | TimelineEventType>('all')
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set())
   const [activeTab, setActiveTab] = useState<'note' | 'email' | 'call' | 'task' | 'appointment'>('note')
   const [noteContent, setNoteContent] = useState('')
@@ -151,7 +151,7 @@ export function EnhancedTimeline({
                 <Button
                   variant={filter === 'starred' ? 'secondary' : 'ghost'}
                   size="sm"
-                  onClick={() => setFilter('starred' as any)}
+                  onClick={() => setFilter('starred')}
                   className="gap-2 h-8"
                 >
                   <Star className="h-3.5 w-3.5" />
