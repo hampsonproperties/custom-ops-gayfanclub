@@ -115,72 +115,67 @@ export function InvoiceManager({ workItem }: InvoiceManagerProps) {
   }
 
   return (
-    <Card className="border-2 border-blue-300 dark:border-blue-700 shadow-lg">
-      <CardHeader className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 border-b">
+    <Card>
+      <CardHeader>
         <div className="flex items-start justify-between">
-          <div className="space-y-2">
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <div className="p-2 rounded-lg bg-blue-600 text-white">
-                <FileText className="h-5 w-5" />
-              </div>
+          <div>
+            <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+              <FileText className="h-5 w-5" />
               Shopify Invoices
             </CardTitle>
-            <CardDescription className="text-base">
+            <CardDescription>
               Create and send invoices directly from your CRM
             </CardDescription>
           </div>
           {!workItem.customer_email && (
-            <Badge variant="destructive" className="gap-1 px-3 py-1">
-              <AlertCircle className="h-4 w-4" />
+            <Badge variant="destructive" className="gap-1">
+              <AlertCircle className="h-3 w-3" />
               Email Required
             </Badge>
           )}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Design Fee Invoice Card */}
-          <div className="relative border-2 border-purple-200 dark:border-purple-800 rounded-xl p-6 space-y-4 bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/20 dark:to-background hover:shadow-xl transition-all hover:scale-[1.02]">
+          <div className="relative border rounded-lg p-4 space-y-3">
             {workItem.design_fee_order_number && (
               <div className="absolute top-3 right-3">
-                <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200 gap-1">
+                <Badge variant="secondary" className="gap-1 text-xs">
                   <CheckCircle2 className="h-3 w-3" />
                   Created
                 </Badge>
               </div>
             )}
 
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-purple-600 shadow-lg">
-                  <DollarSign className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-lg">Design Fee</h4>
-                  <p className="text-xs text-muted-foreground">One-time charge</p>
-                </div>
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-purple-600">
+                <DollarSign className="h-5 w-5 text-white" />
               </div>
-              <div className="text-5xl font-black text-purple-600 dark:text-purple-400 tracking-tight">
-                $250
+              <div className="flex-1">
+                <h4 className="font-semibold">Design Fee</h4>
+                <p className="text-sm text-muted-foreground">One-time charge</p>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {workItem.design_fee_order_number
-                  ? `✓ Invoice #${workItem.design_fee_order_number}`
-                  : '→ Custom design mockup + 2 revisions'}
-              </p>
             </div>
+
+            <div className="text-4xl font-bold">$250</div>
+
+            <p className="text-sm text-muted-foreground">
+              {workItem.design_fee_order_number
+                ? `Invoice #${workItem.design_fee_order_number}`
+                : 'Custom design mockup + 2 revisions'}
+            </p>
 
             {!workItem.design_fee_order_number ? (
               <Button
                 onClick={handleCreateDesignFeeInvoice}
                 disabled={isCreatingDesignFee || !workItem.customer_email}
-                className="w-full bg-purple-600 hover:bg-purple-700"
-                size="default"
+                className="w-full"
               >
                 {isCreatingDesignFee ? (
                   <>
                     <Clock className="h-4 w-4 mr-2 animate-spin" />
-                    Creating Invoice...
+                    Creating...
                   </>
                 ) : (
                   <>
@@ -197,7 +192,7 @@ export function InvoiceManager({ workItem }: InvoiceManagerProps) {
                   rel="noopener noreferrer"
                   className="inline-block w-full"
                 >
-                  <Button variant="outline" size="default" className="w-full gap-2">
+                  <Button variant="outline" size="sm" className="w-full gap-2">
                     <ExternalLink className="h-4 w-4" />
                     View in Shopify
                   </Button>
@@ -222,49 +217,49 @@ export function InvoiceManager({ workItem }: InvoiceManagerProps) {
           </div>
 
           {/* Production Invoice Card */}
-          <div className="relative border-2 border-green-200 dark:border-green-800 rounded-xl p-6 space-y-4 bg-gradient-to-br from-green-50 to-white dark:from-green-950/20 dark:to-background hover:shadow-xl transition-all hover:scale-[1.02]">
+          <div className="relative border rounded-lg p-4 space-y-3">
             {workItem.shopify_draft_order_id && (
               <div className="absolute top-3 right-3">
-                <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200 gap-1">
+                <Badge variant="secondary" className="gap-1 text-xs">
                   <CheckCircle2 className="h-3 w-3" />
                   Created
                 </Badge>
               </div>
             )}
 
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-xl bg-green-600 shadow-lg">
-                  <DollarSign className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-lg">Production</h4>
-                  <p className="text-xs text-muted-foreground">Final production order</p>
-                </div>
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-lg bg-green-600">
+                <DollarSign className="h-5 w-5 text-white" />
               </div>
-              {workItem.estimated_value ? (
-                <>
-                  <div className="text-5xl font-black text-green-600 dark:text-green-400 tracking-tight">
-                    ${workItem.estimated_value.toLocaleString()}
-                  </div>
-                  {workItem.design_fee_order_id && !workItem.shopify_draft_order_id && (
-                    <p className="text-xs text-green-600 dark:text-green-400 font-medium">
-                      Includes $250 design fee credit
-                    </p>
-                  )}
-                </>
-              ) : (
-                <div className="text-sm text-muted-foreground py-4">
-                  <AlertCircle className="h-4 w-4 inline mr-1" />
-                  Set estimated value first
-                </div>
-              )}
-              <p className="text-sm text-muted-foreground">
-                {workItem.shopify_draft_order_id
-                  ? '✓ Production invoice sent'
-                  : '→ Custom fan production'}
-              </p>
+              <div className="flex-1">
+                <h4 className="font-semibold">Production</h4>
+                <p className="text-sm text-muted-foreground">Final production order</p>
+              </div>
             </div>
+
+            {workItem.estimated_value ? (
+              <>
+                <div className="text-4xl font-bold">
+                  ${workItem.estimated_value.toLocaleString()}
+                </div>
+                {workItem.design_fee_order_id && !workItem.shopify_draft_order_id && (
+                  <p className="text-xs text-green-600 dark:text-green-400 font-medium">
+                    Includes $250 design fee credit
+                  </p>
+                )}
+              </>
+            ) : (
+              <div className="text-sm text-muted-foreground py-4 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                Set estimated value first
+              </div>
+            )}
+
+            <p className="text-sm text-muted-foreground">
+              {workItem.shopify_draft_order_id
+                ? 'Production invoice sent'
+                : 'Custom fan production'}
+            </p>
 
             {!workItem.shopify_draft_order_id ? (
               <Button
@@ -272,13 +267,12 @@ export function InvoiceManager({ workItem }: InvoiceManagerProps) {
                 disabled={
                   isCreatingProduction || !workItem.customer_email || !workItem.estimated_value
                 }
-                className="w-full bg-green-600 hover:bg-green-700"
-                size="default"
+                className="w-full"
               >
                 {isCreatingProduction ? (
                   <>
                     <Clock className="h-4 w-4 mr-2 animate-spin" />
-                    Creating Invoice...
+                    Creating...
                   </>
                 ) : (
                   <>
@@ -295,7 +289,7 @@ export function InvoiceManager({ workItem }: InvoiceManagerProps) {
                   rel="noopener noreferrer"
                   className="inline-block w-full"
                 >
-                  <Button variant="outline" size="default" className="w-full gap-2">
+                  <Button variant="outline" size="sm" className="w-full gap-2">
                     <ExternalLink className="h-4 w-4" />
                     View in Shopify
                   </Button>
@@ -320,35 +314,19 @@ export function InvoiceManager({ workItem }: InvoiceManagerProps) {
           </div>
         </div>
 
-        {/* Info Banner */}
-        <div className="flex items-start gap-4 p-5 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border-2 border-blue-200 dark:border-blue-700 rounded-xl shadow-sm">
-          <div className="flex-shrink-0">
-            <div className="p-2.5 rounded-xl bg-blue-600 text-white shadow-md">
-              <FileText className="h-5 w-5" />
+        {/* Info Section */}
+        <div className="border-t pt-4">
+          <div className="flex items-start gap-3">
+            <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+            <div className="space-y-2">
+              <p className="font-medium text-sm">How Shopify Invoices Work</p>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• Invoices are created as draft orders in Shopify</li>
+                <li>• Invoice URL is automatically copied to clipboard</li>
+                <li>• When customer pays, order automatically links to this lead</li>
+                <li>• Design fee credit applied automatically to production orders</li>
+              </ul>
             </div>
-          </div>
-          <div className="space-y-2 flex-1">
-            <p className="font-bold text-base text-blue-900 dark:text-blue-100">
-              💡 How Shopify Invoices Work
-            </p>
-            <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1.5 list-none">
-              <li className="flex items-start gap-2">
-                <span className="text-blue-600 dark:text-blue-400 font-bold">•</span>
-                <span>Invoices are created as draft orders in Shopify</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-blue-600 dark:text-blue-400 font-bold">•</span>
-                <span>Invoice URL is automatically copied to clipboard</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-blue-600 dark:text-blue-400 font-bold">•</span>
-                <span>When customer pays, order automatically links to this lead</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="text-blue-600 dark:text-blue-400 font-bold">•</span>
-                <span>Design fee credit applied automatically to production orders</span>
-              </li>
-            </ul>
           </div>
         </div>
       </CardContent>
