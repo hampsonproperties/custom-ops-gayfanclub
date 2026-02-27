@@ -228,11 +228,74 @@ After these UI fixes, you can proceed with the data cleanup plan:
 
 ---
 
+## 4. ✅ Pipeline/Kanban Spacing (Follow-up Fix) - COMPLETE
+
+### Problem
+- Pipeline view had "odd spacing sizing etc"
+- Columns were inconsistent widths
+- Scrolling areas had poor max-height management
+- Too much padding/gaps making inefficient use of space
+
+### Solution
+
+**File Modified**: `components/customers/customer-kanban.tsx`
+
+**Spacing Improvements**:
+- Column width: Fixed at `300px` (removed responsive sizing for consistency)
+- Cards container: Added `max-h-[calc(100vh-300px)]` to prevent overflow
+- Increased card spacing from `space-y-2` to `space-y-2.5` for better breathing room
+- Reduced container gap from `gap-4` to `gap-3`
+- Reduced padding from `p-6` to `p-4`
+- Reduced min-height from `600px` to `500px`
+- Increased min-h on card area from `200px` to `300px`
+- Added `pr-1` for better scrollbar spacing
+
+### Result
+✅ More consistent column sizing
+✅ Better use of vertical space
+✅ Improved scrolling behavior
+✅ Cleaner visual spacing
+
+---
+
+## 5. ✅ Customify Orders Query Fix (Follow-up Fix) - COMPLETE
+
+### Problem
+- Customify Orders page broken
+- FileGallery not receiving all required data fields
+- Missing `mime_type` and `file_size_bytes` from query
+
+### Solution
+
+**File Modified**: `app/(dashboard)/customify-orders/page.tsx`
+
+**Query Updated**:
+```typescript
+files (
+  id,
+  external_url,
+  filename,
+  kind,
+  mime_type,        // ADDED
+  file_size_bytes   // ADDED
+)
+```
+
+**Cleanup**:
+- Removed unused `designFile` variable (replaced by FileGallery)
+
+### Result
+✅ Customify Orders page loads properly
+✅ FileGallery receives complete file metadata
+✅ File size and type display correctly
+
+---
+
 ## 🎉 Summary
 
-**3 Priority UI Fixes**: ✅ COMPLETE
-**Files Changed**: 6
-**Lines Added**: ~600
+**5 UI Fixes**: ✅ COMPLETE
+**Files Changed**: 7
+**Lines Added**: ~700
 **Database Migrations**: 1 new (CRM fields)
 
 **Alignment with PDR v4**: 🟢 EXCELLENT

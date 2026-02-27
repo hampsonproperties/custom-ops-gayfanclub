@@ -89,7 +89,9 @@ export default function CustomifyOrdersPage() {
             id,
             external_url,
             filename,
-            kind
+            kind,
+            mime_type,
+            file_size_bytes
           )
         `)
         .eq('type', 'customify_order')
@@ -182,7 +184,6 @@ export default function CustomifyOrdersPage() {
   }
 
   const selectedOrderData = orders?.find((o) => o.id === selectedOrder)
-  const designFile = selectedOrderData?.files?.find((f) => f.kind === 'design' || f.kind === 'proof')
 
   const getStatusBadge = (status: string) => {
     switch (status) {
