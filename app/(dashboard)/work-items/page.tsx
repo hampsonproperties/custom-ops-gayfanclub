@@ -6,22 +6,30 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { useWorkItems } from '@/lib/hooks/use-work-items'
+import { Checkbox } from '@/components/ui/checkbox'
+import { useWorkItems, useUpdateWorkItemStatus } from '@/lib/hooks/use-work-items'
 import { StatusBadge } from '@/components/custom/status-badge'
-import { Search, Filter, LayoutList, LayoutGrid, Mail, Phone, MoreHorizontal, Building2, DollarSign } from 'lucide-react'
+import { KanbanBoard } from '@/components/work-items/kanban-board'
+import { Search, Filter, LayoutList, LayoutGrid, Mail, Phone, MoreHorizontal, Building2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
+import { toast } from 'sonner'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
 
 export default function WorkItemsPage() {
   const [searchInput, setSearchInput] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [viewMode, setViewMode] = useState<'table' | 'pipeline'>('table')
+  const [sortColumn, setSortColumn] = useState<string | null>(null)
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
 
   // Debounce search input
   useEffect(() => {
@@ -33,6 +41,113 @@ export default function WorkItemsPage() {
   }, [searchInput])
 
   const { data: workItems, isLoading } = useWorkItems({ search: debouncedSearch })
+  const updateStatusMutation = useUpdateWorkItemStatus()
+
+  // Handler for inline status editing
+  const handleStatusChange = async (itemId: string, newStatus: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    try {
+      await updateStatusMutation.mutateAsync({
+        id: itemId,
+        status: newStatus,
+      })
+      toast.success('Status updated successfully')
+    } catch (error) {
+      toast.error('Failed to update status')
+      console.error('Status update error:', error)
+    }
+  }
+
+  // Handler for column sorting
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      // Toggle direction if same column
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      // New column, default to ascending
+      setSortColumn(column)
+      setSortDirection('asc')
+    }
+  }
+
+  // Sort work items based on current sort state
+  const sortedWorkItems = workItems ? [...workItems].sort((a, b) => {
+    if (!sortColumn) return 0
+
+    const aExtended = a as any
+    const bExtended = b as any
+
+    let aValue: any
+    let bValue: any
+
+    switch (sortColumn) {
+      case 'name':
+        aValue = (a.customer_name || a.customer_email || '').toLowerCase()
+        bValue = (b.customer_name || b.customer_email || '').toLowerCase()
+        break
+      case 'company':
+        aValue = (aExtended.company_name || '').toLowerCase()
+        bValue = (bExtended.company_name || '').toLowerCase()
+        break
+      case 'email':
+        aValue = (a.customer_email || '').toLowerCase()
+        bValue = (b.customer_email || '').toLowerCase()
+        break
+      case 'phone':
+        aValue = (aExtended.phone_number || '').toLowerCase()
+        bValue = (bExtended.phone_number || '').toLowerCase()
+        break
+      case 'value':
+        aValue = aExtended.estimated_value || 0
+        bValue = bExtended.estimated_value || 0
+        break
+      case 'followup':
+        aValue = a.next_follow_up_at ? new Date(a.next_follow_up_at).getTime() : 0
+        bValue = b.next_follow_up_at ? new Date(b.next_follow_up_at).getTime() : 0
+        break
+      default:
+        return 0
+    }
+
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
+    return 0
+  }) : []
+
+  // Helper to render sort icon
+  const renderSortIcon = (column: string) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-3.5 w-3.5 opacity-50" />
+    }
+    return sortDirection === 'asc'
+      ? <ArrowUp className="h-3.5 w-3.5" />
+      : <ArrowDown className="h-3.5 w-3.5" />
+  }
+
+  // Handlers for bulk selection
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      const allIds = new Set(sortedWorkItems.map(item => item.id))
+      setSelectedItems(allIds)
+    } else {
+      setSelectedItems(new Set())
+    }
+  }
+
+  const handleSelectItem = (itemId: string, checked: boolean) => {
+    const newSelected = new Set(selectedItems)
+    if (checked) {
+      newSelected.add(itemId)
+    } else {
+      newSelected.delete(itemId)
+    }
+    setSelectedItems(newSelected)
+  }
+
+  const allSelected = sortedWorkItems.length > 0 && selectedItems.size === sortedWorkItems.length
+  const someSelected = selectedItems.size > 0 && selectedItems.size < sortedWorkItems.length
 
   // Calculate stats
   const activeLeads = workItems?.filter(item => !item.closed_at).length || 0
@@ -142,27 +257,117 @@ export default function WorkItemsPage() {
       {/* Table View */}
       {viewMode === 'table' && (
         <Card>
+          {/* Bulk Action Bar */}
+          {selectedItems.size > 0 && (
+            <div className="border-b bg-muted/30 p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">
+                  {selectedItems.size} item{selectedItems.size > 1 ? 's' : ''} selected
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedItems(new Set())}
+                  className="h-8"
+                >
+                  Clear selection
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" className="h-8">
+                  Bulk Update Status
+                </Button>
+                <Button variant="outline" size="sm" className="h-8">
+                  Export Selected
+                </Button>
+              </div>
+            </div>
+          )}
           <CardContent className="p-0">
             {/* Desktop Table View - Hidden on mobile */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead className="border-b bg-muted/20">
                   <tr>
-                    <th className="text-left p-3 font-medium text-sm">Name</th>
-                    <th className="text-left p-3 font-medium text-sm">Company</th>
-                    <th className="text-left p-3 font-medium text-sm">Email</th>
-                    <th className="text-left p-3 font-medium text-sm">Phone</th>
-                    <th className="text-left p-3 font-medium text-sm">Est. Value</th>
-                    <th className="text-left p-3 font-medium text-sm">Next Follow-Up</th>
+                    <th className="w-12 p-3">
+                      <Checkbox
+                        checked={allSelected}
+                        onCheckedChange={handleSelectAll}
+                        aria-label="Select all"
+                        className={someSelected ? 'data-[state=checked]:bg-primary/50' : ''}
+                      />
+                    </th>
+                    <th className="text-left p-3 font-medium text-sm">
+                      <button
+                        onClick={() => handleSort('name')}
+                        className="flex items-center gap-2 hover:text-foreground transition-colors"
+                      >
+                        Name
+                        {renderSortIcon('name')}
+                      </button>
+                    </th>
+                    <th className="text-left p-3 font-medium text-sm">
+                      <button
+                        onClick={() => handleSort('company')}
+                        className="flex items-center gap-2 hover:text-foreground transition-colors"
+                      >
+                        Company
+                        {renderSortIcon('company')}
+                      </button>
+                    </th>
+                    <th className="text-left p-3 font-medium text-sm">
+                      <button
+                        onClick={() => handleSort('email')}
+                        className="flex items-center gap-2 hover:text-foreground transition-colors"
+                      >
+                        Email
+                        {renderSortIcon('email')}
+                      </button>
+                    </th>
+                    <th className="text-left p-3 font-medium text-sm">
+                      <button
+                        onClick={() => handleSort('phone')}
+                        className="flex items-center gap-2 hover:text-foreground transition-colors"
+                      >
+                        Phone
+                        {renderSortIcon('phone')}
+                      </button>
+                    </th>
+                    <th className="text-left p-3 font-medium text-sm">
+                      <button
+                        onClick={() => handleSort('value')}
+                        className="flex items-center gap-2 hover:text-foreground transition-colors"
+                      >
+                        Est. Value
+                        {renderSortIcon('value')}
+                      </button>
+                    </th>
+                    <th className="text-left p-3 font-medium text-sm">
+                      <button
+                        onClick={() => handleSort('followup')}
+                        className="flex items-center gap-2 hover:text-foreground transition-colors"
+                      >
+                        Next Follow-Up
+                        {renderSortIcon('followup')}
+                      </button>
+                    </th>
                     <th className="text-right p-3 font-medium text-sm">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {workItems && workItems.length > 0 ? (
-                    workItems.map((item) => {
+                  {sortedWorkItems && sortedWorkItems.length > 0 ? (
+                    sortedWorkItems.map((item) => {
                       const extendedItem = item as any
                       return (
                         <tr key={item.id} className="border-b hover:bg-muted/30 transition-colors">
+                          <td className="w-12 p-3">
+                            <Checkbox
+                              checked={selectedItems.has(item.id)}
+                              onCheckedChange={(checked) => handleSelectItem(item.id, !!checked)}
+                              aria-label={`Select ${item.customer_name || item.customer_email}`}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </td>
                           <td className="p-3">
                             <Link href={`/work-items/${item.id}`}>
                               <div className="flex items-center gap-3">
@@ -175,8 +380,40 @@ export default function WorkItemsPage() {
                                   <p className="font-medium text-sm hover:underline">
                                     {item.customer_name || item.customer_email || 'Unknown'}
                                   </p>
-                                  <div className="mt-0.5">
-                                    <StatusBadge status={item.status} />
+                                  <div className="mt-0.5" onClick={(e) => e.preventDefault()}>
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <button className="cursor-pointer hover:opacity-80 transition-opacity">
+                                          <StatusBadge status={item.status} />
+                                        </button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+                                        <DropdownMenuLabel>Change Status</DropdownMenuLabel>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'new_lead', e)}>
+                                          New Lead
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'contacted', e)}>
+                                          Contacted
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'in_discussion', e)}>
+                                          In Discussion
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'quoted', e)}>
+                                          Quoted
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'awaiting_approval', e)}>
+                                          Awaiting Approval
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'won', e)}>
+                                          Won
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'lost', e)}>
+                                          Lost
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
                                   </div>
                                 </div>
                               </div>
@@ -229,9 +466,9 @@ export default function WorkItemsPage() {
                                 className="h-8 w-8 p-0"
                                 asChild
                               >
-                                <a href={`mailto:${item.customer_email}`}>
+                                <Link href={`/work-items/${item.id}?tab=activity&compose=true`}>
                                   <Mail className="h-4 w-4" />
-                                </a>
+                                </Link>
                               </Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -243,8 +480,9 @@ export default function WorkItemsPage() {
                                   <DropdownMenuItem asChild>
                                     <Link href={`/work-items/${item.id}`}>View Details</Link>
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem>Change Status</DropdownMenuItem>
-                                  <DropdownMenuItem>Send Email</DropdownMenuItem>
+                                  <DropdownMenuItem asChild>
+                                    <Link href={`/work-items/${item.id}?tab=activity&compose=true`}>Send Email</Link>
+                                  </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
@@ -254,7 +492,7 @@ export default function WorkItemsPage() {
                     })
                   ) : (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                      <td colSpan={8} className="p-8 text-center text-muted-foreground">
                         No leads found
                       </td>
                     </tr>
@@ -265,8 +503,8 @@ export default function WorkItemsPage() {
 
             {/* Mobile Card View - Shown on mobile only */}
             <div className="md:hidden p-3 space-y-3">
-              {workItems && workItems.length > 0 ? (
-                workItems.map((item) => {
+              {sortedWorkItems && sortedWorkItems.length > 0 ? (
+                sortedWorkItems.map((item) => {
                   const extendedItem = item as any
                   return (
                     <Link key={item.id} href={`/work-items/${item.id}`}>
@@ -282,8 +520,40 @@ export default function WorkItemsPage() {
                               <div className="font-medium text-base mb-1">
                                 {item.customer_name || item.customer_email || 'Unknown'}
                               </div>
-                              <div className="mb-2">
-                                <StatusBadge status={item.status} />
+                              <div className="mb-2" onClick={(e) => e.preventDefault()}>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <button className="cursor-pointer hover:opacity-80 transition-opacity">
+                                      <StatusBadge status={item.status} />
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+                                    <DropdownMenuLabel>Change Status</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'new_lead', e)}>
+                                      New Lead
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'contacted', e)}>
+                                      Contacted
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'in_discussion', e)}>
+                                      In Discussion
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'quoted', e)}>
+                                      Quoted
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'awaiting_approval', e)}>
+                                      Awaiting Approval
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'won', e)}>
+                                      Won
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={(e) => handleStatusChange(item.id, 'lost', e)}>
+                                      Lost
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
                               </div>
 
                               <div className="space-y-1.5 text-sm text-muted-foreground">
@@ -335,17 +605,25 @@ export default function WorkItemsPage() {
         </Card>
       )}
 
-      {/* Pipeline View - Placeholder */}
-      {viewMode === 'pipeline' && (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <LayoutGrid className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="font-semibold mb-2">Pipeline View Coming Soon</h3>
-            <p className="text-sm text-muted-foreground">
-              Kanban board view will be implemented next
-            </p>
-          </CardContent>
-        </Card>
+      {/* Pipeline View - Kanban Board */}
+      {viewMode === 'pipeline' && workItems && (
+        <div className="overflow-x-auto">
+          <KanbanBoard
+            workItems={workItems}
+            onStatusChange={async (itemId: string, newStatus: string) => {
+              try {
+                await updateStatusMutation.mutateAsync({
+                  id: itemId,
+                  status: newStatus,
+                })
+                toast.success('Status updated successfully')
+              } catch (error) {
+                toast.error('Failed to update status')
+                console.error('Status update error:', error)
+              }
+            }}
+          />
+        </div>
       )}
     </div>
   )
