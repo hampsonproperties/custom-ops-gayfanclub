@@ -541,6 +541,24 @@ export default function CustomerProfilePage() {
   const customerId = params.id as string
   const projectId = searchParams?.get('project')
   const { data: profileData, isLoading } = useCustomerProfile(customerId)
+
+  // Fetch alternative contacts
+  const { data: alternativeContacts } = useQuery({
+    queryKey: ['customer-alternative-contacts', customerId],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('customer_contacts')
+        .select('*')
+        .eq('customer_id', customerId)
+        .order('is_primary', { ascending: false })
+        .order('created_at', { ascending: true })
+
+      if (error) throw error
+      return data
+    },
+    enabled: !!customerId,
+  })
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
 
   if (isLoading) {
@@ -608,7 +626,10 @@ export default function CustomerProfilePage() {
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-3xl font-bold">
-                {customer.display_name || customer.email}
+                {customer.display_name ||
+                 (customer.first_name && customer.last_name
+                   ? `${customer.first_name} ${customer.last_name}`
+                   : customer.first_name || customer.last_name || customer.email)}
               </h1>
               {/* Status Badge */}
               {(customer as any).status && (
@@ -626,10 +647,13 @@ export default function CustomerProfilePage() {
                   <span>{(customer as any).organization_name}</span>
                 </div>
               )}
-              <div className="flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                <span>{customer.email}</span>
-              </div>
+              {/* Only show email if it's not being used as the name */}
+              {(customer.display_name || customer.first_name || customer.last_name) && (
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  <span>{customer.email}</span>
+                </div>
+              )}
               {customer.phone && (
                 <div className="flex items-center gap-2">
                   <Phone className="h-4 w-4" />
@@ -644,6 +668,37 @@ export default function CustomerProfilePage() {
                 <UserCircle className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Assigned to:</span>
                 <span className="font-medium">Team Member</span>
+              </div>
+            )}
+
+            {/* Alternative Contacts */}
+            {alternativeContacts && alternativeContacts.length > 0 && (
+              <div className="mt-3 pt-3 border-t">
+                <div className="text-sm font-medium text-muted-foreground mb-2">
+                  Additional Contacts:
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {alternativeContacts.map((contact) => (
+                    <div
+                      key={contact.id}
+                      className="flex items-center gap-2 text-sm bg-muted/50 px-3 py-1.5 rounded-full"
+                    >
+                      <User className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="font-medium">{contact.full_name}</span>
+                      {contact.role && (
+                        <>
+                          <span className="text-muted-foreground">•</span>
+                          <span className="text-muted-foreground">{contact.role}</span>
+                        </>
+                      )}
+                      {contact.is_primary && (
+                        <Badge variant="secondary" className="text-xs ml-1">
+                          Primary
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
