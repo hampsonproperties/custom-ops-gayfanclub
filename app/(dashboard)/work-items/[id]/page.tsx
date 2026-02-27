@@ -313,49 +313,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
 
           {/* Timeline Tab - Default View */}
           <TabsContent value="timeline" className="space-y-4">
-            {timeline && timeline.length > 0 ? (
-              <div className="space-y-4">
-                {timeline.map((event) => (
-                  <Card key={event.id} className="border-l-4 border-l-blue-500">
-                    <CardContent className="pt-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          {event.type === 'email' && event.metadata?.direction === 'outbound' && <Mail className="h-4 w-4 text-blue-600" />}
-                          {event.type === 'email' && event.metadata?.direction === 'inbound' && <Mail className="h-4 w-4 text-green-600" />}
-                          {event.type === 'note' && <FileText className="h-4 w-4 text-gray-600" />}
-                          {event.type === 'status_change' && <Activity className="h-4 w-4 text-purple-600" />}
-
-                          <span className="font-medium text-sm">
-                            {event.title}
-                          </span>
-                        </div>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(event.timestamp), { addSuffix: true })}
-                        </span>
-                      </div>
-
-                      <div className="text-sm text-muted-foreground line-clamp-2">
-                        {event.description}
-                      </div>
-
-                      {event.type === 'email' && (
-                        <Button variant="link" size="sm" className="p-0 h-auto mt-2">
-                          View full email →
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <Card>
-                <CardContent className="py-12 text-center text-muted-foreground">
-                  No activity yet
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Quick Email Compose */}
+            {/* Quick Email Compose - MOVED TO TOP */}
             <Card>
               <CardContent className="pt-6">
                 <InlineEmailComposer
@@ -365,6 +323,44 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
                 />
               </CardContent>
             </Card>
+
+            {/* Emails Thread - Full HTML Display */}
+            {communications && communications.length > 0 && (
+              <ConversationThread communications={communications} />
+            )}
+
+            {/* Other Timeline Events */}
+            {timeline && timeline.length > 0 && (
+              <div className="space-y-4">
+                {timeline.filter(e => e.type !== 'email').map((event) => (
+                  <Card key={event.id} className="border-l-4 border-l-blue-500">
+                    <CardContent className="pt-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          {event.type === 'note' && <FileText className="h-4 w-4 text-gray-600" />}
+                          {event.type === 'status_change' && <Activity className="h-4 w-4 text-purple-600" />}
+                          <span className="font-medium text-sm">{event.title}</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(event.timestamp), { addSuffix: true })}
+                        </span>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {event.description}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {!communications?.length && !timeline?.length && (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  No activity yet
+                </CardContent>
+              </Card>
+            )}
 
             {/* Internal Notes */}
             <InternalNotes workItemId={id} />
