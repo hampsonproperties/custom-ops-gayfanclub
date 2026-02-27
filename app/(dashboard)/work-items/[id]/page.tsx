@@ -238,27 +238,45 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
               <p className="font-medium">{workItem.customer_email || '-'}</p>
             </div>
             <div>
-              <span className="text-sm text-muted-foreground">Shopify Order</span>
-              {(() => {
-                // Show production order if it exists, otherwise show design fee order
-                const orderId = workItem.shopify_order_id || workItem.design_fee_order_id
-                const orderNumber = workItem.shopify_order_number || workItem.design_fee_order_number
-
-                if (orderNumber && orderId) {
-                  return (
-                    <a
-                      href={`https://admin.shopify.com/store/gayfanclub/orders/${orderId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
-                    >
-                      {orderNumber}
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  )
-                }
-                return <p className="font-medium">{orderNumber || '-'}</p>
-              })()}
+              <span className="text-sm text-muted-foreground">Shopify Orders</span>
+              <div className="space-y-1">
+                {workItem.design_fee_order_number && workItem.design_fee_order_id && (
+                  <a
+                    href={`https://admin.shopify.com/store/gayfanclub/orders/${workItem.design_fee_order_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-purple-600 hover:text-purple-800 hover:underline flex items-center gap-1 text-sm"
+                  >
+                    Design: {workItem.design_fee_order_number}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+                {workItem.shopify_order_number && workItem.shopify_order_id && (
+                  <a
+                    href={`https://admin.shopify.com/store/gayfanclub/orders/${workItem.shopify_order_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-green-600 hover:text-green-800 hover:underline flex items-center gap-1 text-sm"
+                  >
+                    Production: {workItem.shopify_order_number}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+                {workItem.shopify_draft_order_id && !workItem.shopify_order_id && (
+                  <a
+                    href={`https://admin.shopify.com/store/gayfanclub/orders/${workItem.shopify_draft_order_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 text-sm"
+                  >
+                    Production (Draft)
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+                {!workItem.design_fee_order_number && !workItem.shopify_order_number && !workItem.shopify_draft_order_id && (
+                  <p className="font-medium">-</p>
+                )}
+              </div>
             </div>
             <div>
               <span className="text-sm text-muted-foreground">Next Follow-Up</span>

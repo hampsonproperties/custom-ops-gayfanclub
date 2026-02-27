@@ -118,6 +118,9 @@ export function ShopifyInfo({ workItem }: { workItem: WorkItem }) {
   }
 
   if (!shopifyData.customer) {
+    // Check if we have Shopify order IDs stored but can't find customer
+    const hasShopifyOrders = workItem.shopify_order_id || workItem.design_fee_order_id
+
     return (
       <Card>
         <CardHeader>
@@ -130,9 +133,14 @@ export function ShopifyInfo({ workItem }: { workItem: WorkItem }) {
           <div className="flex items-start gap-3 p-4 border rounded-lg bg-muted/50">
             <AlertCircle className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
             <div className="space-y-1">
-              <p className="text-sm font-medium">Not Connected to Shopify</p>
+              <p className="text-sm font-medium">
+                {hasShopifyOrders ? 'Customer Lookup Failed' : 'Not Connected to Shopify'}
+              </p>
               <p className="text-xs text-muted-foreground">
-                This customer doesn't exist in Shopify yet. An invoice will create them automatically.
+                {hasShopifyOrders
+                  ? `Can't find customer in Shopify by email. Orders may exist under a different email address.`
+                  : `This customer doesn't exist in Shopify yet. An invoice will create them automatically.`
+                }
               </p>
             </div>
           </div>
