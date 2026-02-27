@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
+import { FileGallery } from '@/components/files/file-gallery'
 import {
   Select,
   SelectContent,
@@ -270,20 +271,14 @@ export default function CustomifyOrdersPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {/* Design Preview */}
-                  {designFile?.external_url ? (
-                    <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
-                      <img
-                        src={designFile.external_url}
-                        alt="Design preview"
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
+                  {/* Design Files Gallery */}
+                  {order.files && order.files.length > 0 ? (
+                    <FileGallery files={order.files} />
                   ) : (
                     <div className="aspect-video rounded-lg bg-muted flex items-center justify-center">
                       <div className="text-center text-muted-foreground">
                         <ImageIcon className="mx-auto h-12 w-12 mb-2 opacity-50" />
-                        <p className="text-sm">No design file found</p>
+                        <p className="text-sm">No design files found</p>
                       </div>
                     </div>
                   )}
