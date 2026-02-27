@@ -321,7 +321,7 @@ export default function CustomersPage() {
                         <TableCell>
                           <Link href={`/customers/${customer.id}`} className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white font-semibold">
-                              {(customer.display_name || customer.email).charAt(0).toUpperCase()}
+                              {(customer.display_name || customer.email || 'U').charAt(0).toUpperCase()}
                             </div>
                             <div>
                               <div className="font-medium">
@@ -388,7 +388,7 @@ export default function CustomersPage() {
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
                           <div className="h-12 w-12 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white font-semibold shrink-0">
-                            {(customer.display_name || customer.email).charAt(0).toUpperCase()}
+                            {(customer.display_name || customer.email || 'U').charAt(0).toUpperCase()}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="font-medium text-base mb-1">
