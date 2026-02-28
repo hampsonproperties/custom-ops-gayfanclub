@@ -102,12 +102,13 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
             subject,
             body_html,
             body_text,
-            created_at,
+            received_at,
+            sent_by_user:users!sent_by_user_id(id, full_name, email),
             delivered_at,
             opened_at
           `)
           .eq('work_item_id', projectId)
-          .order('created_at', { ascending: false })
+          .order('received_at', { ascending: false })
 
         emails = emailsData || []
       } catch (error) {
@@ -159,7 +160,7 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
           type: 'email' as ActivityType,
           subject: email.subject,
           content: email.body_text || email.body_html || '',
-          created_at: email.created_at,
+          created_at: email.received_at,
           delivered_at: email.delivered_at,
           opened_at: email.opened_at,
           user: getUserObject(email.sent_by_user),
