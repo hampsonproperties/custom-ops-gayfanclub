@@ -51,6 +51,8 @@ import { EmailComposer } from '@/components/email/email-composer'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { AlternativeContactsManager } from '@/components/customers/alternative-contacts-manager'
 import { CustomerActivityFeed } from '@/components/activity/customer-activity-feed'
+import { CreateProjectDialog } from '@/components/projects/create-project-dialog'
+import { ShopifyOrdersTab } from '@/components/shopify/shopify-orders-tab'
 
 // Project Card Component with Enhanced Details
 function ProjectCard({ project, customerId }: { project: any; customerId: string }) {
@@ -304,32 +306,7 @@ function ConversationDetail({
   )
 }
 
-// Shopify Orders Tab
-function ShopifyOrdersTab({ customerId, shopifyCustomerId }: { customerId: string; shopifyCustomerId: string | null }) {
-  // TODO: Implement Shopify API integration
-  return (
-    <Card>
-      <CardContent className="py-12 text-center">
-        <ShoppingBag className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-        <h3 className="font-semibold mb-2">Shopify Orders</h3>
-        {shopifyCustomerId ? (
-          <div>
-            <p className="text-sm text-muted-foreground mb-4">
-              Shopify Customer ID: {shopifyCustomerId}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Shopify order history integration coming soon
-            </p>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            No Shopify account linked
-          </p>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
+// Shopify Orders Tab is now imported from @/components/shopify/shopify-orders-tab
 
 // Files Tab
 function FilesTab({ customerId }: { customerId: string }) {
@@ -337,10 +314,30 @@ function FilesTab({ customerId }: { customerId: string }) {
     queryKey: ['customer-files', customerId],
     queryFn: async () => {
       const supabase = createClient()
+
+      // First, get all project IDs for this customer
+      const { data: projects, error: projectsError } = await supabase
+        .from('work_items')
+        .select('id')
+        .eq('customer_id', customerId)
+
+      if (projectsError) throw projectsError
+
+      const projectIds = projects?.map(p => p.id) || []
+
+      // If no projects, return empty array
+      if (projectIds.length === 0) {
+        return []
+      }
+
+      // Get all files from these projects, with project info
       const { data, error } = await supabase
         .from('files')
-        .select('*')
-        .eq('customer_id', customerId)
+        .select(`
+          *,
+          work_item:work_items(id, title, shopify_order_number, status)
+        `)
+        .in('work_item_id', projectIds)
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -376,11 +373,16 @@ function FilesTab({ customerId }: { customerId: string }) {
         </Button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {files.map((file) => (
+        {files.map((file: any) => (
           <Card key={file.id} className="hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm line-clamp-1">{file.filename}</CardTitle>
-              <CardDescription>
+              <CardDescription className="space-y-1">
+                {file.work_item && (
+                  <div className="text-xs text-muted-foreground">
+                    Project: {file.work_item.title || `Order #${file.work_item.shopify_order_number}` || 'Untitled'}
+                  </div>
+                )}
                 {file.file_type && (
                   <Badge variant="outline" className="text-xs">
                     {file.file_type}
@@ -389,10 +391,26 @@ function FilesTab({ customerId }: { customerId: string }) {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-xs text-muted-foreground">
-                {formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}
+              <div className="text-xs text-muted-foreground mb-2">
+                Uploaded {formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}
               </div>
-              <Button variant="outline" size="sm" className="mt-3 w-full">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`/api/files/${file.id}/download`)
+                    const data = await response.json()
+                    if (data.url) {
+                      window.open(data.url, '_blank')
+                    }
+                  } catch (error) {
+                    console.error('Download error:', error)
+                    toast.error('Failed to download file')
+                  }
+                }}
+              >
                 Download
               </Button>
             </CardContent>
@@ -703,13 +721,19 @@ export default function CustomerProfilePage() {
                 </Button>
               }
             />
-            <Link href={`/work-items/new?customer_id=${customerId}`} className="flex-1 sm:flex-none">
-              <Button variant="outline" className="gap-2 h-10 w-full">
-                <Plus className="h-4 w-4" />
-                <span className="hidden xs:inline">Create Project</span>
-                <span className="xs:hidden">Project</span>
-              </Button>
-            </Link>
+            <CreateProjectDialog
+              customerId={customerId}
+              onProjectCreated={(projectId) => {
+                queryClient.invalidateQueries({ queryKey: ['customer-profile', customerId] })
+              }}
+              trigger={
+                <Button variant="outline" className="gap-2 h-10 w-full flex-1 sm:flex-none">
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden xs:inline">Create Project</span>
+                  <span className="xs:hidden">Project</span>
+                </Button>
+              }
+            />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon" className="h-10 w-10">
@@ -810,12 +834,18 @@ export default function CustomerProfilePage() {
                     <p className="text-muted-foreground mb-4">
                       This customer doesn't have any projects.
                     </p>
-                    <Link href={`/work-items/new?customer_id=${customerId}`}>
-                      <Button>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create First Project
-                      </Button>
-                    </Link>
+                    <CreateProjectDialog
+                      customerId={customerId}
+                      onProjectCreated={(projectId) => {
+                        queryClient.invalidateQueries({ queryKey: ['customer-profile', customerId] })
+                      }}
+                      trigger={
+                        <Button>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Create First Project
+                        </Button>
+                      }
+                    />
                   </CardContent>
                 </Card>
               ) : (
@@ -823,12 +853,18 @@ export default function CustomerProfilePage() {
                 <>
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold">{projects.length} Projects</h3>
-                    <Link href={`/work-items/new?customer_id=${customerId}`}>
-                      <Button size="sm">
-                        <Plus className="mr-2 h-4 w-4" />
-                        New Project
-                      </Button>
-                    </Link>
+                    <CreateProjectDialog
+                      customerId={customerId}
+                      onProjectCreated={(projectId) => {
+                        queryClient.invalidateQueries({ queryKey: ['customer-profile', customerId] })
+                      }}
+                      trigger={
+                        <Button size="sm">
+                          <Plus className="mr-2 h-4 w-4" />
+                          New Project
+                        </Button>
+                      }
+                    />
                   </div>
                   <div className="grid grid-cols-1 gap-4">
                     {projects.map((project) => (
@@ -915,7 +951,7 @@ export default function CustomerProfilePage() {
             <TabsContent value="shopify">
               <ShopifyOrdersTab
                 customerId={customerId}
-                shopifyCustomerId={customer.shopify_customer_id}
+                customerEmail={customer.email}
               />
             </TabsContent>
 

@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useWorkItems, useUpdateWorkItemStatus } from '@/lib/hooks/use-work-items'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { KanbanBoard } from '@/components/work-items/kanban-board'
-import { Search, Filter, LayoutList, LayoutGrid, Mail, Phone, MoreHorizontal, Building2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, User, Users } from 'lucide-react'
+import { Search, Filter, LayoutList, LayoutGrid, Mail, Phone, MoreHorizontal, Building2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, User, Users, Plus, Palette } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -22,8 +22,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
+import { CreateProjectDialog } from '@/components/projects/create-project-dialog'
+import { useQueryClient } from '@tanstack/react-query'
+import { AssignDesignerDialog } from '@/components/projects/assign-designer-dialog'
+import { EventCountdownCompact } from '@/components/projects/event-countdown'
 
 export default function WorkItemsPage() {
+  const queryClient = useQueryClient()
   const [searchInput, setSearchInput] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [viewMode, setViewMode] = useState<'table' | 'pipeline'>('table')
@@ -207,6 +212,17 @@ export default function WorkItemsPage() {
             Track design and production status for all active projects
           </p>
         </div>
+        <CreateProjectDialog
+          onProjectCreated={() => {
+            queryClient.invalidateQueries({ queryKey: ['work-items'] })
+          }}
+          trigger={
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              New Project
+            </Button>
+          }
+        />
       </div>
 
       {/* Stats - Production Focused */}
@@ -261,7 +277,7 @@ export default function WorkItemsPage() {
                 onClick={() => setFilterMode('need-design')}
                 className="gap-2 h-9"
               >
-                <Search className="h-4 w-4" />
+                <Palette className="h-4 w-4" />
                 Needs Design
               </Button>
             </div>
@@ -424,16 +440,35 @@ export default function WorkItemsPage() {
                           {/* Designer */}
                           <td className="p-3">
                             {extendedItem.assigned_to ? (
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-6 w-6">
-                                  <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
-                                    {getInitials(extendedItem.assigned_to.full_name, extendedItem.assigned_to.email)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="text-sm">{extendedItem.assigned_to.full_name || extendedItem.assigned_to.email}</span>
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <Avatar className="h-6 w-6">
+                                    <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
+                                      {getInitials(extendedItem.assigned_to.full_name, extendedItem.assigned_to.email)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="text-sm">{extendedItem.assigned_to.full_name || extendedItem.assigned_to.email}</span>
+                                </div>
+                                <AssignDesignerDialog
+                                  projectId={item.id}
+                                  currentDesignerId={extendedItem.assigned_to.id}
+                                  trigger={
+                                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => e.stopPropagation()}>
+                                      <User className="h-3 w-3" />
+                                    </Button>
+                                  }
+                                />
                               </div>
                             ) : (
-                              <span className="text-sm text-muted-foreground/50">Unassigned</span>
+                              <AssignDesignerDialog
+                                projectId={item.id}
+                                trigger={
+                                  <Button variant="outline" size="sm" onClick={(e) => e.stopPropagation()}>
+                                    <User className="mr-2 h-4 w-4" />
+                                    Assign
+                                  </Button>
+                                }
+                              />
                             )}
                           </td>
 
@@ -445,12 +480,7 @@ export default function WorkItemsPage() {
                           {/* Event Date */}
                           <td className="p-3">
                             {item.event_date ? (
-                              <div className="text-sm">
-                                <div>{format(new Date(item.event_date), 'MMM d, yyyy')}</div>
-                                <div className="text-xs text-muted-foreground">
-                                  {formatDistanceToNow(new Date(item.event_date), { addSuffix: true })}
-                                </div>
-                              </div>
+                              <EventCountdownCompact eventDate={item.event_date} />
                             ) : (
                               <span className="text-sm text-muted-foreground/50">-</span>
                             )}

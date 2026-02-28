@@ -27,6 +27,8 @@ import { FileUpload } from '@/components/files/file-upload'
 import { useQueryClient } from '@tanstack/react-query'
 import { UpdateStatusDialog } from '@/components/projects/update-status-dialog'
 import { EmailComposer } from '@/components/email/email-composer'
+import { AssignDesignerDialog } from '@/components/projects/assign-designer-dialog'
+import { EventCountdown } from '@/components/projects/event-countdown'
 
 interface ProjectDetailViewProps {
   projectId: string
@@ -130,10 +132,7 @@ export function ProjectDetailView({ projectId, customerId, customerName }: Proje
               </div>
               <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                 {project.event_date && (
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="h-4 w-4" />
-                    <span>Event: {format(new Date(project.event_date), 'MMM d, yyyy')}</span>
-                  </div>
+                  <EventCountdown eventDate={project.event_date} />
                 )}
                 {project.estimated_value && (
                   <div className="flex items-center gap-1.5">
@@ -154,6 +153,13 @@ export function ProjectDetailView({ projectId, customerId, customerName }: Proje
                 projectId={projectId}
                 currentStatus={project.status}
                 onStatusUpdated={() => {
+                  queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] })
+                }}
+              />
+              <AssignDesignerDialog
+                projectId={projectId}
+                currentDesignerId={project.assigned_to_user_id}
+                onAssigned={() => {
                   queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] })
                 }}
               />
