@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core'
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -53,12 +53,14 @@ function CustomerCard({ customer, isDragging = false }: CustomerCardProps) {
     transform,
     transition,
     isDragging: isSortableDragging,
-  } = useSortable({ id: customer.id })
+  } = useSortable({
+    id: customer.id,
+    disabled: isDragging,
+  })
 
-  const style = {
+  const style = isDragging ? undefined : {
     transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isSortableDragging ? 0.5 : 1,
+    transition: isSortableDragging ? undefined : transition,
   }
 
   const getInitials = (name: string | null, email: string) => {
@@ -68,19 +70,13 @@ function CustomerCard({ customer, isDragging = false }: CustomerCardProps) {
     return (email || 'U').charAt(0).toUpperCase()
   }
 
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      className={cn(
-        'cursor-grab active:cursor-grabbing',
-        isDragging && 'opacity-50'
-      )}
-    >
-      <Link href={`/customers/${customer.id}`}>
-        <Card className="p-3 hover:shadow-md transition-shadow bg-white border border-gray-200">
+  const cardContent = (
+    <Card className={cn(
+      "p-3 transition-shadow bg-white border border-gray-200",
+      !isDragging && "hover:shadow-md",
+      isDragging && "shadow-xl"
+    )}>
+      <div className="space-y-2">
           <div className="space-y-2">
             {/* Customer Name and Avatar */}
             <div className="flex items-start gap-2">
@@ -123,7 +119,28 @@ function CustomerCard({ customer, isDragging = false }: CustomerCardProps) {
               <span>Updated {formatDistanceToNow(new Date(customer.updated_at), { addSuffix: true })}</span>
             </div>
           </div>
-        </Card>
+    </Card>
+  )
+
+  // When dragging (in overlay), render without sortable wrapper
+  if (isDragging) {
+    return cardContent
+  }
+
+  // Normal render with sortable functionality
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={cn(
+        'cursor-grab active:cursor-grabbing',
+        isSortableDragging && 'opacity-0'
+      )}
+    >
+      <Link href={`/customers/${customer.id}`} className="block">
+        {cardContent}
       </Link>
     </div>
   )
@@ -183,7 +200,7 @@ export function CustomerKanban() {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 3,
       },
     })
   )
@@ -392,8 +409,12 @@ export function CustomerKanban() {
       </div>
 
       {/* Drag Overlay */}
-      <DragOverlay>
-        {activeCustomer && <CustomerCard customer={activeCustomer} isDragging />}
+      <DragOverlay dropAnimation={null}>
+        {activeCustomer && (
+          <div className="w-[300px] rotate-3 cursor-grabbing">
+            <CustomerCard customer={activeCustomer} isDragging />
+          </div>
+        )}
       </DragOverlay>
     </DndContext>
   )
