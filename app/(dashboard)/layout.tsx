@@ -46,7 +46,7 @@ export default async function DashboardLayout({
 
       <div className="flex flex-1">
         {/* Desktop Sidebar Navigation - Hidden on mobile */}
-        <aside className="hidden md:flex w-64 border-r bg-card flex-col">
+        <aside className="hidden md:flex w-64 border-r bg-card flex-col sticky top-0 h-screen">
           {/* Logo */}
           <div className="h-16 flex items-center gap-2 px-6 border-b">
             <span className="text-2xl">🌈</span>

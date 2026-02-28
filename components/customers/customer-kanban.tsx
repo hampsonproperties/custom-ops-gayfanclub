@@ -159,7 +159,7 @@ function KanbanColumn({ stage, customers }: KanbanColumnProps) {
     <div
       ref={setNodeRef}
       className={cn(
-        "flex flex-col min-w-[280px] w-[320px] flex-shrink-0 rounded-lg transition-colors p-3 bg-background",
+        "flex flex-col min-w-[300px] w-[340px] flex-shrink-0 rounded-lg transition-colors p-4 bg-background",
         isOver && "bg-primary/5 ring-2 ring-primary/20"
       )}
     >
@@ -176,9 +176,9 @@ function KanbanColumn({ stage, customers }: KanbanColumnProps) {
 
       {/* Customer Cards */}
       <SortableContext items={customers.map(c => c.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex-1 space-y-2.5 overflow-y-auto min-h-[300px] max-h-[calc(100vh-300px)]">
+        <div className="flex-1 space-y-2.5 overflow-y-auto min-h-[350px] max-h-[calc(100vh-300px)]">
           {customers.length === 0 ? (
-            <div className="text-center py-12 text-sm text-muted-foreground border-2 border-dashed rounded-lg">
+            <div className="text-center py-20 text-sm text-muted-foreground border-2 border-dashed rounded-lg min-h-[300px] flex items-center justify-center">
               <div className="text-xs opacity-50">Drop customers here</div>
             </div>
           ) : (
@@ -369,7 +369,7 @@ export function CustomerKanban() {
     >
       {/* Desktop: Horizontal Kanban */}
       <div className="hidden md:block w-full overflow-x-auto bg-muted/30 border-y">
-        <div className="flex gap-4 px-4 sm:px-6 lg:px-8 py-6 min-h-[500px]">
+        <div className="flex gap-6 px-4 sm:px-6 lg:px-8 py-6 min-h-[500px]">
             {SALES_STAGES.map(stage => (
               <KanbanColumn
                 key={stage.id}
@@ -410,7 +410,13 @@ export function CustomerKanban() {
       {/* Drag Overlay */}
       <DragOverlay dropAnimation={null}>
         {activeCustomer && (
-          <div className="w-[300px] rotate-3 cursor-grabbing">
+          <div
+            className="cursor-grabbing"
+            style={{
+              width: '320px',
+              transform: 'rotate(3deg)',
+            }}
+          >
             <CustomerCard customer={activeCustomer} isDragging />
           </div>
         )}
