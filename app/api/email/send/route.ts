@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     // Send email via Microsoft Graph
     await client
-      .api(\`/users/\${mailboxEmail}/sendMail\`)
+      .api(`/users/${mailboxEmail}/sendMail`)
       .post({
         message: {
           subject,
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     try {
       const sentItems = await client
-        .api(\`/users/\${mailboxEmail}/mailFolders/SentItems/messages\`)
+        .api(`/users/${mailboxEmail}/mailFolders/SentItems/messages`)
         .top(1)
         .orderby('sentDateTime desc')
         .select('conversationId,internetMessageId')
