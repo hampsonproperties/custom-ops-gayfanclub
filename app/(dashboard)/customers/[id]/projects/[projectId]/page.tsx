@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, User } from 'lucide-react'
-import { ProjectDetailView } from '@/components/work-items/project-detail-view'
+import { ProjectDetailView } from '@/components/customers/project-detail-view'
 
 export default async function ProjectPage({
   params,
