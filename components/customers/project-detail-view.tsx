@@ -26,6 +26,7 @@ import { ProjectActivityFeed } from '@/components/activity/project-activity-feed
 import { FileUpload } from '@/components/files/file-upload'
 import { useQueryClient } from '@tanstack/react-query'
 import { UpdateStatusDialog } from '@/components/projects/update-status-dialog'
+import { EmailComposer } from '@/components/email/email-composer'
 
 interface ProjectDetailViewProps {
   projectId: string
@@ -156,10 +157,22 @@ export function ProjectDetailView({ projectId, customerId, customerName }: Proje
                   queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] })
                 }}
               />
-              <Button size="sm">
-                <MessageSquare className="mr-2 h-4 w-4" />
-                Email Customer
-              </Button>
+              <EmailComposer
+                recipientEmail={project.customer?.email || ''}
+                recipientName={project.customer?.display_name || customerName}
+                customerId={customerId}
+                projectId={projectId}
+                subject={`Re: ${project.title || `Order #${project.shopify_order_number}`}`}
+                onEmailSent={() => {
+                  queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] })
+                }}
+                trigger={
+                  <Button size="sm">
+                    <MessageSquare className="mr-2 h-4 w-4" />
+                    Email Customer
+                  </Button>
+                }
+              />
             </div>
           </div>
         </CardHeader>

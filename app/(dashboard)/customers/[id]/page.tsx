@@ -47,6 +47,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { InlineEmailComposer } from '@/components/email/inline-email-composer'
+import { EmailComposer } from '@/components/email/email-composer'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { AlternativeContactsManager } from '@/components/customers/alternative-contacts-manager'
 import { CustomerActivityFeed } from '@/components/activity/customer-activity-feed'
@@ -689,11 +690,19 @@ export default function CustomerProfilePage() {
 
           {/* Quick Actions */}
           <div className="flex flex-wrap items-center gap-2">
-            <Button className="gap-2 h-10 flex-1 sm:flex-none">
-              <Mail className="h-4 w-4" />
-              <span className="hidden xs:inline">Email Customer</span>
-              <span className="xs:hidden">Email</span>
-            </Button>
+            <EmailComposer
+              recipientEmail={customer.email}
+              recipientName={customer.display_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || customer.email}
+              customerId={customerId}
+              alternativeContacts={alternativeContacts || []}
+              trigger={
+                <Button className="gap-2 h-10 flex-1 sm:flex-none">
+                  <Mail className="h-4 w-4" />
+                  <span className="hidden xs:inline">Email Customer</span>
+                  <span className="xs:hidden">Email</span>
+                </Button>
+              }
+            />
             <Link href={`/work-items/new?customer_id=${customerId}`} className="flex-1 sm:flex-none">
               <Button variant="outline" className="gap-2 h-10 w-full">
                 <Plus className="h-4 w-4" />
