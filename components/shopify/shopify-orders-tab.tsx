@@ -80,10 +80,14 @@ export function ShopifyOrdersTab({ customerId, customerEmail }: ShopifyOrdersTab
   const handleSync = async () => {
     setIsSyncing(true)
     try {
+      console.log('🔵 Starting Shopify order sync...')
       const response = await fetch('/api/shopify/sync-orders', {
         method: 'POST',
       })
+      console.log('🔵 Response status:', response.status, response.statusText)
+
       const data = await response.json()
+      console.log('🔵 Response data:', data)
 
       if (data.success) {
         toast.success(`Synced ${data.synced} orders from Shopify`)
@@ -92,6 +96,7 @@ export function ShopifyOrdersTab({ customerId, customerEmail }: ShopifyOrdersTab
         toast.error(data.error || 'Failed to sync orders')
       }
     } catch (error) {
+      console.error('🔴 Sync error:', error)
       toast.error('Failed to sync orders')
     } finally {
       setIsSyncing(false)
