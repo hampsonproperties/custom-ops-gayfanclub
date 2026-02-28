@@ -1,6 +1,6 @@
 'use client'
 
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -23,7 +23,6 @@ import {
   DollarSign,
   ExternalLink,
   ArrowRight,
-  ArrowLeft,
   Plus,
   FileText,
   StickyNote,
@@ -49,7 +48,6 @@ import {
 import { InlineEmailComposer } from '@/components/email/inline-email-composer'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { AlternativeContactsManager } from '@/components/customers/alternative-contacts-manager'
-import { ProjectDetailView } from '@/components/customers/project-detail-view'
 import { CustomerActivityFeed } from '@/components/activity/customer-activity-feed'
 
 // Project Card Component with Enhanced Details
@@ -88,7 +86,7 @@ function ProjectCard({ project, customerId }: { project: any; customerId: string
   })
 
   return (
-    <Link href={`/customers/${customerId}?project=${project.id}`}>
+    <Link href={`/customers/${customerId}/projects/${project.id}`}>
       <Card className="hover:shadow-md transition-all duration-150 cursor-pointer border-muted/40">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-3">
@@ -538,9 +536,7 @@ function NotesTab({ customerId }: { customerId: string }) {
 // Main Customer Profile Page
 export default function CustomerProfilePage() {
   const params = useParams()
-  const searchParams = useSearchParams()
   const customerId = params.id as string
-  const projectId = searchParams?.get('project')
   const { data: profileData, isLoading } = useCustomerProfile(customerId)
 
   // Fetch alternative contacts
@@ -795,24 +791,7 @@ export default function CustomerProfilePage() {
 
             {/* Projects Tab */}
             <TabsContent value="projects" className="space-y-4">
-              {projectId ? (
-                /* Viewing specific project - keep customer context visible */
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Link href={`/customers/${customerId}`}>
-                      <Button variant="ghost" size="sm" className="gap-2">
-                        <ArrowLeft className="h-4 w-4" />
-                        Back to All Projects
-                      </Button>
-                    </Link>
-                  </div>
-                  <ProjectDetailView
-                    projectId={projectId}
-                    customerId={customerId}
-                    customerName={customer.display_name || customer.email}
-                  />
-                </div>
-              ) : projects.length === 0 ? (
+              {projects.length === 0 ? (
                 /* No projects yet */
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-12">
