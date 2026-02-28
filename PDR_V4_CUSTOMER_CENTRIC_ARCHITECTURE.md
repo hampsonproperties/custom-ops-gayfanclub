@@ -112,56 +112,55 @@ Customer (Person)
 - Customer since date
 - Quick actions: Email, Call, Create New Project
 
-#### Tab 1: Overview (Default)
+#### Tab 1: Projects (Default)
 **Contains**:
 
-**A. Alternative Contacts Card**
+**Projects List**
+- Shows ALL projects for this customer
+- Display as clickable cards that navigate to dedicated project page
+- Each card shows summary:
+  - Project title/name
+  - Status badge (In Design, Awaiting Approval, In Production, Shipped, etc.)
+  - Event date (if applicable)
+  - Brief stats: # files, # notes, last updated
+  - Type (custom_merch, etc.)
+  - Created date
+
+**Actions**:
+- Click card → Navigate to `/customers/[id]/projects/[projectId]`
+- "Create New Project" button in header
+- Empty state with "Create First Project" button
+
+#### Tab 2: Contacts
+- Alternative Contacts Manager (already built)
 - List of all contacts for this customer
 - Roles: Financial Sponsor, Co-Chair, Decision Maker, Coordinator, etc.
 - Each contact shows: Name, Role, Email, Phone
-- Flags: "CC on emails", "Receives invoices"
+- Flags: "Primary contact"
 - Actions: Add Contact, Edit, Delete
 
-**B. Projects Section**
-- Shows ALL projects for this customer
-- Display as **expandable accordions** (NOT cards that link away)
-- Default state: Collapsed, showing summary
-- Click to expand → Shows full project details inline
+#### Tab 3: Activity
+- Customer Activity Feed (already built)
+- Timeline of all events for this customer across all projects
+- Notes (customer-level, not project-specific)
+- Emails sent/received
+- Status changes
+- File uploads
+- Filter by type (Notes, Emails, Files, Status Changes)
+- Add note functionality with "Email this Note" option
 
-**Each Project Accordion Shows**:
+#### Tab 4: Shopify Orders
+- All Shopify orders for this customer
+- Linked automatically by email
+- Order history over time
+- Shows: Order number, date, amount, status
+- Link to Shopify admin
 
-**Collapsed State**:
-- Project title/name
-- Status badge (In Design, Awaiting Approval, In Production, Shipped, etc.)
-- Event date (if applicable)
-- Brief stats: # files, # notes, last updated
-
-**Expanded State** (opens inline, NO navigation):
-- **Design Files & Proofs**
-  - List of all files uploaded for THIS project
-  - Design proofs with approval status
-  - Upload new files button
-
-- **Production Status**
-  - Current phase: Design → Proof → Approval → Production → Shipped
-  - Visual progress indicator
-  - Event date countdown
-
-- **Project Timeline**
-  - All events specific to THIS project
-  - Status changes, file uploads, approvals, emails
-  - Filter by type (Notes, Emails, Files, Status Changes)
-
-- **Project Details**
-  - Custom merchandise specifications
-  - Quantity, pricing, special requirements
-  - Assigned designer
-  - Shopify order links
-
-**C. Customer Notes**
-- Internal team notes about this customer (NOT project-specific)
-- @mentions for team collaboration
-- Star important notes
+#### Tab 5: Files
+- ALL files across ALL projects for this customer
+- Can filter by project
+- Download, preview options
+- Upload new files
 
 #### Tab 2: All Communication
 - Complete email history with this customer
@@ -183,7 +182,76 @@ Customer (Person)
 
 ---
 
-### 3. All Projects Page (Operations/Production Tracking)
+### 3. Project Detail Page (Dedicated Workspace)
+
+**URL**: `/customers/[id]/projects/[projectId]`
+
+**Purpose**:
+- Focused view for working on a specific project
+- Full-page workspace with all project details
+- Customer context preserved via breadcrumb navigation
+- Follows industry-standard CRM pattern (Salesforce, HubSpot)
+
+**Navigation**:
+- Breadcrumb header: `Customers / Customer Name / Project Title`
+- Clickable breadcrumb links back to customers list and customer page
+- Clean, professional navigation
+
+**Layout**:
+
+#### Header Section
+- Project title (large)
+- Status badge
+- Event date (if applicable)
+- Estimated value
+- Assigned designer
+- Quick actions: Update Status, Email Customer
+
+#### Content Tabs
+
+**Tab 1: Activity (Default)**
+- Project-specific activity feed
+- Notes (project-level)
+- Emails related to this project
+- File uploads
+- Status changes
+- Add note with "Email this Note" option
+- @mentions for team collaboration
+- Filter by type
+
+**Tab 2: Files**
+- All files uploaded for THIS project
+- Design files, proofs, artwork
+- Customer-submitted files
+- Upload new files button
+- Download/preview files
+- File metadata: uploaded by, date, size
+- File approval status
+
+**Tab 3: Details**
+- Project information
+  - Type (custom_merch, etc.)
+  - Status
+  - Created/Updated dates
+  - Event date
+  - Quantity
+  - Pricing details
+- Production status
+  - Visual progress: Design → Proof → Approval → Production → Shipped
+  - Phase indicators
+  - Event date countdown
+- Custom merchandise specifications
+- Shopify order links
+- Assigned team members
+
+**Future Tabs** (not yet built):
+- Tasks/Checklist
+- Invoices/Payments
+- Shipping/Tracking
+
+---
+
+### 4. All Projects Page (Operations/Production Tracking)
 
 **URL**: `/projects` or `/work-items`
 
@@ -310,34 +378,52 @@ Customer (Person)
 
 ## 📋 Implementation Checklist
 
-### Phase 1: Customer Kanban (NEW)
-- [ ] Add Kanban view to Customers page
-- [ ] Customer cards with draggable behavior
-- [ ] Sales stage columns
-- [ ] Move customer between stages
-- [ ] Mobile-responsive vertical scroll
+### Phase 1: Customer Kanban ✅ COMPLETE
+- [x] Add Kanban view to Customers page
+- [x] Customer cards with draggable behavior
+- [x] Sales stage columns
+- [x] Move customer between stages
+- [x] Mobile-responsive vertical scroll
 
-### Phase 2: Project Accordions (MAJOR CHANGE)
-- [ ] Remove project detail page entirely (`/work-items/[id]`)
-- [ ] Build expandable accordion components
-- [ ] Each accordion shows full project details inline
-- [ ] Design files section
-- [ ] Production status section
-- [ ] Project-specific timeline
-- [ ] No navigation away from customer page
+### Phase 2: Customer List View (CRM Fields)
+- [ ] Add "Assigned To" column
+- [ ] Add "Company" column
+- [ ] Add "Est. Value" column
+- [ ] Add "Next Follow-Up" column
+- [ ] Add database migration for missing fields
+- [ ] Make columns sortable
+- [ ] Add filtering by assigned user
 
-### Phase 3: Customer Detail Polish
-- [ ] Alternative contacts integration (already built)
-- [ ] Customer-level notes (separate from project notes)
-- [ ] All communication tab
-- [ ] All files tab (across projects)
-- [ ] Shopify orders tab
+### Phase 3: Project Detail Page ✅ COMPLETE (Structure)
+- [x] Dedicated route `/customers/[id]/projects/[projectId]`
+- [x] Breadcrumb navigation with customer context
+- [x] Project header with status
+- [x] Activity tab with project feed
+- [x] Files tab (structure)
+- [x] Details tab (structure)
+- [ ] Wire up "Update Status" button
+- [ ] Wire up "Email Customer" button
+- [ ] Build file upload functionality
+- [ ] Build file download functionality
+- [ ] Add production status visual indicator
+- [ ] Add event date countdown
 
-### Phase 4: All Projects Operational View
-- [ ] Simplify to operational tracking
-- [ ] Designer assignment
-- [ ] Production status focus
-- [ ] Link to customer page for context
+### Phase 4: Customer Detail Page Tabs
+- [x] Projects tab with cards (structure)
+- [x] Contacts tab (Alternative Contacts Manager)
+- [x] Activity tab (Customer Activity Feed)
+- [ ] Shopify Orders tab (functional)
+- [ ] Files tab (cross-project aggregation)
+- [ ] Wire up email composer
+- [ ] Wire up "Create Project" button
+
+### Phase 5: All Projects Operational View ✅ COMPLETE (Transformation)
+- [x] Transform from "Sales Leads" to production focus
+- [x] Production-focused stats
+- [x] Project-centric columns
+- [ ] Designer assignment functionality
+- [ ] Bulk actions (assign, status update)
+- [ ] Advanced filtering (by status, designer, date range)
 
 ---
 
