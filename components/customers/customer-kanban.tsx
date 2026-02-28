@@ -160,8 +160,8 @@ function KanbanColumn({ stage, customers }: KanbanColumnProps) {
     <div
       ref={setNodeRef}
       className={cn(
-        "flex flex-col min-w-[300px] w-[340px] flex-shrink-0 rounded-lg transition-colors p-4 bg-background",
-        isOver && "bg-primary/5 ring-2 ring-primary/20"
+        "flex flex-col min-w-[300px] w-[340px] flex-shrink-0 rounded-lg transition-colors p-4 bg-background relative",
+        isOver && "bg-primary/10 ring-4 ring-primary/30 shadow-lg z-50"
       )}
     >
       {/* Column Header */}
@@ -409,9 +409,9 @@ export function CustomerKanban() {
       </div>
 
       {/* Drag Overlay */}
-      <DragOverlay dropAnimation={null} modifiers={[snapCenterToCursor]}>
+      <DragOverlay dropAnimation={null} modifiers={[snapCenterToCursor]} style={{ pointerEvents: 'none' }}>
         {activeCustomer && (
-          <div className="cursor-grabbing" style={{ width: '320px' }}>
+          <div className="cursor-grabbing opacity-90" style={{ width: '320px' }}>
             <CustomerCard customer={activeCustomer} isDragging />
           </div>
         )}
