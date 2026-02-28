@@ -136,7 +136,7 @@ interface KanbanColumnProps {
 
 function KanbanColumn({ stage, customers }: KanbanColumnProps) {
   return (
-    <div className="flex flex-col w-[300px] flex-shrink-0">
+    <div className="flex flex-col min-w-[280px] w-[320px] flex-shrink-0">
       {/* Column Header */}
       <div className="mb-3 sticky top-0 bg-background z-10 pb-2">
         <div className="flex items-center justify-between gap-2">
@@ -327,20 +327,20 @@ export function CustomerKanban() {
       onDragCancel={handleDragCancel}
     >
       {/* Desktop: Horizontal Kanban */}
-      <div className="hidden md:block w-full overflow-x-auto -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8">
-        <div className="flex gap-3 py-4 min-h-[500px]">
-          {SALES_STAGES.map(stage => (
-            <KanbanColumn
-              key={stage.id}
-              stage={stage}
-              customers={customersByStage[stage.id] || []}
-            />
-          ))}
+      <div className="hidden md:block w-full overflow-x-auto bg-muted/30 border-y">
+        <div className="flex gap-4 px-4 sm:px-6 lg:px-8 py-6 min-h-[500px]">
+            {SALES_STAGES.map(stage => (
+              <KanbanColumn
+                key={stage.id}
+                stage={stage}
+                customers={customersByStage[stage.id] || []}
+              />
+            ))}
         </div>
       </div>
 
       {/* Mobile: Vertical Stack */}
-      <div className="md:hidden space-y-6">
+      <div className="md:hidden space-y-6 px-4 py-4">
         {SALES_STAGES.map(stage => {
           const stageCustomers = customersByStage[stage.id] || []
           if (stageCustomers.length === 0) return null

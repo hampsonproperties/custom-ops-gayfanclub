@@ -292,7 +292,7 @@ export default function CustomersPage() {
         </div>
 
         {/* Pipeline View */}
-        <TabsContent value="pipeline" className="mt-0">
+        <TabsContent value="pipeline" className="mt-0 -mx-4 sm:-mx-6 lg:-mx-8">
           <CustomerKanban />
         </TabsContent>
 
