@@ -557,6 +557,7 @@ function NotesTab({ customerId }: { customerId: string }) {
 export default function CustomerProfilePage() {
   const params = useParams()
   const customerId = params.id as string
+  const queryClient = useQueryClient()
   const { data: profileData, isLoading } = useCustomerProfile(customerId)
 
   // Fetch alternative contacts

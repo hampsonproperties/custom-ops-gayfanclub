@@ -4,58 +4,79 @@
  */
 
 import '@shopify/shopify-api/adapters/node'
-import { shopifyApi, LATEST_API_VERSION, Session } from '@shopify/shopify-api'
+import { shopifyApi, ApiVersion, Session } from '@shopify/shopify-api'
 
-// Validate required environment variables at module initialization
-const requiredEnvVars = {
-  SHOPIFY_API_KEY: process.env.SHOPIFY_API_KEY,
-  SHOPIFY_API_SECRET: process.env.SHOPIFY_API_SECRET,
-  SHOPIFY_SHOP_DOMAIN: process.env.SHOPIFY_SHOP_DOMAIN,
-  SHOPIFY_ACCESS_TOKEN: process.env.SHOPIFY_ACCESS_TOKEN,
-} as const
+/**
+ * Validates that all required Shopify environment variables are present
+ * Throws an error if any are missing
+ */
+function validateShopifyEnv() {
+  const requiredEnvVars = {
+    SHOPIFY_API_KEY: process.env.SHOPIFY_API_KEY,
+    SHOPIFY_API_SECRET: process.env.SHOPIFY_API_SECRET,
+    SHOPIFY_SHOP_DOMAIN: process.env.SHOPIFY_SHOP_DOMAIN,
+    SHOPIFY_ACCESS_TOKEN: process.env.SHOPIFY_ACCESS_TOKEN,
+  } as const
 
-// Check for missing environment variables
-const missingVars = Object.entries(requiredEnvVars)
-  .filter(([_, value]) => !value)
-  .map(([key]) => key)
+  const missingVars = Object.entries(requiredEnvVars)
+    .filter(([_, value]) => !value)
+    .map(([key]) => key)
 
-if (missingVars.length > 0) {
-  throw new Error(
-    `Missing required Shopify environment variables: ${missingVars.join(', ')}. ` +
-    `Please configure these in your .env.local file.`
-  )
+  if (missingVars.length > 0) {
+    throw new Error(
+      `Missing required Shopify environment variables: ${missingVars.join(', ')}. ` +
+      `Please configure these in your .env.local file.`
+    )
+  }
+
+  return {
+    apiKey: process.env.SHOPIFY_API_KEY!,
+    apiSecret: process.env.SHOPIFY_API_SECRET!,
+    shopDomain: process.env.SHOPIFY_SHOP_DOMAIN!,
+    accessToken: process.env.SHOPIFY_ACCESS_TOKEN!,
+  }
 }
 
-// Safe to use non-null assertions now that we've validated
-const SHOPIFY_API_KEY = process.env.SHOPIFY_API_KEY!
-const SHOPIFY_API_SECRET = process.env.SHOPIFY_API_SECRET!
-const SHOPIFY_SHOP_DOMAIN = process.env.SHOPIFY_SHOP_DOMAIN!
-const SHOPIFY_ACCESS_TOKEN = process.env.SHOPIFY_ACCESS_TOKEN!
+/**
+ * Get Shopify API client instance
+ * Lazy initialization - validates env vars only when called
+ */
+let shopifyInstance: ReturnType<typeof shopifyApi> | null = null
 
-// Initialize Shopify API client
-const shopify = shopifyApi({
-  apiKey: SHOPIFY_API_KEY,
-  apiSecretKey: SHOPIFY_API_SECRET,
-  scopes: ['read_orders', 'read_customers'],
-  hostName: SHOPIFY_SHOP_DOMAIN.replace('https://', '').replace('http://', ''),
-  apiVersion: LATEST_API_VERSION,
-  isEmbeddedApp: false,
-})
+export function getShopifyClient() {
+  if (!shopifyInstance) {
+    const env = validateShopifyEnv()
+
+    shopifyInstance = shopifyApi({
+      apiKey: env.apiKey,
+      apiSecretKey: env.apiSecret,
+      scopes: ['read_orders', 'read_customers'],
+      hostName: env.shopDomain.replace('https://', '').replace('http://', ''),
+      apiVersion: ApiVersion.January26,
+      isEmbeddedApp: false,
+    })
+  }
+
+  return shopifyInstance
+}
 
 /**
  * Creates a Shopify session for API calls
  * Uses custom app session (no OAuth flow needed)
+ * Validates environment variables at runtime
  */
 export const createShopifySession = (): Session => {
-  const shop = SHOPIFY_SHOP_DOMAIN.replace('https://', '').replace('http://', '')
+  const env = validateShopifyEnv()
+  const shop = env.shopDomain.replace('https://', '').replace('http://', '')
 
   return new Session({
     id: `offline_${shop}`,
     shop,
     state: 'offline',
     isOnline: false,
-    accessToken: SHOPIFY_ACCESS_TOKEN,
+    accessToken: env.accessToken,
   })
 }
 
-export default shopify
+// Default export for backwards compatibility
+export default { getShopifyClient, createShopifySession }

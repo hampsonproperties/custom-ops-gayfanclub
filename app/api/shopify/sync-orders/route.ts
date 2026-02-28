@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import shopify, { createShopifySession } from '@/lib/shopify/client'
+import { getShopifyClient, createShopifySession } from '@/lib/shopify/client'
 
 // Simple in-memory rate limiter
 // Map of userId -> array of sync timestamps
@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
     }
 
     const session = createShopifySession()
+    const shopify = getShopifyClient()
     const client = new shopify.clients.Rest({ session })
 
     // Fetch orders from Shopify (last 250, can paginate later if needed)
