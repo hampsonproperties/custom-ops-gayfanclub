@@ -71,28 +71,47 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create Shopify session (fetches access token from database)
-    const session = await createShopifySession()
-    const shopify = getShopifyClient()
-    const client = new shopify.clients.Rest({ session })
+    // Fetch orders using direct Shopify Admin API (same pattern as import-orders)
+    const shopifyDomain = process.env.SHOPIFY_STORE_DOMAIN!
+    const credentials = await import('@/lib/shopify/get-credentials').then(m => m.getShopifyCredentials())
+    const shopifyToken = credentials.accessToken
 
-    // Fetch orders from Shopify (last 250, can paginate later if needed)
-    const response = await client.get({
-      path: 'orders',
-      query: {
-        status: 'any',
-        limit: '250',
-        fields: 'id,name,email,total_price,subtotal_price,total_tax,currency,financial_status,fulfillment_status,line_items,created_at,updated_at'
-      },
+    const params = new URLSearchParams({
+      status: 'any',
+      limit: '250',
     })
 
-    const orders = (response.body as any).orders
+    const shopifyResponse = await fetch(
+      `https://${shopifyDomain}/admin/api/2024-01/orders.json?${params}`,
+      {
+        headers: {
+          'X-Shopify-Access-Token': shopifyToken,
+          'Content-Type': 'application/json',
+        },
+      }
+    )
 
-    if (!orders || !Array.isArray(orders)) {
+    if (!shopifyResponse.ok) {
+      console.error('Shopify API error:', shopifyResponse.statusText)
       return NextResponse.json(
-        { error: 'No orders returned from Shopify' },
+        { error: `Shopify API error: ${shopifyResponse.statusText}` },
         { status: 500 }
       )
+    }
+
+    const data = await shopifyResponse.json()
+    const orders = data.orders || []
+
+    console.log(`Fetched ${orders.length} orders from Shopify`)
+
+    if (orders.length === 0) {
+      return NextResponse.json({
+        success: true,
+        synced: 0,
+        total: 0,
+        matchedCustomers: 0,
+        message: 'No orders found in Shopify'
+      })
     }
 
     let syncedCount = 0
