@@ -417,6 +417,17 @@ export async function importEmail(
           }))
       : null
 
+    // Get customer_id from work_item if linked
+    let customerId = null
+    if (workItemId) {
+      const { data: workItem } = await supabase
+        .from('work_items')
+        .select('customer_id')
+        .eq('id', workItemId)
+        .maybeSingle()
+      customerId = workItem?.customer_id || null
+    }
+
     // Insert the email (should not be a duplicate due to check above)
     // Note: internet_message_id and provider_message_id are optional but indexed for performance
     const { data: communication, error: insertError } = await supabase
@@ -436,6 +447,7 @@ export async function importEmail(
         provider_message_id: message.id,
         provider_thread_id: message.conversationId || null,
         work_item_id: workItemId,
+        customer_id: customerId,
         triage_status: triageStatus,
         category,
         is_read: false,
@@ -479,16 +491,7 @@ export async function importEmail(
     // Create or link to conversation thread (CRM model)
     try {
       if (message.conversationId && !skipEnrichment) {
-        // Get customer_id from work item if linked
-        let customerId = null
-        if (workItemId) {
-          const { data: workItem } = await supabase
-            .from('work_items')
-            .select('customer_id')
-            .eq('id', workItemId)
-            .single()
-          customerId = workItem?.customer_id || null
-        }
+        // customerId already retrieved above before insert
 
         // Find or create conversation
         const { data: conversationId } = await supabase.rpc('find_or_create_conversation', {
