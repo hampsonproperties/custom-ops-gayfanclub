@@ -111,21 +111,6 @@ export function ProjectDetailView({ projectId, customerId, customerName }: Proje
 
   return (
     <div className="space-y-6">
-      {/* Breadcrumb and Back Button */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={handleBack} className="gap-2">
-          <ArrowLeft className="h-4 w-4" />
-          Back to {customerName}
-        </Button>
-        <div className="text-sm text-muted-foreground">
-          <Link href={`/customers/${customerId}`} className="hover:underline">
-            {customerName}
-          </Link>
-          {' > '}
-          <span className="font-medium text-foreground">{project.title || 'Untitled Project'}</span>
-        </div>
-      </div>
-
       {/* Project Header */}
       <Card>
         <CardHeader>
