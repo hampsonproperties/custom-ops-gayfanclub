@@ -77,48 +77,47 @@ function CustomerCard({ customer, isDragging = false }: CustomerCardProps) {
       isDragging && "shadow-xl"
     )}>
       <div className="space-y-2">
-          <div className="space-y-2">
-            {/* Customer Name and Avatar */}
-            <div className="flex items-start gap-2">
-              <Avatar className="h-8 w-8 flex-shrink-0">
-                <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
-                  {getInitials(customer.display_name, customer.email)}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <div className="font-medium text-sm truncate">
-                  {customer.display_name || customer.email}
-                </div>
-                {customer.display_name && (
-                  <div className="text-xs text-muted-foreground truncate">
-                    {customer.email}
-                  </div>
-                )}
-              </div>
+        {/* Customer Name and Avatar */}
+        <div className="flex items-start gap-2">
+          <Avatar className="h-8 w-8 flex-shrink-0">
+            <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
+              {getInitials(customer.display_name, customer.email)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <div className="font-medium text-sm truncate">
+              {customer.display_name || customer.email}
             </div>
-
-            {/* Project Count */}
-            {customer.project_count !== undefined && customer.project_count > 0 && (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <UserIcon className="h-3 w-3" />
-                <span>{customer.project_count} {customer.project_count === 1 ? 'project' : 'projects'}</span>
+            {customer.display_name && (
+              <div className="text-xs text-muted-foreground truncate">
+                {customer.email}
               </div>
             )}
-
-            {/* Last Contact */}
-            {customer.last_contact && (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <MessageSquare className="h-3 w-3" />
-                <span>Last contact {formatDistanceToNow(new Date(customer.last_contact), { addSuffix: true })}</span>
-              </div>
-            )}
-
-            {/* Updated */}
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Calendar className="h-3 w-3" />
-              <span>Updated {formatDistanceToNow(new Date(customer.updated_at), { addSuffix: true })}</span>
-            </div>
           </div>
+        </div>
+
+        {/* Project Count */}
+        {customer.project_count !== undefined && customer.project_count > 0 && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <UserIcon className="h-3 w-3" />
+            <span>{customer.project_count} {customer.project_count === 1 ? 'project' : 'projects'}</span>
+          </div>
+        )}
+
+        {/* Last Contact */}
+        {customer.last_contact && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <MessageSquare className="h-3 w-3" />
+            <span>Last contact {formatDistanceToNow(new Date(customer.last_contact), { addSuffix: true })}</span>
+          </div>
+        )}
+
+        {/* Updated */}
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Calendar className="h-3 w-3" />
+          <span>Updated {formatDistanceToNow(new Date(customer.updated_at), { addSuffix: true })}</span>
+        </div>
+      </div>
     </Card>
   )
 
