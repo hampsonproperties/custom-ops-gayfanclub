@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCorners, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -135,8 +135,18 @@ interface KanbanColumnProps {
 }
 
 function KanbanColumn({ stage, customers }: KanbanColumnProps) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: stage.id,
+  })
+
   return (
-    <div className="flex flex-col min-w-[280px] w-[320px] flex-shrink-0">
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "flex flex-col min-w-[280px] w-[320px] flex-shrink-0 rounded-lg transition-colors p-3 bg-background",
+        isOver && "bg-primary/5 ring-2 ring-primary/20"
+      )}
+    >
       {/* Column Header */}
       <div className="mb-3 sticky top-0 bg-background z-10 pb-2">
         <div className="flex items-center justify-between gap-2">
@@ -150,10 +160,10 @@ function KanbanColumn({ stage, customers }: KanbanColumnProps) {
 
       {/* Customer Cards */}
       <SortableContext items={customers.map(c => c.id)} strategy={verticalListSortingStrategy}>
-        <div className="flex-1 space-y-2.5 overflow-y-auto min-h-[300px] max-h-[calc(100vh-300px)] pr-1">
+        <div className="flex-1 space-y-2.5 overflow-y-auto min-h-[300px] max-h-[calc(100vh-300px)]">
           {customers.length === 0 ? (
-            <div className="text-center py-12 text-sm text-muted-foreground">
-              <div className="text-xs opacity-50">No customers</div>
+            <div className="text-center py-12 text-sm text-muted-foreground border-2 border-dashed rounded-lg">
+              <div className="text-xs opacity-50">Drop customers here</div>
             </div>
           ) : (
             customers.map(customer => (
@@ -277,17 +287,32 @@ export function CustomerKanban() {
       return
     }
 
-    // Check if dropped on a different column
     const activeCustomer = customers?.find(c => c.id === active.id)
-    const overContainer = over.id as string
+    if (!activeCustomer) {
+      setActiveId(null)
+      return
+    }
 
-    // If over is a stage ID, update the customer's stage
-    const targetStage = SALES_STAGES.find(s => s.id === overContainer)
+    // Determine target stage: either directly dropped on column, or find column of dropped-on card
+    let targetStageId: string | undefined = undefined
 
-    if (activeCustomer && targetStage && activeCustomer.sales_stage !== targetStage.id) {
+    // First check if dropped directly on a column
+    const directStage = SALES_STAGES.find(s => s.id === over.id)
+    if (directStage) {
+      targetStageId = directStage.id
+    } else {
+      // Dropped on another card - find which column that card is in
+      const overCustomer = customers?.find(c => c.id === over.id)
+      if (overCustomer) {
+        targetStageId = overCustomer.sales_stage
+      }
+    }
+
+    // Update stage if different
+    if (targetStageId && activeCustomer.sales_stage !== targetStageId) {
       updateStageMutation.mutate({
         customerId: activeCustomer.id,
-        newStage: targetStage.id,
+        newStage: targetStageId as SalesStage,
       })
     }
 
