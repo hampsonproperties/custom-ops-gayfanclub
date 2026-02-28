@@ -428,6 +428,38 @@ export async function importEmail(
       customerId = workItem?.customer_id || null
     }
 
+    // If no customer_id from work_item, try to match by email address
+    if (!customerId && !skipEnrichment) {
+      if (!isOutbound) {
+        // For inbound emails, match from_email to customer email
+        const { data: customer } = await supabase
+          .from('customers')
+          .select('id')
+          .ilike('email', fromEmail)
+          .maybeSingle()
+
+        if (customer) {
+          customerId = customer.id
+          console.log(`[Email Import] Linked to customer by from_email: ${fromEmail} → ${customerId}`)
+        }
+      } else {
+        // For outbound emails, check if any to_email matches a customer
+        for (const toEmail of toEmails) {
+          const { data: customer } = await supabase
+            .from('customers')
+            .select('id')
+            .ilike('email', toEmail)
+            .maybeSingle()
+
+          if (customer) {
+            customerId = customer.id
+            console.log(`[Email Import] Linked to customer by to_email: ${toEmail} → ${customerId}`)
+            break // Only need one match
+          }
+        }
+      }
+    }
+
     // Insert the email (should not be a duplicate due to check above)
     // Note: internet_message_id and provider_message_id are optional but indexed for performance
     const { data: communication, error: insertError } = await supabase
