@@ -18,6 +18,8 @@ import {
   User as UserIcon,
   Upload,
   Download,
+  ExternalLink,
+  ShoppingBag,
 } from 'lucide-react'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { format, formatDistanceToNow } from 'date-fns'
@@ -59,6 +61,20 @@ export function ProjectDetailView({ projectId, customerId, customerName }: Proje
         .single()
 
       if (error) throw error
+
+      // Fetch associated Shopify order if shopify_order_number exists
+      if (data.shopify_order_number) {
+        const { data: shopifyOrder } = await supabase
+          .from('shopify_orders')
+          .select('shopify_order_id, shopify_order_number')
+          .eq('shopify_order_number', data.shopify_order_number)
+          .maybeSingle()
+
+        if (shopifyOrder) {
+          data.shopify_order = shopifyOrder
+        }
+      }
+
       return data
     },
   })
@@ -145,6 +161,18 @@ export function ProjectDetailView({ projectId, customerId, customerName }: Proje
                     <UserIcon className="h-4 w-4" />
                     <span>Assigned to: {project.assigned_to.full_name || project.assigned_to.email}</span>
                   </div>
+                )}
+                {project.shopify_order_number && project.shopify_order?.shopify_order_id && (
+                  <a
+                    href={`https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/orders/${project.shopify_order.shopify_order_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    <ShoppingBag className="h-4 w-4" />
+                    <span>Order {project.shopify_order_number}</span>
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
                 )}
               </div>
             </div>
