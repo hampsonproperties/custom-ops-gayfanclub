@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter, PointerSensor, useSensor, useSensors, useDroppable, DragOverlayProps } from '@dnd-kit/core'
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter, PointerSensor, useSensor, useSensors, useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -190,15 +190,6 @@ function KanbanColumn({ stage, customers }: KanbanColumnProps) {
       </SortableContext>
     </div>
   )
-}
-
-// Modifier to center the drag overlay on cursor
-const centerCursor = ({ transform }: any) => {
-  return {
-    ...transform,
-    x: transform.x - 160, // Half of 320px card width
-    y: transform.y - 80,  // Approximate half of card height
-  }
 }
 
 export function CustomerKanban() {
@@ -417,14 +408,11 @@ export function CustomerKanban() {
       </div>
 
       {/* Drag Overlay */}
-      <DragOverlay dropAnimation={null} modifiers={[centerCursor]}>
+      <DragOverlay dropAnimation={null}>
         {activeCustomer && (
           <div
             className="cursor-grabbing"
-            style={{
-              width: '320px',
-              transform: 'rotate(3deg)',
-            }}
+            style={{ width: '320px' }}
           >
             <CustomerCard customer={activeCustomer} isDragging />
           </div>
