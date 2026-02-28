@@ -23,6 +23,9 @@ import { StatusBadge } from '@/components/custom/status-badge'
 import { format, formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
 import { ProjectActivityFeed } from '@/components/activity/project-activity-feed'
+import { FileUpload } from '@/components/files/file-upload'
+import { useQueryClient } from '@tanstack/react-query'
+import { UpdateStatusDialog } from '@/components/projects/update-status-dialog'
 
 interface ProjectDetailViewProps {
   projectId: string
@@ -32,7 +35,9 @@ interface ProjectDetailViewProps {
 
 export function ProjectDetailView({ projectId, customerId, customerName }: ProjectDetailViewProps) {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('activity')
+  const [showFileUpload, setShowFileUpload] = useState(false)
 
   // Fetch project details
   const { data: project, isLoading } = useQuery({
@@ -144,9 +149,13 @@ export function ProjectDetailView({ projectId, customerId, customerName }: Proje
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                Update Status
-              </Button>
+              <UpdateStatusDialog
+                projectId={projectId}
+                currentStatus={project.status}
+                onStatusUpdated={() => {
+                  queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] })
+                }}
+              />
               <Button size="sm">
                 <MessageSquare className="mr-2 h-4 w-4" />
                 Email Customer
@@ -184,13 +193,26 @@ export function ProjectDetailView({ projectId, customerId, customerName }: Proje
 
         {/* Files Tab */}
         <TabsContent value="files" className="space-y-4 mt-6">
+          {/* File Upload */}
+          {showFileUpload && (
+            <FileUpload
+              projectId={projectId}
+              customerId={customerId}
+              onUploadComplete={() => {
+                queryClient.invalidateQueries({ queryKey: ['project-files', projectId] })
+                setShowFileUpload(false)
+              }}
+            />
+          )}
+
+          {/* Existing Files */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Project Files & Proofs</CardTitle>
-                <Button size="sm">
+                <Button size="sm" onClick={() => setShowFileUpload(!showFileUpload)}>
                   <Upload className="mr-2 h-4 w-4" />
-                  Upload File
+                  {showFileUpload ? 'Cancel Upload' : 'Upload Files'}
                 </Button>
               </div>
             </CardHeader>
@@ -208,7 +230,21 @@ export function ProjectDetailView({ projectId, customerId, customerName }: Proje
                           </div>
                         </div>
                       </div>
-                      <Button variant="ghost" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            const response = await fetch(`/api/files/${file.id}/download`)
+                            const data = await response.json()
+                            if (data.url) {
+                              window.open(data.url, '_blank')
+                            }
+                          } catch (error) {
+                            console.error('Download error:', error)
+                          }
+                        }}
+                      >
                         <Download className="h-4 w-4" />
                       </Button>
                     </div>

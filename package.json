@@ -27,7 +27,8 @@
     "analyze:6540-invoicing": "node -r dotenv/config scripts/analyze-6540-invoicing.js dotenv_config_path=.env.local",
     "delete:feb2-batch": "node -r dotenv/config scripts/delete-feb2-test-batch.js dotenv_config_path=.env.local",
     "update:6540-awaiting-files": "node -r dotenv/config scripts/update-6540-awaiting-files.js dotenv_config_path=.env.local",
-    "migrate:add-customer-artwork": "node -r dotenv/config scripts/add-customer-artwork-column.js dotenv_config_path=.env.local"
+    "migrate:add-customer-artwork": "node -r dotenv/config scripts/add-customer-artwork-column.js dotenv_config_path=.env.local",
+    "migrate:add-crm-fields": "node -r dotenv/config scripts/add-crm-fields-to-customers.js dotenv_config_path=.env.local"
   },
   "dependencies": {
     "@azure/identity": "^4.13.0",
@@ -43,6 +44,7 @@
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-label": "^2.1.8",
+    "@radix-ui/react-progress": "^1.1.8",
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-separator": "^1.1.8",
@@ -64,6 +66,7 @@
     "jsonwebtoken": "^9.0.3",
     "jszip": "^3.10.1",
     "lucide-react": "^0.563.0",
+    "nanoid": "^5.1.6",
     "next": "16.1.6",
     "next-themes": "^0.4.6",
     "openai": "^6.25.0",
