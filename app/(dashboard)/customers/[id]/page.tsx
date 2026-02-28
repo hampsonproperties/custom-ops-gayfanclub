@@ -23,6 +23,7 @@ import {
   DollarSign,
   ExternalLink,
   ArrowRight,
+  ArrowLeft,
   Plus,
   FileText,
   StickyNote,
