@@ -73,26 +73,32 @@ export async function POST(request: NextRequest) {
 
     // Fetch orders using direct Shopify Admin API (same pattern as import-orders)
     const shopifyDomain = process.env.SHOPIFY_STORE_DOMAIN!
+    console.log('Shopify domain:', shopifyDomain)
+
     const credentials = await import('@/lib/shopify/get-credentials').then(m => m.getShopifyCredentials())
     const shopifyToken = credentials.accessToken
+    console.log('Got access token:', shopifyToken ? 'YES' : 'NO')
 
     const params = new URLSearchParams({
       status: 'any',
       limit: '250',
     })
 
-    const shopifyResponse = await fetch(
-      `https://${shopifyDomain}/admin/api/2024-01/orders.json?${params}`,
-      {
-        headers: {
-          'X-Shopify-Access-Token': shopifyToken,
-          'Content-Type': 'application/json',
-        },
-      }
-    )
+    const apiUrl = `https://${shopifyDomain}/admin/api/2024-01/orders.json?${params}`
+    console.log('Fetching from:', apiUrl)
+
+    const shopifyResponse = await fetch(apiUrl, {
+      headers: {
+        'X-Shopify-Access-Token': shopifyToken,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    console.log('Shopify response status:', shopifyResponse.status)
 
     if (!shopifyResponse.ok) {
-      console.error('Shopify API error:', shopifyResponse.statusText)
+      const errorText = await shopifyResponse.text()
+      console.error('Shopify API error:', shopifyResponse.statusText, errorText)
       return NextResponse.json(
         { error: `Shopify API error: ${shopifyResponse.statusText}` },
         { status: 500 }
@@ -102,7 +108,7 @@ export async function POST(request: NextRequest) {
     const data = await shopifyResponse.json()
     const orders = data.orders || []
 
-    console.log(`Fetched ${orders.length} orders from Shopify`)
+    console.log(`✅ Fetched ${orders.length} orders from Shopify`)
 
     if (orders.length === 0) {
       return NextResponse.json({
