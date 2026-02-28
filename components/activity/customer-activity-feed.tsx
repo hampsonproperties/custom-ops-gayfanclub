@@ -87,13 +87,13 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
           subject,
           body_html,
           body_text,
-          created_at,
+          received_at,
           sent_by_user:users!sent_by_user_id(id, full_name, email),
           delivered_at,
           opened_at
         `)
         .eq('customer_id', customerId)
-        .order('created_at', { ascending: false })
+        .order('received_at', { ascending: false })
 
       // Helper to extract user object
       const getUserObject = (user: any) => {
@@ -116,7 +116,7 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
           type: 'email' as ActivityType,
           subject: email.subject,
           content: email.body_text || email.body_html || '',
-          created_at: email.created_at,
+          created_at: email.received_at,
           delivered_at: email.delivered_at,
           opened_at: email.opened_at,
           user: getUserObject(email.sent_by_user),
