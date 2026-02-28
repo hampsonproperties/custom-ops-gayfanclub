@@ -64,14 +64,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if Shopify credentials are configured
-    if (!process.env.SHOPIFY_API_KEY || !process.env.SHOPIFY_ACCESS_TOKEN) {
+    if (!process.env.SHOPIFY_API_KEY || !process.env.SHOPIFY_STORE_DOMAIN) {
       return NextResponse.json(
         { error: 'Shopify credentials not configured' },
         { status: 500 }
       )
     }
 
-    const session = createShopifySession()
+    // Create Shopify session (fetches access token from database)
+    const session = await createShopifySession()
     const shopify = getShopifyClient()
     const client = new shopify.clients.Rest({ session })
 

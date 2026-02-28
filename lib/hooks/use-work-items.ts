@@ -71,6 +71,31 @@ export function useWorkItems(filters?: WorkItemFilters) {
       const { data, error } = await query
 
       if (error) throw error
+
+      // Fetch file counts for all work items
+      if (data && data.length > 0) {
+        const workItemIds = data.map(item => item.id)
+        const { data: fileCounts } = await supabase
+          .from('files')
+          .select('work_item_id')
+          .in('work_item_id', workItemIds)
+
+        // Count files per work item
+        const fileCountMap = new Map<string, number>()
+        fileCounts?.forEach((file: any) => {
+          const count = fileCountMap.get(file.work_item_id) || 0
+          fileCountMap.set(file.work_item_id, count + 1)
+        })
+
+        // Add file count to each work item
+        const dataWithCounts = data.map((item: any) => ({
+          ...item,
+          file_count: fileCountMap.get(item.id) || 0
+        }))
+
+        return dataWithCounts as WorkItem[]
+      }
+
       return data as WorkItem[]
     },
   })

@@ -44,6 +44,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { CustomerKanban } from '@/components/customers/customer-kanban'
+import { CreateCustomerDialog } from '@/components/customers/create-customer-dialog'
 
 interface Customer {
   id: string
@@ -71,13 +72,6 @@ export default function CustomersPage() {
   const [view, setView] = useState<'pipeline' | 'list'>('pipeline')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'with_projects' | 'no_projects'>('all')
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [newCustomer, setNewCustomer] = useState({
-    email: '',
-    first_name: '',
-    last_name: '',
-    phone: '',
-  })
 
   // Fetch customers with stats
   const { data: customersData, isLoading, refetch } = useQuery({
@@ -146,32 +140,6 @@ export default function CustomersPage() {
     },
   })
 
-  const handleCreateCustomer = async () => {
-    try {
-      const supabase = createClient()
-
-      const { data, error } = await supabase
-        .from('customers')
-        .insert({
-          email: newCustomer.email,
-          first_name: newCustomer.first_name || null,
-          last_name: newCustomer.last_name || null,
-          display_name: `${newCustomer.first_name} ${newCustomer.last_name}`.trim() || newCustomer.email,
-          phone: newCustomer.phone || null,
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      toast.success('Customer created successfully!')
-      setIsCreateDialogOpen(false)
-      setNewCustomer({ email: '', first_name: '', last_name: '', phone: '' })
-      refetch()
-    } catch (error: any) {
-      toast.error(`Failed to create customer: ${error.message}`)
-    }
-  }
 
   const customers = customersData?.customers || []
   const stats = customersData?.stats || { total: 0, with_projects: 0, recent_contacts: 0 }
@@ -186,72 +154,11 @@ export default function CustomersPage() {
             Manage your customer relationships and project history
           </p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="flex-shrink-0">
-              <Plus className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">New Customer</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Customer</DialogTitle>
-              <DialogDescription>
-                Add a new customer to your CRM
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email *</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="customer@example.com"
-                  value={newCustomer.email}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="first_name">First Name</Label>
-                  <Input
-                    id="first_name"
-                    placeholder="John"
-                    value={newCustomer.first_name}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, first_name: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="last_name">Last Name</Label>
-                  <Input
-                    id="last_name"
-                    placeholder="Doe"
-                    value={newCustomer.last_name}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, last_name: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="555-123-4567"
-                  value={newCustomer.phone}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCreateCustomer} disabled={!newCustomer.email}>
-                Create Customer
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+        <CreateCustomerDialog
+          onCustomerCreated={(customerId) => {
+            refetch()
+          }}
+        />
       </div>
 
       {/* Stats Cards */}

@@ -77,13 +77,13 @@ All Sprint 1 features have been successfully implemented and compiled without er
 
 #### Shopify Integration
 - [ ] Run database migration: `migrations/create_shopify_orders_table.sql`
-- [ ] Configure environment variables in `.env.local`:
+- [ ] Configure environment variables in `.env.local` (should already be set):
   ```
   SHOPIFY_API_KEY=your_api_key
   SHOPIFY_API_SECRET=your_api_secret
-  SHOPIFY_ACCESS_TOKEN=your_access_token
-  SHOPIFY_SHOP_DOMAIN=your-shop.myshopify.com
+  SHOPIFY_STORE_DOMAIN=your-shop.myshopify.com
   ```
+  Note: Access token is stored in `shopify_credentials` table, not env vars
 - [ ] Navigate to customer detail page
 - [ ] Click "Shopify" tab
 - [ ] Click "Sync Orders" button

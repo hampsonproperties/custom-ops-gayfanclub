@@ -1,21 +1,21 @@
 /**
  * Shopify API Client
  * Handles authentication and session creation for Shopify API calls
+ * Uses existing shopify_credentials table for access tokens
  */
 
 import '@shopify/shopify-api/adapters/node'
 import { shopifyApi, ApiVersion, Session } from '@shopify/shopify-api'
+import { getShopifyCredentials } from './get-credentials'
 
 /**
  * Validates that all required Shopify environment variables are present
- * Throws an error if any are missing
  */
 function validateShopifyEnv() {
   const requiredEnvVars = {
     SHOPIFY_API_KEY: process.env.SHOPIFY_API_KEY,
     SHOPIFY_API_SECRET: process.env.SHOPIFY_API_SECRET,
-    SHOPIFY_SHOP_DOMAIN: process.env.SHOPIFY_SHOP_DOMAIN,
-    SHOPIFY_ACCESS_TOKEN: process.env.SHOPIFY_ACCESS_TOKEN,
+    SHOPIFY_STORE_DOMAIN: process.env.SHOPIFY_STORE_DOMAIN,
   } as const
 
   const missingVars = Object.entries(requiredEnvVars)
@@ -32,8 +32,7 @@ function validateShopifyEnv() {
   return {
     apiKey: process.env.SHOPIFY_API_KEY!,
     apiSecret: process.env.SHOPIFY_API_SECRET!,
-    shopDomain: process.env.SHOPIFY_SHOP_DOMAIN!,
-    accessToken: process.env.SHOPIFY_ACCESS_TOKEN!,
+    shopDomain: process.env.SHOPIFY_STORE_DOMAIN!,
   }
 }
 
@@ -62,11 +61,13 @@ export function getShopifyClient() {
 
 /**
  * Creates a Shopify session for API calls
- * Uses custom app session (no OAuth flow needed)
- * Validates environment variables at runtime
+ * Fetches access token from shopify_credentials table
  */
-export const createShopifySession = (): Session => {
+export const createShopifySession = async (): Promise<Session> => {
   const env = validateShopifyEnv()
+
+  // Get access token from database
+  const credentials = await getShopifyCredentials()
   const shop = env.shopDomain.replace('https://', '').replace('http://', '')
 
   return new Session({
@@ -74,7 +75,7 @@ export const createShopifySession = (): Session => {
     shop,
     state: 'offline',
     isOnline: false,
-    accessToken: env.accessToken,
+    accessToken: credentials.accessToken,
   })
 }
 
