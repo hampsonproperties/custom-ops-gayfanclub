@@ -92,21 +92,27 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
         .eq('work_item_id', projectId)
         .order('created_at', { ascending: false })
 
-      // Fetch emails
-      const { data: emails } = await supabase
-        .from('communications')
-        .select(`
-          id,
-          subject,
-          body_html,
-          body_text,
-          created_at,
-          sent_by_user:users!sent_by_user_id(id, full_name, email),
-          delivered_at,
-          opened_at
-        `)
-        .eq('work_item_id', projectId)
-        .order('created_at', { ascending: false })
+      // Fetch emails (wrapped in try-catch for backward compatibility)
+      let emails: any[] = []
+      try {
+        const { data: emailsData } = await supabase
+          .from('communications')
+          .select(`
+            id,
+            subject,
+            body_html,
+            body_text,
+            created_at,
+            delivered_at,
+            opened_at
+          `)
+          .eq('work_item_id', projectId)
+          .order('created_at', { ascending: false })
+
+        emails = emailsData || []
+      } catch (error) {
+        console.warn('Failed to fetch emails:', error)
+      }
 
       // Fetch tasks (if table exists)
       let tasks: any[] = []

@@ -243,7 +243,7 @@ export function CustomerKanban() {
               .eq('customer_id', customer.id)
               .order('created_at', { ascending: false })
               .limit(1)
-              .single()
+              .maybeSingle()
 
             lastComm = data
           } catch (error) {

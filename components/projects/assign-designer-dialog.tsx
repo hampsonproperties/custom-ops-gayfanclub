@@ -45,7 +45,7 @@ export function AssignDesignerDialog({
 }: AssignDesignerDialogProps) {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
-  const [selectedDesignerId, setSelectedDesignerId] = useState(currentDesignerId || '')
+  const [selectedDesignerId, setSelectedDesignerId] = useState(currentDesignerId || 'unassigned')
 
   // Fetch all users who can be designers
   const { data: users } = useQuery({
@@ -103,7 +103,9 @@ export function AssignDesignerDialog({
   })
 
   const handleAssign = () => {
-    assignMutation.mutate(selectedDesignerId || null)
+    // Convert "unassigned" string to null
+    const designerId = selectedDesignerId === 'unassigned' ? null : selectedDesignerId || null
+    assignMutation.mutate(designerId)
   }
 
   return (
@@ -135,7 +137,7 @@ export function AssignDesignerDialog({
                 <SelectValue placeholder="Select designer" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Unassigned</SelectItem>
+                <SelectItem value="unassigned">Unassigned</SelectItem>
                 {users?.map((user) => (
                   <SelectItem key={user.id} value={user.id}>
                     {user.full_name || user.email}
