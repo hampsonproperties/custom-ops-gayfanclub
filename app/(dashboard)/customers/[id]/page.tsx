@@ -596,20 +596,6 @@ export default function CustomerProfilePage() {
 
   const { customer, projects, conversations, stats } = profileData
 
-  // If viewing a specific project, show project detail view
-  if (projectId) {
-    return (
-      <div className="p-6">
-        <ProjectDetailView
-          projectId={projectId}
-          customerId={customerId}
-          customerName={customer.display_name || customer.email}
-        />
-      </div>
-    )
-  }
-
-  // Otherwise show customer overview
   return (
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header - PDR v3 Spec */}
@@ -809,7 +795,25 @@ export default function CustomerProfilePage() {
 
             {/* Projects Tab */}
             <TabsContent value="projects" className="space-y-4">
-              {projects.length === 0 ? (
+              {projectId ? (
+                /* Viewing specific project - keep customer context visible */
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Link href={`/customers/${customerId}`}>
+                      <Button variant="ghost" size="sm" className="gap-2">
+                        <ArrowLeft className="h-4 w-4" />
+                        Back to All Projects
+                      </Button>
+                    </Link>
+                  </div>
+                  <ProjectDetailView
+                    projectId={projectId}
+                    customerId={customerId}
+                    customerName={customer.display_name || customer.email}
+                  />
+                </div>
+              ) : projects.length === 0 ? (
+                /* No projects yet */
                 <Card>
                   <CardContent className="flex flex-col items-center justify-center py-12">
                     <ShoppingBag className="h-12 w-12 text-muted-foreground mb-4" />
@@ -826,6 +830,7 @@ export default function CustomerProfilePage() {
                   </CardContent>
                 </Card>
               ) : (
+                /* Project list */
                 <>
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold">{projects.length} Projects</h3>
