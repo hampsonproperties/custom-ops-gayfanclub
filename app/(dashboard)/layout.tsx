@@ -44,11 +44,11 @@ export default async function DashboardLayout({
       <CommandPalette />
       <RainbowHeader />
 
-      <div className="flex flex-1">
+      <div className="flex flex-1 overflow-hidden">
         {/* Desktop Sidebar Navigation - Hidden on mobile */}
-        <aside className="hidden md:flex w-64 border-r bg-card flex-col sticky top-0 h-screen">
+        <aside className="hidden md:flex w-64 border-r bg-card flex-col flex-shrink-0 overflow-y-auto">
           {/* Logo */}
-          <div className="h-16 flex items-center gap-2 px-6 border-b">
+          <div className="h-16 flex items-center gap-2 px-6 border-b flex-shrink-0">
             <span className="text-2xl">🌈</span>
             <h1 className="text-xl font-bold">Gay Fan Club</h1>
           </div>
@@ -57,7 +57,7 @@ export default async function DashboardLayout({
           <SidebarNavigation />
 
           {/* User Section */}
-          <div className="border-t p-4">
+          <div className="border-t p-4 mt-auto flex-shrink-0">
             <div className="flex items-center gap-3 mb-3">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">{userData?.full_name || 'User'}</p>
@@ -74,8 +74,8 @@ export default async function DashboardLayout({
         </aside>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col">
-          <main className="flex-1 overflow-auto pb-16 md:pb-0">
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <main className="flex-1 overflow-y-auto pb-16 md:pb-0">
             {children}
           </main>
         </div>
