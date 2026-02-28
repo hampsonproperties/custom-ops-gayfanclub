@@ -5,8 +5,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient as createAuthClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 import { getShopifyClient, createShopifySession } from '@/lib/shopify/client'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 // Simple in-memory rate limiter
 // Map of userId -> array of sync timestamps
@@ -38,10 +42,9 @@ function checkRateLimit(userId: string): { allowed: boolean; resetIn?: number } 
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-
-    // Auth check - only authenticated users can trigger sync
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // Use auth client for authentication check
+    const authClient = await createAuthClient()
+    const { data: { user }, error: authError } = await authClient.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -62,6 +65,9 @@ export async function POST(request: NextRequest) {
         }
       )
     }
+
+    // Use service role client for database operations (bypasses RLS)
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     // Check if Shopify credentials are configured
     if (!process.env.SHOPIFY_API_KEY || !process.env.SHOPIFY_STORE_DOMAIN) {
