@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter, PointerSensor, useSensor, useSensors, useDroppable, Modifier } from '@dnd-kit/core'
+import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter, PointerSensor, useSensor, useSensors, useDroppable, Modifier, pointerWithin, rectIntersection } from '@dnd-kit/core'
 import { snapCenterToCursor } from '@dnd-kit/modifiers'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useSortable } from '@dnd-kit/sortable'
@@ -160,8 +160,8 @@ function KanbanColumn({ stage, customers }: KanbanColumnProps) {
     <div
       ref={setNodeRef}
       className={cn(
-        "flex flex-col min-w-[300px] w-[340px] flex-shrink-0 rounded-lg transition-all duration-200 p-4 bg-background relative",
-        isOver && "bg-primary/20 ring-4 ring-primary shadow-xl scale-[1.02]"
+        "flex flex-col min-w-[300px] w-[340px] flex-shrink-0 rounded-lg transition-all duration-150 p-4 bg-background",
+        isOver && "bg-blue-50 ring-2 ring-blue-400"
       )}
     >
       {/* Column Header */}
@@ -363,7 +363,7 @@ export function CustomerKanban() {
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={pointerWithin}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragCancel={handleDragCancel}
@@ -411,7 +411,7 @@ export function CustomerKanban() {
       {/* Drag Overlay */}
       <DragOverlay dropAnimation={null} modifiers={[snapCenterToCursor]}>
         {activeCustomer && (
-          <div className="cursor-grabbing opacity-95" style={{ width: '320px' }}>
+          <div className="cursor-grabbing opacity-80" style={{ width: '320px' }}>
             <CustomerCard customer={activeCustomer} isDragging />
           </div>
         )}
