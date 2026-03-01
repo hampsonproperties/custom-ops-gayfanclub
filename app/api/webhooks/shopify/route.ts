@@ -295,7 +295,19 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
   // Try to find existing work item
   let existingWorkItem = null
 
-  if (orderType === 'custom_design_service') {
+  // FIRST: Always check by order number to prevent duplicates from repeat webhooks
+  const orderNumber = order.name // e.g., "#6490"
+  const orderId = order.id.toString()
+
+  const { data: foundByOrderNumber } = await supabase
+    .from('work_items')
+    .select('id, status, quantity, grip_color, customer_providing_artwork')
+    .or(`shopify_order_number.eq.${orderNumber},design_fee_order_number.eq.${orderNumber}`)
+    .maybeSingle()
+
+  if (foundByOrderNumber) {
+    existingWorkItem = foundByOrderNumber
+  } else if (orderType === 'custom_design_service') {
     // Link design fee orders to existing inquiries
     const { data: foundWorkItem } = await supabase
       .from('work_items')
@@ -325,7 +337,6 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
     existingWorkItem = foundWorkItem
   } else {
     // For other orders, check by Shopify order ID (check both production and design fee order IDs)
-    const orderId = order.id.toString()
     const { data: foundWorkItem } = await supabase
       .from('work_items')
       .select('id, status')
