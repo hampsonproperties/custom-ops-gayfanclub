@@ -104,9 +104,7 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
             body_preview,
             received_at,
             from_email,
-            from_name,
-            delivered_at,
-            opened_at
+            from_name
           `)
           .eq('work_item_id', projectId)
           .order('received_at', { ascending: false })
@@ -162,8 +160,6 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
           subject: email.subject,
           content: email.body_preview || email.body_html || '',
           created_at: email.received_at,
-          delivered_at: email.delivered_at,
-          opened_at: email.opened_at,
           user: {
             id: '',
             full_name: email.from_name || 'Unknown',
