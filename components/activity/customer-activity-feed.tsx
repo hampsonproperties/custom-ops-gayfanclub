@@ -88,7 +88,8 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
           body_html,
           body_text,
           received_at,
-          sent_by_user:users!sent_by_user_id(id, full_name, email),
+          from_email,
+          from_name,
           delivered_at,
           opened_at
         `)
@@ -119,7 +120,11 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
           created_at: email.received_at,
           delivered_at: email.delivered_at,
           opened_at: email.opened_at,
-          user: getUserObject(email.sent_by_user),
+          user: {
+            id: '',
+            full_name: email.from_name || 'Unknown',
+            email: email.from_email || ''
+          },
         })),
       ]
 

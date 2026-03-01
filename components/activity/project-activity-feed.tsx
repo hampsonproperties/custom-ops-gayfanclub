@@ -103,7 +103,8 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
             body_html,
             body_text,
             received_at,
-            sent_by_user:users!sent_by_user_id(id, full_name, email),
+            from_email,
+            from_name,
             delivered_at,
             opened_at
           `)
@@ -163,7 +164,11 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
           created_at: email.received_at,
           delivered_at: email.delivered_at,
           opened_at: email.opened_at,
-          user: getUserObject(email.sent_by_user),
+          user: {
+            id: '',
+            full_name: email.from_name || 'Unknown',
+            email: email.from_email || ''
+          },
         })),
         ...(tasks || []).map(task => ({
           id: task.id,
