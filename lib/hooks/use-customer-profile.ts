@@ -72,8 +72,8 @@ export function useCustomerProfile(customerId: string | null) {
 
       if (customerError) throw customerError
 
-      // Fetch all projects (work items)
-      const { data: projects, error: projectsError } = await supabase
+      // Fetch all projects (work items) including closed for stats calculation
+      const { data: allProjects, error: projectsError } = await supabase
         .from('work_items')
         .select('id, type, title, status, shopify_order_number, event_date, created_at, updated_at, closed_at')
         .eq('customer_id', customerId)
@@ -90,19 +90,22 @@ export function useCustomerProfile(customerId: string | null) {
 
       if (conversationsError) throw conversationsError
 
-      // Calculate stats
+      // Calculate stats using all projects
       const stats = {
-        total_projects: projects?.length || 0,
-        active_projects: projects?.filter((p) => !p.closed_at).length || 0,
-        completed_projects: projects?.filter((p) => p.closed_at).length || 0,
+        total_projects: allProjects?.length || 0,
+        active_projects: allProjects?.filter((p) => !p.closed_at).length || 0,
+        completed_projects: allProjects?.filter((p) => p.closed_at).length || 0,
         total_conversations: conversations?.length || 0,
         unread_conversations: conversations?.filter((c) => c.has_unread).length || 0,
         total_spent: 0, // TODO: Calculate from Shopify orders
       }
 
+      // Filter out closed projects for display
+      const activeProjects = allProjects?.filter((p) => !p.closed_at) || []
+
       return {
         customer,
-        projects: projects || [],
+        projects: activeProjects,
         conversations: conversations || [],
         stats,
       } as CustomerProfileData
