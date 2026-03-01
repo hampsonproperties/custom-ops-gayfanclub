@@ -600,26 +600,40 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
                   </div>
                 </div>
 
-                {/* Content */}
-                {activity.type === 'email' && activity.subject && (
-                  <div className="font-semibold mb-2 text-lg">Subject: {activity.subject}</div>
-                )}
+                {/* Email Content - Compact Design */}
+                {activity.type === 'email' ? (
+                  <div className="space-y-2">
+                    {/* Subject Line */}
+                    {activity.subject && (
+                      <div className="font-medium text-base">{activity.subject}</div>
+                    )}
 
-                <div className="text-sm whitespace-pre-wrap">
-                  {shouldTruncate && !isExpanded
-                    ? activity.content.substring(0, 300) + '...'
-                    : activity.content}
-                </div>
+                    {/* Email Preview */}
+                    <div className="text-sm text-muted-foreground">
+                      {shouldTruncate && !isExpanded
+                        ? activity.content.substring(0, 150).trim() + '...'
+                        : activity.content}
+                    </div>
 
-                {shouldTruncate && (
-                  <Button
-                    variant="link"
-                    size="sm"
-                    onClick={() => toggleExpanded(activity.id)}
-                    className="p-0 h-auto mt-2 text-primary"
-                  >
-                    {isExpanded ? 'Show less' : 'More ↓'}
-                  </Button>
+                    {/* Read More Toggle */}
+                    {shouldTruncate && (
+                      <Button
+                        variant="link"
+                        size="sm"
+                        onClick={() => toggleExpanded(activity.id)}
+                        className="p-0 h-auto text-primary"
+                      >
+                        {isExpanded ? '↑ Show less' : '↓ Read more'}
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  /* Non-email content */
+                  <div className="text-sm whitespace-pre-wrap">
+                    {shouldTruncate && !isExpanded
+                      ? activity.content.substring(0, 300) + '...'
+                      : activity.content}
+                  </div>
                 )}
 
                 {/* Email Actions */}
