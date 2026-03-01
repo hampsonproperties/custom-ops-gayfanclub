@@ -22,6 +22,7 @@ import {
 import { formatDistanceToNow, format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { cleanEmailContent, getEmailPreview } from '@/lib/utils/email-content-cleaner'
 
 type ActivityType = 'note' | 'email' | 'task'
 type FilterType = 'all' | 'starred' | 'note' | 'email' | 'task'
@@ -114,7 +115,7 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
           id: email.id,
           type: 'email' as ActivityType,
           subject: email.subject,
-          content: email.body_preview || email.body_html || '',
+          content: cleanEmailContent(email.body_preview || email.body_html || ''),
           created_at: email.received_at,
           user: {
             id: '',
