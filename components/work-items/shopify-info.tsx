@@ -7,6 +7,9 @@ import { ExternalLink, ShoppingBag, DollarSign, Tag, Package, CheckCircle2, Cloc
 import { useState, useEffect } from 'react'
 import type { Database } from '@/types/database'
 import { formatDistanceToNow } from 'date-fns'
+import { logger } from '@/lib/logger'
+
+const log = logger('shopify-info')
 
 type WorkItem = Database['public']['Tables']['work_items']['Row'] & {
   shopify_customer_id?: string | null
@@ -69,7 +72,7 @@ export function ShopifyInfo({ workItem }: { workItem: WorkItem }) {
           setOrders([])
         }
       } catch (error) {
-        console.error('Failed to fetch Shopify orders:', error)
+        log.error('Failed to fetch Shopify orders', { error })
         setOrders([])
       } finally {
         setLoading(false)

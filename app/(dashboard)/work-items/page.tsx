@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Checkbox } from '@/components/ui/checkbox'
-import { useWorkItems, useUpdateWorkItemStatus } from '@/lib/hooks/use-work-items'
+import { useWorkItems, useUpdateWorkItemStatus, type PaginatedResult } from '@/lib/hooks/use-work-items'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { KanbanBoard } from '@/components/work-items/kanban-board'
 import { Search, Filter, LayoutList, LayoutGrid, Mail, Phone, MoreHorizontal, Building2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, User, Users, Plus, Palette } from 'lucide-react'
@@ -26,6 +27,9 @@ import { CreateProjectDialog } from '@/components/projects/create-project-dialog
 import { useQueryClient } from '@tanstack/react-query'
 import { AssignDesignerDialog } from '@/components/projects/assign-designer-dialog'
 import { EventCountdownCompact } from '@/components/projects/event-countdown'
+import { logger } from '@/lib/logger'
+
+const log = logger('work-items')
 
 export default function WorkItemsPage() {
   const queryClient = useQueryClient()
@@ -36,6 +40,8 @@ export default function WorkItemsPage() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [filterMode, setFilterMode] = useState<'my-projects' | 'all-projects' | 'need-design'>('all-projects')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 25
 
   // Debounce search input
   useEffect(() => {
@@ -46,11 +52,20 @@ export default function WorkItemsPage() {
     return () => clearTimeout(timer)
   }, [searchInput])
 
-  const { data: workItems, isLoading } = useWorkItems({
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearch, filterMode])
+
+  const { data: result, isLoading } = useWorkItems({
     search: debouncedSearch,
     assignedTo: filterMode === 'my-projects' ? 'me' : undefined,
-    status: filterMode === 'need-design' ? 'new_inquiry,awaiting_approval' : undefined
+    status: filterMode === 'need-design' ? 'new_inquiry,awaiting_approval' : undefined,
+    ...(viewMode === 'table' ? { page, pageSize: PAGE_SIZE } : {}),
   })
+
+  const workItems = result?.items
+  const totalCount = result?.totalCount ?? 0
   const updateStatusMutation = useUpdateWorkItemStatus()
 
   // Handler for inline status editing
@@ -66,7 +81,7 @@ export default function WorkItemsPage() {
       toast.success('Status updated successfully')
     } catch (error) {
       toast.error('Failed to update status')
-      console.error('Status update error:', error)
+      log.error('Status update error', { error })
     }
   }
 
@@ -163,7 +178,7 @@ export default function WorkItemsPage() {
   const allSelected = sortedWorkItems.length > 0 && selectedItems.size === sortedWorkItems.length
   const someSelected = selectedItems.size > 0 && selectedItems.size < sortedWorkItems.length
 
-  // Calculate production-focused stats
+  // Stats based on current page items (approximate — reflects current page)
   const inProductionCount = workItems?.filter(item =>
     ['in_production', 'approved'].includes(item.status || '')
   ).length || 0
@@ -649,6 +664,12 @@ export default function WorkItemsPage() {
                 </div>
               )}
             </div>
+            <PaginationControls
+              page={page}
+              pageSize={PAGE_SIZE}
+              totalCount={totalCount}
+              onPageChange={setPage}
+            />
           </CardContent>
         </Card>
       )}
@@ -667,7 +688,7 @@ export default function WorkItemsPage() {
                 toast.success('Status updated successfully')
               } catch (error) {
                 toast.error('Failed to update status')
-                console.error('Status update error:', error)
+                log.error('Status update error', { error })
               }
             }}
           />

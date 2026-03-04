@@ -6,6 +6,10 @@ import { isDuplicateEmail } from '@/lib/utils/email-deduplication'
 import { autoLinkEmailToWorkItem } from '@/lib/utils/order-number-extractor'
 import { addToDLQ } from '@/lib/utils/dead-letter-queue'
 import { downloadAndSaveEmailAttachments } from '@/lib/utils/email-attachments'
+import { logger } from '@/lib/logger'
+import { EMAIL_IMPORT_LOOKBACK_DAYS, FORM_PROVIDER_DOMAINS } from '@/lib/config'
+
+const log = logger('email-import')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -116,7 +120,8 @@ export async function importEmail(
     // This prevents race conditions and wasted work on duplicate emails
     const duplicateCheck = await isDuplicateEmail(message)
     if (duplicateCheck.isDuplicate) {
-      console.log('[Email Import] Duplicate detected via', duplicateCheck.strategy, {
+      log.info('Duplicate detected', {
+        strategy: duplicateCheck.strategy,
         messageId: message.id,
         internetMessageId: message.internetMessageId,
         subject: message.subject,
@@ -141,7 +146,7 @@ export async function importEmail(
 
     // Skip emails without a valid sender (corrupted/draft emails)
     if (!fromEmail || fromEmail.trim() === '') {
-      console.log('[Email Import] Skipping email without valid sender', {
+      log.info('Skipping email without valid sender', {
         messageId: message.id,
         subject: message.subject,
       })
@@ -165,7 +170,7 @@ export async function importEmail(
     const toEmails = message.toRecipients?.map((r) => r.emailAddress.address) || []
 
     // Log raw message data to debug sender issues
-    console.log('[Email Import] Processing message:', {
+    log.info('Processing message', {
       internetMessageId: message.internetMessageId,
       providerId: message.id,
       from_address: fromEmail,
@@ -198,7 +203,7 @@ export async function importEmail(
 
       if (filterResult?.matched_category) {
         category = filterResult.matched_category
-        console.log(`[Email Import] Domain filter matched: ${fromEmail} → ${category}`)
+        log.info('Domain filter matched', { fromEmail, category })
       } else {
         // STRATEGY 2: Keyword-based fallback (for emails not in filter list)
         category = autoCategorizEmail({
@@ -207,7 +212,7 @@ export async function importEmail(
           body: plainText,
           htmlBody: bodyContent,
         })
-        console.log(`[Email Import] Fallback categorization: ${fromEmail} → ${category}`)
+        log.info('Fallback categorization', { fromEmail, category })
       }
     }
 
@@ -216,7 +221,7 @@ export async function importEmail(
     if (!isOutbound && category === 'primary') {
       supportType = detectSupportType(message.subject || '', plainText)
       if (supportType) {
-        console.log(`[Email Import] Support detected: ${supportType} - ${fromEmail}`)
+        log.info('Support detected', { supportType, fromEmail })
       }
     }
 
@@ -227,7 +232,7 @@ export async function importEmail(
     // Calculate lookback date for various linking strategies
     const emailReceivedDate = new Date(message.receivedDateTime)
     const lookbackDate = new Date(emailReceivedDate)
-    lookbackDate.setDate(lookbackDate.getDate() - 60)
+    lookbackDate.setDate(lookbackDate.getDate() - EMAIL_IMPORT_LOOKBACK_DAYS)
 
     if (!skipEnrichment) {
       // Use enhanced auto-linking (5 strategies: thread, order#, email, title, subject)
@@ -247,12 +252,12 @@ export async function importEmail(
       // Strategy: Form submission auto-create lead
       // Detect form submissions and auto-create work items with parsed data
       if (!workItemId && !isOutbound && isFormSubmissionEmail(fromEmail, message.subject || '')) {
-        console.log(`[Email Import] Detected form submission from: ${fromEmail}`)
+        log.info('Detected form submission', { fromEmail })
 
         const parsedData = parseFormEmail(fromEmail, message.subject || '', plainText, bodyContent)
 
         if (isValidFormSubmission(parsedData)) {
-          console.log('[Email Import] Parsed form data:', parsedData)
+          log.info('Parsed form data', { parsedData })
 
           // Create work item from form submission
           const { data: newWorkItem, error: workItemError } = await supabase
@@ -276,11 +281,11 @@ export async function importEmail(
             .single()
 
           if (workItemError) {
-            console.error('[Email Import] Failed to create work item from form:', workItemError)
+            log.error('Failed to create work item from form', { error: workItemError })
           } else if (newWorkItem) {
             workItemId = newWorkItem.id
             triageStatus = 'created_lead'
-            console.log(`[Email Import] Auto-created work item ${workItemId} from form submission`)
+            log.info('Auto-created work item from form submission', { workItemId })
 
             // Calculate initial follow-up date
             try {
@@ -294,7 +299,7 @@ export async function importEmail(
                   .eq('id', newWorkItem.id)
               }
             } catch (followUpError) {
-              console.error('[Email Import] Error calculating follow-up:', followUpError)
+              log.error('Error calculating follow-up', { error: followUpError })
             }
 
             // Try to link recent emails from the customer email (not the form sender)
@@ -318,12 +323,12 @@ export async function importEmail(
                     recentEmails.map((e: any) => e.id)
                   )
 
-                console.log(`[Email Import] Auto-linked ${recentEmails.length} emails from customer to new work item`)
+                log.info('Auto-linked emails from customer to new work item', { count: recentEmails.length, workItemId: newWorkItem.id })
               }
             }
           }
         } else {
-          console.log('[Email Import] Form submission parsing failed or invalid data')
+          log.info('Form submission parsing failed or invalid data')
         }
       }
 
@@ -440,7 +445,7 @@ export async function importEmail(
 
         if (customer) {
           customerId = customer.id
-          console.log(`[Email Import] Linked to customer by from_email: ${fromEmail} → ${customerId}`)
+          log.info('Linked to customer by from_email', { fromEmail, customerId })
         }
       } else {
         // For outbound emails, check if any to_email matches a customer
@@ -453,7 +458,7 @@ export async function importEmail(
 
           if (customer) {
             customerId = customer.id
-            console.log(`[Email Import] Linked to customer by to_email: ${toEmail} → ${customerId}`)
+            log.info('Linked to customer by to_email', { toEmail, customerId })
             break // Only need one match
           }
         }
@@ -493,7 +498,7 @@ export async function importEmail(
       // Check if it's a duplicate (unique constraint violation)
       // This should rarely happen now due to pre-insert duplicate check
       if (insertError.code === '23505') {
-        console.warn('[Email Import] Race condition: Duplicate caught at DB level:', {
+        log.warn('Race condition: Duplicate caught at DB level', {
           providerId: message.id,
           internetMessageId: message.internetMessageId,
           subject: message.subject,
@@ -512,7 +517,7 @@ export async function importEmail(
       }
 
       // Other database error
-      console.error('[Email Import] Database error:', insertError)
+      log.error('Database error', { error: insertError })
       return {
         success: false,
         action: 'error',
@@ -541,12 +546,12 @@ export async function importEmail(
             .update({ conversation_id: conversationId })
             .eq('id', communication.id)
 
-          console.log(`[Email Import] Linked to conversation: ${conversationId}`)
+          log.info('Linked to conversation', { conversationId })
         }
       }
     } catch (conversationError) {
       // Don't fail the import if conversation creation fails
-      console.error('[Email Import] Conversation creation error:', conversationError)
+      log.error('Conversation creation error', { error: conversationError })
       await addToDLQ({
         operationType: 'other',
         operationKey: `conversation:${message.id}`,
@@ -564,7 +569,7 @@ export async function importEmail(
     // Download and save email attachments (if any)
     if (attachmentsMeta && attachmentsMeta.length > 0 && !skipEnrichment) {
       try {
-        console.log(`[Email Import] Downloading ${attachmentsMeta.length} attachments for message ${message.id}`)
+        log.info('Downloading attachments', { count: attachmentsMeta.length, messageId: message.id })
         const attachmentResult = await downloadAndSaveEmailAttachments(
           communication.id,
           workItemId,
@@ -573,13 +578,13 @@ export async function importEmail(
         )
 
         if (attachmentResult.success) {
-          console.log(`[Email Import] Successfully downloaded ${attachmentResult.downloadedCount} attachments`)
+          log.info('Successfully downloaded attachments', { downloadedCount: attachmentResult.downloadedCount })
         } else {
-          console.warn(`[Email Import] Attachment download had errors:`, attachmentResult.errors)
+          log.warn('Attachment download had errors', { errors: attachmentResult.errors })
         }
       } catch (attachmentError) {
         // Don't fail the import if attachment download fails
-        console.error('[Email Import] Attachment download error:', attachmentError)
+        log.error('Attachment download error', { error: attachmentError })
         await addToDLQ({
           operationType: 'file_download',
           operationKey: `attachments:${message.id}`,
@@ -596,7 +601,7 @@ export async function importEmail(
       }
     }
 
-    console.log('[Email Import] Successfully imported:', {
+    log.info('Successfully imported', {
       communicationId: communication.id,
       providerId: message.id,
       internetMessageId: message.internetMessageId,
@@ -619,7 +624,7 @@ export async function importEmail(
       },
     }
   } catch (error) {
-    console.error('[Email Import] Unexpected error:', error)
+    log.error('Unexpected error', { error })
 
     // Add to DLQ for retry
     await addToDLQ({
@@ -636,7 +641,7 @@ export async function importEmail(
       },
     }).catch((dlqError) => {
       // Don't fail if DLQ fails
-      console.error('[Email Import] Failed to add to DLQ:', dlqError)
+      log.error('Failed to add to DLQ', { error: dlqError })
     })
 
     return {
@@ -774,49 +779,7 @@ export const JUNK_EMAIL_PATTERNS = [
   /^mailer-daemon@/i,
 ]
 
-/**
- * Form providers that should NOT be filtered as junk
- * even if they match junk patterns (e.g., no-reply@powerfulform.com)
- */
-export const FORM_PROVIDER_DOMAINS = [
-  'powerfulform.com',
-  'forms-noreply@google.com',
-  'formstack.com',
-  'typeform.com',
-  'jotform.com',
-  'wufoo.com',
-]
-
-/**
- * Check if an email should auto-create a lead
- * Returns false for system/vendor emails even if categorized as "primary"
- */
-export function shouldAutoCreateLead(fromEmail: string): boolean {
-  const emailLower = fromEmail.toLowerCase()
-
-  // Block system domains (PayPal, Stripe, Shopify, etc.)
-  const isSystemDomain = SYSTEM_DOMAINS.some(domain =>
-    emailLower.includes(domain.toLowerCase())
-  )
-
-  if (isSystemDomain) {
-    console.log(`[Auto-Lead] Blocked system domain: ${fromEmail}`)
-    return false
-  }
-
-  // Block system email patterns (noreply@, notifications., etc.)
-  const isSystemPattern = SYSTEM_EMAIL_PATTERNS.some(pattern =>
-    pattern.test(fromEmail)
-  )
-
-  if (isSystemPattern) {
-    console.log(`[Auto-Lead] Blocked system pattern: ${fromEmail}`)
-    return false
-  }
-
-  // Passed all checks - safe to create lead
-  return true
-}
+// Form provider domains imported from @/lib/config
 
 /**
  * Check if an email should be filtered as junk

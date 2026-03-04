@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { validateBody } from '@/lib/api/validate'
+import { createTestOrderBody } from '@/lib/api/schemas'
+import { serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('api-create-test-order')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export async function POST(request: NextRequest) {
   try {
-    const { email } = await request.json()
-
-    if (!email) {
-      return NextResponse.json(
-        { error: 'Email is required' },
-        { status: 400 }
-      )
-    }
+    const bodyResult = validateBody(await request.json(), createTestOrderBody)
+    if (bodyResult.error) return bodyResult.error
+    const { email } = bodyResult.data
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
@@ -37,11 +38,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (workItemError || !workItem) {
-      console.error('Failed to create test work item:', workItemError)
-      return NextResponse.json(
-        { error: 'Failed to create test work item' },
-        { status: 500 }
-      )
+      log.error('Failed to create test work item', { error: workItemError })
+      return serverError('Failed to create test work item')
     }
 
     // Create test files with different kinds
@@ -90,7 +88,7 @@ export async function POST(request: NextRequest) {
       .insert(fileInserts)
 
     if (filesError) {
-      console.error('Failed to create test files:', filesError)
+      log.error('Failed to create test files', { error: filesError })
       // Don't fail the whole request, just log it
     }
 
@@ -116,12 +114,7 @@ export async function POST(request: NextRequest) {
       filesCreated: testFiles.length,
     })
   } catch (error) {
-    console.error('Create test order error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to create test order',
-      },
-      { status: 500 }
-    )
+    log.error('Create test order error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to create test order')
   }
 }

@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { queueBatchEmail } from '@/lib/email/batch-emails'
+import { validateBody } from '@/lib/api/validate'
+import { queueBatchEmailBody } from '@/lib/api/schemas'
+import { badRequest, serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('batch-email-queue')
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-
+    const bodyResult = validateBody(await request.json(), queueBatchEmailBody)
+    if (bodyResult.error) return bodyResult.error
     const {
       batchId,
       workItemId,
@@ -14,24 +20,7 @@ export async function POST(request: NextRequest) {
       scheduledSendAt,
       expectedBatchStatus,
       expectedHasTracking,
-    } = body
-
-    // Validate required fields
-    if (!batchId || !workItemId || !emailType || !recipientEmail || !scheduledSendAt) {
-      return NextResponse.json(
-        { error: 'Missing required fields: batchId, workItemId, emailType, recipientEmail, scheduledSendAt' },
-        { status: 400 }
-      )
-    }
-
-    // Validate email type
-    const validEmailTypes = ['entering_production', 'midway_checkin', 'en_route', 'arrived_stateside']
-    if (!validEmailTypes.includes(emailType)) {
-      return NextResponse.json(
-        { error: `Invalid emailType. Must be one of: ${validEmailTypes.join(', ')}` },
-        { status: 400 }
-      )
-    }
+    } = bodyResult.data
 
     // Queue the email
     const result = await queueBatchEmail({
@@ -46,7 +35,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 })
+      return badRequest(result.error || 'Failed to queue email')
     }
 
     return NextResponse.json({
@@ -54,10 +43,7 @@ export async function POST(request: NextRequest) {
       message: 'Email queued successfully',
     })
   } catch (error) {
-    console.error('Queue batch email error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to queue batch email' },
-      { status: 500 }
-    )
+    log.error('Queue batch email error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to queue batch email')
   }
 }

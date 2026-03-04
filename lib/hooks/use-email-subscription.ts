@@ -1,6 +1,9 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import { logger } from '@/lib/logger'
+
+const log = logger('email-subscription')
 
 /**
  * Auto-renews email subscription on dashboard load
@@ -25,20 +28,20 @@ export function useEmailSubscription() {
         })
 
         if (!response.ok) {
-          console.error('Email subscription check failed:', response.statusText)
+          log.error('Email subscription check failed', { statusText: response.statusText })
           return
         }
 
         const result = await response.json()
-        console.log('Email subscription status:', result.status)
+        log.info('Email subscription status', { status: result.status })
 
         if (result.status === 'renewed') {
-          console.log('✅ Email subscription renewed, expires:', result.expiresAt)
+          log.info('Email subscription renewed', { expiresAt: result.expiresAt })
         } else if (result.status === 'active') {
-          console.log('✅ Email subscription active, expires:', result.expiresAt)
+          log.info('Email subscription active', { expiresAt: result.expiresAt })
         }
       } catch (error) {
-        console.error('Email subscription check error:', error)
+        log.error('Email subscription check error', { error })
         // Fail silently - don't break the dashboard
       }
     }

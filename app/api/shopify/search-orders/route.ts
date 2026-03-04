@@ -2,17 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getShopifyCredentials } from '@/lib/shopify/get-credentials'
 import { detectOrderType } from '@/lib/shopify/detect-order-type'
+import { validateBody } from '@/lib/api/validate'
+import { searchOrdersBody } from '@/lib/api/schemas'
+import { logger } from '@/lib/logger'
+import { serverError } from '@/lib/api/errors'
+import { SHOPIFY_API_VERSION } from '@/lib/config'
+
+const log = logger('shopify-search-orders')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export async function POST(request: NextRequest) {
   try {
-    const { query } = await request.json()
-
-    if (!query) {
-      return NextResponse.json({ error: 'Query is required' }, { status: 400 })
-    }
+    const bodyResult = validateBody(await request.json(), searchOrdersBody)
+    if (bodyResult.error) return bodyResult.error
+    const { query } = bodyResult.data
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
@@ -33,7 +38,7 @@ export async function POST(request: NextRequest) {
     }
 
     const response = await fetch(
-      `https://${shopifyDomain}/admin/api/2024-01/orders.json?${params}`,
+      `https://${shopifyDomain}/admin/api/${SHOPIFY_API_VERSION}/orders.json?${params}`,
       {
         headers: {
           'X-Shopify-Access-Token': shopifyToken,
@@ -104,10 +109,7 @@ export async function POST(request: NextRequest) {
       total: enrichedOrders.length,
     })
   } catch (error) {
-    console.error('Search error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Search failed' },
-      { status: 500 }
-    )
+    log.error('Search error', { error })
+    return serverError(error instanceof Error ? error.message : 'Search failed')
   }
 }

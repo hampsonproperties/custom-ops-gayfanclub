@@ -6,6 +6,7 @@
  */
 
 import { getShopifyCredentials } from '../get-credentials'
+import { SHOPIFY_API_VERSION } from '@/lib/config'
 
 interface PushResult {
   success: boolean
@@ -30,7 +31,7 @@ export async function pushNoteToShopify(
     const { shop, accessToken } = await getShopifyCredentials()
 
     const response = await fetch(
-      `https://${shop}/admin/api/2024-01/customers/${customerId}.json`,
+      `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/customers/${customerId}.json`,
       {
         method: 'PUT',
         headers: {
@@ -88,7 +89,7 @@ export async function pushTagsToShopify(
     const tagsString = tags.join(', ')
 
     const response = await fetch(
-      `https://${shop}/admin/api/2024-01/customers/${customerId}.json`,
+      `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/customers/${customerId}.json`,
       {
         method: 'PUT',
         headers: {
@@ -165,7 +166,7 @@ export async function pushFulfillmentToShopify(
     }
 
     const response = await fetch(
-      `https://${shop}/admin/api/2024-01/orders/${orderId}/fulfillments.json`,
+      `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/orders/${orderId}/fulfillments.json`,
       {
         method: 'POST',
         headers: {
@@ -222,7 +223,7 @@ export async function pushMetafieldToShopify(
     const { shop, accessToken } = await getShopifyCredentials()
 
     const response = await fetch(
-      `https://${shop}/admin/api/2024-01/${resourceType}s/${resourceId}/metafields.json`,
+      `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/${resourceType}s/${resourceId}/metafields.json`,
       {
         method: 'POST',
         headers: {

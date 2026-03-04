@@ -36,21 +36,36 @@ export function useCommunications(workItemId?: string) {
   })
 }
 
-export function useUntriagedEmails() {
+export interface PaginatedCommsResult<T> {
+  items: T[]
+  totalCount: number
+}
+
+export function useUntriagedEmails(options?: { page?: number; pageSize?: number }) {
   const supabase = createClient()
+  const isPaginated = options?.page !== undefined
+  const pageSize = options?.pageSize ?? 25
 
   return useQuery({
-    queryKey: ['communications', 'untriaged'],
-    queryFn: async () => {
-      const { data, error } = await supabase
+    queryKey: ['communications', 'untriaged', options?.page, options?.pageSize],
+    queryFn: async (): Promise<PaginatedCommsResult<Communication>> => {
+      let query = supabase
         .from('communications')
-        .select('*')
+        .select('*', isPaginated ? { count: 'exact' } : {})
         .eq('direction', 'inbound')
         .eq('triage_status', 'untriaged')
         .order('received_at', { ascending: false })
 
+      if (isPaginated) {
+        const from = (options!.page! - 1) * pageSize
+        const to = from + pageSize - 1
+        query = query.range(from, to)
+      }
+
+      const { data, error, count } = await query
+
       if (error) throw error
-      return data as Communication[]
+      return { items: (data ?? []) as Communication[], totalCount: count ?? data?.length ?? 0 }
     },
   })
 }
@@ -76,22 +91,32 @@ export function useEmailThread(threadId: string | null) {
   })
 }
 
-export function useFlaggedSupportEmails() {
+export function useFlaggedSupportEmails(options?: { page?: number; pageSize?: number }) {
   const supabase = createClient()
+  const isPaginated = options?.page !== undefined
+  const pageSize = options?.pageSize ?? 25
 
   return useQuery({
-    queryKey: ['communications', 'support'],
-    queryFn: async () => {
-      const { data, error } = await supabase
+    queryKey: ['communications', 'support', options?.page, options?.pageSize],
+    queryFn: async (): Promise<PaginatedCommsResult<Communication>> => {
+      let query = supabase
         .from('communications')
-        .select('*')
+        .select('*', isPaginated ? { count: 'exact' } : {})
         .eq('direction', 'inbound')
         .eq('triage_status', 'flagged_support')
-        .is('work_item_id', null) // Exclude emails linked to work items (those appear in Conversations)
+        .is('work_item_id', null)
         .order('received_at', { ascending: false })
 
+      if (isPaginated) {
+        const from = (options!.page! - 1) * pageSize
+        const to = from + pageSize - 1
+        query = query.range(from, to)
+      }
+
+      const { data, error, count } = await query
+
       if (error) throw error
-      return data as Communication[]
+      return { items: (data ?? []) as Communication[], totalCount: count ?? data?.length ?? 0 }
     },
   })
 }
@@ -252,29 +277,38 @@ export function useSendEmail() {
  */
 export function useEmailsByCategory(
   category: EmailCategory,
-  triageStatus?: 'untriaged' | 'triaged' | 'created_lead' | 'attached' | 'flagged_support' | 'archived'
+  triageStatus?: 'untriaged' | 'triaged' | 'created_lead' | 'attached' | 'flagged_support' | 'archived',
+  options?: { page?: number; pageSize?: number }
 ) {
   const supabase = createClient()
+  const isPaginated = options?.page !== undefined
+  const pageSize = options?.pageSize ?? 25
 
   return useQuery({
-    queryKey: ['communications', 'category', category, triageStatus],
-    queryFn: async () => {
+    queryKey: ['communications', 'category', category, triageStatus, options?.page, options?.pageSize],
+    queryFn: async (): Promise<PaginatedCommsResult<Communication>> => {
       let query = supabase
         .from('communications')
-        .select('*')
-        .eq('direction', 'inbound') // Only inbound (customer) emails - company emails are marked as outbound
+        .select('*', isPaginated ? { count: 'exact' } : {})
+        .eq('direction', 'inbound')
         .eq('category', category)
-        .is('work_item_id', null) // Exclude emails linked to work items (those appear in Conversations)
+        .is('work_item_id', null)
         .order('received_at', { ascending: false })
 
       if (triageStatus) {
         query = query.eq('triage_status', triageStatus)
       }
 
-      const { data, error } = await query
+      if (isPaginated) {
+        const from = (options!.page! - 1) * pageSize
+        const to = from + pageSize - 1
+        query = query.range(from, to)
+      }
+
+      const { data, error, count } = await query
 
       if (error) throw error
-      return data as Communication[]
+      return { items: (data ?? []) as Communication[], totalCount: count ?? data?.length ?? 0 }
     },
   })
 }

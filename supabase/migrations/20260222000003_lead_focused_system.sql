@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS work_item_notes (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE INDEX idx_work_item_notes_work_item ON work_item_notes(work_item_id);
-CREATE INDEX idx_work_item_notes_created ON work_item_notes(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_work_item_notes_work_item ON work_item_notes(work_item_id);
+CREATE INDEX IF NOT EXISTS idx_work_item_notes_created ON work_item_notes(created_at DESC);
 
 -- 2. ASSIGNMENT SYSTEM
 -- ============================================================================
@@ -24,7 +24,7 @@ ADD COLUMN IF NOT EXISTS assigned_to_email TEXT,
 ADD COLUMN IF NOT EXISTS assigned_at TIMESTAMP WITH TIME ZONE,
 ADD COLUMN IF NOT EXISTS assigned_by_email TEXT;
 
-CREATE INDEX idx_work_items_assigned ON work_items(assigned_to_email) WHERE closed_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_work_items_assigned ON work_items(assigned_to_email) WHERE closed_at IS NULL;
 
 -- 3. TAGGING SYSTEM
 -- ============================================================================
@@ -42,8 +42,8 @@ CREATE TABLE IF NOT EXISTS work_item_tags (
   PRIMARY KEY (work_item_id, tag_id)
 );
 
-CREATE INDEX idx_work_item_tags_work_item ON work_item_tags(work_item_id);
-CREATE INDEX idx_work_item_tags_tag ON work_item_tags(tag_id);
+CREATE INDEX IF NOT EXISTS idx_work_item_tags_work_item ON work_item_tags(work_item_id);
+CREATE INDEX IF NOT EXISTS idx_work_item_tags_tag ON work_item_tags(tag_id);
 
 -- Seed common tags
 INSERT INTO tags (name, color) VALUES
@@ -61,14 +61,14 @@ ALTER TABLE work_items
 ADD COLUMN IF NOT EXISTS estimated_value DECIMAL(10,2),
 ADD COLUMN IF NOT EXISTS actual_value DECIMAL(10,2);
 
-CREATE INDEX idx_work_items_value ON work_items(estimated_value DESC NULLS LAST) WHERE closed_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_work_items_value ON work_items(estimated_value DESC NULLS LAST) WHERE closed_at IS NULL;
 
 -- 5. ACTIVITY TRACKING
 -- ============================================================================
 ALTER TABLE work_items
 ADD COLUMN IF NOT EXISTS last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 
-CREATE INDEX idx_work_items_activity ON work_items(last_activity_at DESC) WHERE closed_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_work_items_activity ON work_items(last_activity_at DESC) WHERE closed_at IS NULL;
 
 -- Auto-update last_activity_at on any change
 CREATE OR REPLACE FUNCTION update_work_item_activity()
@@ -165,7 +165,8 @@ CREATE TRIGGER trigger_auto_triage
 -- ============================================================================
 
 -- Sales Pipeline View (for dashboard)
-CREATE OR REPLACE VIEW sales_pipeline AS
+DROP VIEW IF EXISTS sales_pipeline;
+CREATE VIEW sales_pipeline AS
 SELECT
   wi.*,
   -- Computed flags
@@ -194,7 +195,8 @@ WHERE wi.closed_at IS NULL
 GROUP BY wi.id;
 
 -- Production Pipeline View (for dashboard)
-CREATE OR REPLACE VIEW production_pipeline AS
+DROP VIEW IF EXISTS production_pipeline;
+CREATE VIEW production_pipeline AS
 SELECT
   wi.*,
   -- Tags

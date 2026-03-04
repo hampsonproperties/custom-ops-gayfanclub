@@ -1,4 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
+import { logger } from '@/lib/logger'
+
+const log = logger('email-deduplication')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -55,10 +58,10 @@ export async function isDuplicateEmail(
       .maybeSingle()
 
     if (providerError) {
-      console.error('[Deduplication] Error checking provider_message_id:', providerError)
+      log.error('Error checking provider_message_id', { error: providerError })
       // Continue to next strategy instead of failing
     } else if (existingByProvider) {
-      console.log('[Deduplication] Duplicate found via provider_message_id:', {
+      log.info('Duplicate found via provider_message_id', {
         provider_message_id: message.id,
         existing_communication_id: existingByProvider.id,
       })
@@ -82,10 +85,10 @@ export async function isDuplicateEmail(
       .maybeSingle()
 
     if (internetError) {
-      console.error('[Deduplication] Error checking internet_message_id:', internetError)
+      log.error('Error checking internet_message_id', { error: internetError })
       // Continue to next strategy
     } else if (existingByInternet) {
-      console.log('[Deduplication] Duplicate found via internet_message_id:', {
+      log.info('Duplicate found via internet_message_id', {
         internet_message_id: message.internetMessageId,
         existing_communication_id: existingByInternet.id,
       })
@@ -120,10 +123,10 @@ export async function isDuplicateEmail(
       .maybeSingle()
 
     if (fingerprintError) {
-      console.error('[Deduplication] Error checking fingerprint:', fingerprintError)
+      log.error('Error checking fingerprint', { error: fingerprintError })
       // No more strategies, allow insertion
     } else if (existingByFingerprint) {
-      console.log('[Deduplication] Duplicate found via fingerprint:', {
+      log.info('Duplicate found via fingerprint', {
         from_email: fromEmail,
         subject,
         received_at: receivedAt.toISOString(),
@@ -174,7 +177,7 @@ export async function getDuplicateStats(): Promise<{
     .single()
 
   if (error) {
-    console.error('[Deduplication Stats] Error fetching stats:', error)
+    log.error('Error fetching stats', { error })
     throw error
   }
 
@@ -184,7 +187,7 @@ export async function getDuplicateStats(): Promise<{
     .select('email_1_id')
 
   if (dupError) {
-    console.error('[Deduplication Stats] Error fetching potential duplicates:', dupError)
+    log.error('Error fetching potential duplicates', { error: dupError })
   }
 
   return {
@@ -211,7 +214,7 @@ export async function findPotentialDuplicates(limit = 50): Promise<any[]> {
     .limit(limit)
 
   if (error) {
-    console.error('[Deduplication] Error finding potential duplicates:', error)
+    log.error('Error finding potential duplicates', { error })
     throw error
   }
 

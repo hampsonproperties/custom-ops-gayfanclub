@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 import { Plus, Search, TrendingUp, DollarSign, Target, Award, LayoutList, LayoutGrid, Mail, MoreHorizontal, Building2 } from 'lucide-react'
 import Link from 'next/link'
 import { useLeads, useLeadStats, type LeadsFilters } from '@/lib/hooks/use-leads'
@@ -31,12 +32,17 @@ export default function SalesLeadsPage() {
     search: '',
   })
   const [viewMode, setViewMode] = useState<'table' | 'pipeline'>('table')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 25
 
-  const { data: leads, isLoading } = useLeads(filters)
+  const { data: result, isLoading } = useLeads({ ...filters, page, pageSize: PAGE_SIZE })
+  const leads = result?.items
+  const totalCount = result?.totalCount ?? 0
   const { data: stats } = useLeadStats()
 
   const handleFilterChange = (key: keyof LeadsFilters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }))
+    setPage(1)
   }
 
   // Helper function to get initials
@@ -54,10 +60,10 @@ export default function SalesLeadsPage() {
     return '??'
   }
 
-  // Filter active leads
-  const activeLeads = leads?.filter(
+  // Filter active leads from current page
+  const activeLeads = (leads ?? []).filter(
     (lead) => !['closed_won', 'closed_lost', 'closed_event_cancelled'].includes(lead.status)
-  ) || []
+  )
 
   return (
     <div className="p-6 space-y-6">
@@ -316,6 +322,12 @@ export default function SalesLeadsPage() {
                 </tbody>
               </table>
             </div>
+            <PaginationControls
+              page={page}
+              pageSize={PAGE_SIZE}
+              totalCount={totalCount}
+              onPageChange={setPage}
+            />
           </CardContent>
         </Card>
       )}

@@ -5,6 +5,10 @@
  * to automatically create work items without manual data entry.
  */
 
+import { logger } from '@/lib/logger'
+
+const log = logger('form-email-parser')
+
 export interface ParsedFormData {
   customerName: string | null
   customerEmail: string | null
@@ -134,7 +138,7 @@ export function parsePowerfulFormEmail(bodyText: string, bodyHtml: string | null
 
     return result
   } catch (error) {
-    console.error('[parsePowerfulFormEmail] Error parsing form email:', error)
+    log.error('Error parsing form email', { error })
     return null
   }
 }

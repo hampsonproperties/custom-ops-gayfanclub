@@ -1,22 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 import { getTemplateByKey, renderTemplate } from '@/lib/email/templates'
+import { validateBody } from '@/lib/api/validate'
+import { approvalEmailBody } from '@/lib/api/schemas'
+import { notFound, serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const log = logger('api-preview-approval-email')
+
 
 export async function POST(request: NextRequest) {
   try {
-    const { workItemId, fileId } = await request.json()
+    const bodyResult = validateBody(await request.json(), approvalEmailBody)
+    if (bodyResult.error) return bodyResult.error
+    const { workItemId, fileId } = bodyResult.data
 
-    if (!workItemId || !fileId) {
-      return NextResponse.json(
-        { error: 'Missing required fields: workItemId, fileId' },
-        { status: 400 }
-      )
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = await createClient()
 
     // Fetch work item details
     const { data: workItem, error: workItemError } = await supabase
@@ -26,10 +25,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (workItemError || !workItem) {
-      return NextResponse.json(
-        { error: 'Work item not found' },
-        { status: 404 }
-      )
+      return notFound('Work item not found')
     }
 
     // Fetch file details
@@ -40,10 +36,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (fileError || !file) {
-      return NextResponse.json(
-        { error: 'File not found' },
-        { status: 404 }
-      )
+      return notFound('File not found')
     }
 
     // Get proof image URL
@@ -60,7 +53,7 @@ export async function POST(request: NextRequest) {
         .createSignedUrl(file.storage_path, 604800) // 7 days in seconds
 
       if (signedUrlError || !signedUrlData) {
-        console.error('Signed URL error:', signedUrlError)
+        log.error('Signed URL error', { error: signedUrlError })
         return NextResponse.json(
           {
             error: 'Failed to generate signed URL for proof image',
@@ -133,21 +126,15 @@ export async function POST(request: NextRequest) {
         })
 
       if (insertError) {
-        console.error('Failed to create template:', insertError)
-        return NextResponse.json(
-          { error: 'Failed to create email template' },
-          { status: 500 }
-        )
+        log.error('Failed to create template', { error: insertError })
+        return serverError('Failed to create email template')
       }
 
       // Fetch the newly created template
       template = await getTemplateByKey('customify-proof-approval')
 
       if (!template) {
-        return NextResponse.json(
-          { error: 'Email template creation failed' },
-          { status: 500 }
-        )
+        return serverError('Email template creation failed')
       }
     }
 
@@ -164,7 +151,7 @@ export async function POST(request: NextRequest) {
       rejectLink,
     })
 
-    console.log('Preview generated with proofImageUrl:', proofImageUrl)
+    log.info('Preview generated', { proofImageUrl })
 
     return NextResponse.json({
       success: true,
@@ -178,12 +165,7 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Preview approval email error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to preview approval email',
-      },
-      { status: 500 }
-    )
+    log.error('Preview approval email error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to preview approval email')
   }
 }

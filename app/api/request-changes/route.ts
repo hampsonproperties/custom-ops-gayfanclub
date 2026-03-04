@@ -1,10 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import jwt from 'jsonwebtoken'
+import { validateBody } from '@/lib/api/validate'
+import { requestChangesBody } from '@/lib/api/schemas'
+import { badRequest, unauthorized, notFound, serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('request-changes')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const jwtSecret = process.env.JWT_SECRET!
+
+// Escape HTML to prevent XSS when inserting user text into body_html
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
 
 interface TokenPayload {
   workItemId: string
@@ -14,14 +30,9 @@ interface TokenPayload {
 
 export async function POST(request: NextRequest) {
   try {
-    const { token, feedback } = await request.json()
-
-    if (!token || !feedback) {
-      return NextResponse.json(
-        { error: 'Missing required fields: token, feedback' },
-        { status: 400 }
-      )
-    }
+    const bodyResult = validateBody(await request.json(), requestChangesBody)
+    if (bodyResult.error) return bodyResult.error
+    const { token, feedback } = bodyResult.data
 
     // Verify and decode JWT token
     let payload: TokenPayload
@@ -29,25 +40,16 @@ export async function POST(request: NextRequest) {
       payload = jwt.verify(token, jwtSecret) as TokenPayload
     } catch (error) {
       if (error instanceof jwt.TokenExpiredError) {
-        return NextResponse.json(
-          { error: 'Token has expired' },
-          { status: 401 }
-        )
+        return unauthorized('Token has expired')
       }
-      return NextResponse.json(
-        { error: 'Invalid token' },
-        { status: 401 }
-      )
+      return unauthorized('Invalid token')
     }
 
     const { workItemId, action } = payload
 
     // Only allow reject tokens
     if (action !== 'reject') {
-      return NextResponse.json(
-        { error: 'Invalid token action' },
-        { status: 400 }
-      )
+      return badRequest('Invalid token action')
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
@@ -60,27 +62,18 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (tokenError || !tokenRecord) {
-      return NextResponse.json(
-        { error: 'Token not found' },
-        { status: 404 }
-      )
+      return notFound('Token not found')
     }
 
     if (tokenRecord.used_at) {
-      return NextResponse.json(
-        { error: 'Token has already been used' },
-        { status: 400 }
-      )
+      return badRequest('Token has already been used')
     }
 
     // Check if token is expired
     const now = new Date()
     const expiresAt = new Date(tokenRecord.expires_at)
     if (now > expiresAt) {
-      return NextResponse.json(
-        { error: 'Token has expired' },
-        { status: 401 }
-      )
+      return unauthorized('Token has expired')
     }
 
     // Fetch work item to get customer details
@@ -91,10 +84,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (workItemError || !workItem) {
-      return NextResponse.json(
-        { error: 'Work item not found' },
-        { status: 404 }
-      )
+      return notFound('Work item not found')
     }
 
     // Store feedback as a communication record
@@ -106,7 +96,7 @@ export async function POST(request: NextRequest) {
         from_email: workItem.customer_email || 'customer@unknown.com',
         to_emails: ['sales@thegayfanclub.com'],
         subject: `Design Changes Requested - ${workItem.customer_name || 'Customer'}`,
-        body_html: `<p><strong>Customer Feedback:</strong></p><p>${feedback.replace(/\n/g, '<br>')}</p>`,
+        body_html: `<p><strong>Customer Feedback:</strong></p><p>${escapeHtml(feedback).replace(/\n/g, '<br>')}</p>`,
         body_preview: feedback.slice(0, 200),
         received_at: new Date().toISOString(),
         provider: 'web_form',
@@ -116,7 +106,7 @@ export async function POST(request: NextRequest) {
       })
 
     if (commError) {
-      console.error('Failed to store feedback:', commError)
+      log.error('Failed to store feedback', { error: commError, workItemId })
     }
 
     // Mark token as used
@@ -143,11 +133,8 @@ export async function POST(request: NextRequest) {
       .eq('id', workItemId)
 
     if (updateError) {
-      console.error('Failed to update work item:', updateError)
-      return NextResponse.json(
-        { error: 'Failed to update work item' },
-        { status: 500 }
-      )
+      log.error('Failed to update work item', { error: updateError, workItemId })
+      return serverError('Failed to update work item')
     }
 
     // Recalculate next follow-up after status change
@@ -162,7 +149,7 @@ export async function POST(request: NextRequest) {
           .eq('id', workItemId)
       }
     } catch (followUpError) {
-      console.error('[Request Changes] Error calculating follow-up:', followUpError)
+      log.error('Error calculating follow-up', { error: followUpError, workItemId })
       // Don't fail the whole operation if follow-up calc fails
     }
 
@@ -172,12 +159,7 @@ export async function POST(request: NextRequest) {
       message: 'Changes request submitted successfully',
     })
   } catch (error) {
-    console.error('Request changes error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to process request',
-      },
-      { status: 500 }
-    )
+    log.error('Request changes error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to process request')
   }
 }

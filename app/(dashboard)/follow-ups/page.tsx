@@ -30,6 +30,7 @@ import {
   useMarkFollowedUp,
   useUpdateWorkItemStatus,
 } from '@/lib/hooks/use-work-items'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 import {
   CheckCircle2,
   ExternalLink,
@@ -62,6 +63,8 @@ export default function LeadsPage() {
   const updateStatus = useUpdateWorkItemStatus()
 
   const [searchQuery, setSearchQuery] = useState('')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 25
 
   // Combine and deduplicate all leads
   const allLeads = useMemo(() => {
@@ -97,6 +100,18 @@ export default function LeadsPage() {
       item.title?.toLowerCase().includes(query)
     )
   }, [allLeads, searchQuery])
+
+  // Client-side pagination of combined results
+  const paginatedLeads = useMemo(() => {
+    const from = (page - 1) * PAGE_SIZE
+    return filteredLeads.slice(from, from + PAGE_SIZE)
+  }, [filteredLeads, page])
+
+  // Reset page when search changes
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    setPage(1)
+  }
 
   const handleMarkFollowedUp = async (workItemId: string) => {
     try {
@@ -199,7 +214,7 @@ export default function LeadsPage() {
           <Input
             placeholder="Search by customer name or email..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-10"
           />
         </div>
@@ -248,7 +263,7 @@ export default function LeadsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredLeads.map((item) => {
+                {paginatedLeads.map((item) => {
                   const pipelineStage = getPipelineStage(item)
                   const eventInfo = getEventDisplay(item)
                   const priorityBadge = getPriorityBadge(item)
@@ -349,6 +364,12 @@ export default function LeadsPage() {
                 })}
               </TableBody>
             </Table>
+            <PaginationControls
+              page={page}
+              pageSize={PAGE_SIZE}
+              totalCount={filteredLeads.length}
+              onPageChange={setPage}
+            />
           </CardContent>
         </Card>
       )}

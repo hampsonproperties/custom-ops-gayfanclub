@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
+import { validateBody } from '@/lib/api/validate'
+import { generateEmailBody } from '@/lib/api/schemas'
+import { logger } from '@/lib/logger'
+import { serverError } from '@/lib/api/errors'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const log = logger('email-generate')
+
 
 // Lazy initialize OpenAI client to avoid build-time errors
 function getOpenAIClient() {
@@ -17,16 +21,11 @@ function getOpenAIClient() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { prompt, projectId, customerId, customerEmail } = await request.json()
+    const bodyResult = validateBody(await request.json(), generateEmailBody)
+    if (bodyResult.error) return bodyResult.error
+    const { prompt, projectId, customerId, customerEmail } = bodyResult.data
 
-    if (!prompt) {
-      return NextResponse.json(
-        { error: 'Missing required field: prompt' },
-        { status: 400 }
-      )
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = await createClient()
 
     // Gather context about the project and customer
     let context = ''
@@ -176,12 +175,7 @@ ${emailBody}`,
       body: emailBody,
     })
   } catch (error) {
-    console.error('Email generation error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to generate email',
-      },
-      { status: 500 }
-    )
+    log.error('Email generation error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to generate email')
   }
 }

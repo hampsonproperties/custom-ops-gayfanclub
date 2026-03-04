@@ -1,14 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createProductionInvoice } from '@/lib/shopify/create-draft-order'
+import { validateBody, validateParams } from '@/lib/api/validate'
+import { createInvoiceBody, idParams } from '@/lib/api/schemas'
+import { notFound, badRequest, serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('work-items-create-production-invoice')
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params
-    const body = await request.json()
+    const paramResult = validateParams(await params, idParams)
+    if (paramResult.error) return paramResult.error
+    const { id } = paramResult.data
+
+    const bodyResult = validateBody(await request.json(), createInvoiceBody)
+    if (bodyResult.error) return bodyResult.error
+    const body = bodyResult.data
+
     const supabase = await createClient()
 
     // Get work item
@@ -19,35 +31,23 @@ export async function POST(
       .single()
 
     if (fetchError || !workItem) {
-      return NextResponse.json(
-        { error: 'Work item not found' },
-        { status: 404 }
-      )
+      return notFound('Work item not found')
     }
 
     if (!workItem.customer_email) {
-      return NextResponse.json(
-        { error: 'Customer email required to create invoice' },
-        { status: 400 }
-      )
+      return badRequest('Customer email required to create invoice')
     }
 
     // Check if production invoice already exists
     if (workItem.shopify_order_id) {
-      return NextResponse.json(
-        { error: 'Production invoice already created for this lead' },
-        { status: 400 }
-      )
+      return badRequest('Production invoice already created for this lead')
     }
 
     // Get production total from request or estimated value
     const productionTotal = body.amount || workItem.estimated_value || 0
 
     if (productionTotal <= 0) {
-      return NextResponse.json(
-        { error: 'Production amount required' },
-        { status: 400 }
-      )
+      return badRequest('Production amount required')
     }
 
     // Apply design fee credit if applicable
@@ -64,34 +64,42 @@ export async function POST(
     )
 
     if (!result.success) {
-      return NextResponse.json(
-        { error: result.error || 'Failed to create draft order' },
-        { status: 500 }
-      )
+      return serverError(result.error || 'Failed to create draft order')
     }
 
-    // Update work item with draft order info
+    // Update work item with draft order info + status change
     // Note: We store as shopify_draft_order_id, not shopify_order_id
     // shopify_order_id is set when customer actually pays
+    const oldStatus = workItem.status
+    const newStatus = 'invoice_sent'
+
     const { error: updateError } = await supabase
       .from('work_items')
       .update({
         shopify_draft_order_id: result.draftOrderId,
         shopify_customer_id: result.customerId,
-        status: 'invoice_sent',
+        status: newStatus,
       })
       .eq('id', id)
 
     if (updateError) {
-      console.error('[API] Failed to update work item:', updateError)
-      return NextResponse.json(
-        { error: 'Failed to update work item with invoice details' },
-        { status: 500 }
-      )
+      log.error('Failed to update work item', { error: updateError })
+      return serverError('Failed to update work item with invoice details')
+    }
+
+    // Create audit trail for status change
+    const { data: { user } } = await supabase.auth.getUser()
+    if (oldStatus !== newStatus) {
+      await supabase.from('work_item_status_events').insert({
+        work_item_id: id,
+        from_status: oldStatus,
+        to_status: newStatus,
+        changed_by_user_id: user?.id || null,
+        note: `Production invoice created: ${result.draftOrderNumber}`,
+      })
     }
 
     // Create internal note
-    const { data: { user } } = await supabase.auth.getUser()
     await supabase.from('work_item_notes').insert({
       work_item_id: id,
       content: `Created production invoice in Shopify: ${result.draftOrderNumber}\nAmount: $${productionTotal}${designFeeCredit > 0 ? ` (with $${designFeeCredit} design fee credit)` : ''}\nInvoice URL: ${result.invoiceUrl}`,
@@ -105,10 +113,7 @@ export async function POST(
       invoiceUrl: result.invoiceUrl,
     })
   } catch (error: any) {
-    console.error('[API] Error creating production invoice:', error)
-    return NextResponse.json(
-      { error: error.message || 'Internal server error' },
-      { status: 500 }
-    )
+    log.error('Error creating production invoice', { error })
+    return serverError(error.message || 'Internal server error')
   }
 }

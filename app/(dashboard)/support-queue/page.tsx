@@ -12,9 +12,11 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Flag, Mail, MessageSquare, Archive, Package } from 'lucide-react'
 import { parseEmailAddress, extractEmailPreview } from '@/lib/utils/email-formatting'
+import { toast } from 'sonner'
 
 export default function SupportQueuePage() {
-  const { data: supportEmails = [], isLoading } = useFlaggedSupportEmails()
+  const { data: supportResult, isLoading } = useFlaggedSupportEmails()
+  const supportEmails = supportResult?.items ?? []
   const triageEmail = useTriageEmail()
   const createWorkItem = useCreateWorkItem()
 
@@ -62,8 +64,31 @@ export default function SupportQueuePage() {
   }
 
   const handleSendReply = async () => {
-    // TODO: Implement send email functionality
-    // For now, just close the dialog
+    if (!selectedEmail || !replyForm.body.trim()) return
+
+    try {
+      const res = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: selectedEmail.from_email,
+          subject: replyForm.subject,
+          body: replyForm.body,
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to send email')
+
+      // Mark email as replied so it leaves the support queue
+      await triageEmail.mutateAsync({
+        id: selectedEmail.id,
+        triageStatus: 'archived',
+      })
+
+      toast.success('Reply sent successfully')
+    } catch {
+      toast.error('Failed to send reply')
+    }
+
     setShowReplyDialog(false)
     setSelectedEmail(null)
   }

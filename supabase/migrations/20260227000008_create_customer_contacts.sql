@@ -26,9 +26,9 @@ CREATE TABLE IF NOT EXISTS customer_contacts (
 );
 
 -- Indexes
-CREATE INDEX idx_customer_contacts_customer ON customer_contacts(customer_id);
-CREATE INDEX idx_customer_contacts_email ON customer_contacts(email);
-CREATE INDEX idx_customer_contacts_primary ON customer_contacts(customer_id) WHERE is_primary = TRUE;
+CREATE INDEX IF NOT EXISTS idx_customer_contacts_customer ON customer_contacts(customer_id);
+CREATE INDEX IF NOT EXISTS idx_customer_contacts_email ON customer_contacts(email);
+CREATE INDEX IF NOT EXISTS idx_customer_contacts_primary ON customer_contacts(customer_id) WHERE is_primary = TRUE;
 
 -- Update timestamp trigger
 CREATE OR REPLACE FUNCTION update_customer_contacts_updated_at()
@@ -39,6 +39,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS customer_contacts_updated_at ON customer_contacts;
 CREATE TRIGGER customer_contacts_updated_at
   BEFORE UPDATE ON customer_contacts
   FOR EACH ROW

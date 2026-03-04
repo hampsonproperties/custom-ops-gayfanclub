@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Search, Download, CheckCircle2, XCircle, Palette, ClipboardCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { logger } from '@/lib/logger'
 
 type ShopifyOrder = {
   id: number
@@ -27,6 +28,8 @@ type ShopifyOrder = {
   lineItemsCount: number
   isImported?: boolean
 }
+
+const log = logger('import-orders')
 
 export default function ImportOrdersPage() {
   const [query, setQuery] = useState('')
@@ -63,7 +66,7 @@ export default function ImportOrdersPage() {
         toast.success(`Found ${data.orders.length} order${data.orders.length > 1 ? 's' : ''}`)
       }
     } catch (error) {
-      console.error(error)
+      log.error('Order search failed', { error })
       toast.error(error instanceof Error ? error.message : 'Search failed')
     } finally {
       setSearching(false)
@@ -99,7 +102,7 @@ export default function ImportOrdersPage() {
 
       setImportedIds(prev => new Set(prev).add(orderId))
     } catch (error) {
-      console.error(error)
+      log.error('Order import failed', { error })
       toast.error(error instanceof Error ? error.message : 'Import failed')
     } finally {
       setImportingId(null)

@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { validateBody } from '@/lib/api/validate'
+import { reprocessWebhookBody } from '@/lib/api/schemas'
+import { badRequest, notFound, serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('api-webhooks-reprocess')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export async function POST(request: NextRequest) {
   try {
-    const { webhookId } = await request.json()
-
-    if (!webhookId) {
-      return NextResponse.json({ error: 'webhookId required' }, { status: 400 })
-    }
+    const bodyResult = validateBody(await request.json(), reprocessWebhookBody)
+    if (bodyResult.error) return bodyResult.error
+    const { webhookId } = bodyResult.data
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
@@ -22,24 +26,18 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (fetchError || !webhookEvent) {
-      return NextResponse.json({ error: 'Webhook event not found' }, { status: 404 })
+      return notFound('Webhook event not found')
     }
 
     // Check retry limit
     const maxRetries = 3
     if (webhookEvent.retry_count >= maxRetries) {
-      return NextResponse.json(
-        { error: `Maximum retry limit (${maxRetries}) exceeded` },
-        { status: 400 }
-      )
+      return badRequest(`Maximum retry limit (${maxRetries}) exceeded`)
     }
 
     // Check if already completed
     if (webhookEvent.processing_status === 'completed') {
-      return NextResponse.json(
-        { error: 'Webhook already processed successfully' },
-        { status: 400 }
-      )
+      return badRequest('Webhook already processed successfully')
     }
 
     // Mark as processing
@@ -90,11 +88,8 @@ export async function POST(request: NextRequest) {
       throw processingError
     }
   } catch (error) {
-    console.error('Reprocess error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Reprocessing failed' },
-      { status: 500 }
-    )
+    log.error('Reprocess error', { error })
+    return serverError(error instanceof Error ? error.message : 'Reprocessing failed')
   }
 }
 

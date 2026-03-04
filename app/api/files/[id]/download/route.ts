@@ -1,5 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { unauthorized, notFound, serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('api-files-download')
 
 export async function GET(
   request: NextRequest,
@@ -12,7 +16,7 @@ export async function GET(
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return unauthorized('Unauthorized')
     }
 
     // Get file record from database
@@ -23,7 +27,7 @@ export async function GET(
       .single()
 
     if (fileError || !file) {
-      return NextResponse.json({ error: 'File not found' }, { status: 404 })
+      return notFound('File not found')
     }
 
     // Generate signed URL (valid for 1 hour)
@@ -32,8 +36,8 @@ export async function GET(
       .createSignedUrl(file.file_path, 3600)
 
     if (signError || !signedData) {
-      console.error('Error generating signed URL:', signError)
-      return NextResponse.json({ error: 'Failed to generate download URL' }, { status: 500 })
+      log.error('Error generating signed URL', { error: signError })
+      return serverError('Failed to generate download URL')
     }
 
     return NextResponse.json({
@@ -42,9 +46,7 @@ export async function GET(
     })
 
   } catch (error: any) {
-    console.error('Download error:', error)
-    return NextResponse.json({
-      error: error.message || 'Internal server error'
-    }, { status: 500 })
+    log.error('Download error', { error })
+    return serverError(error.message || 'Internal server error')
   }
 }

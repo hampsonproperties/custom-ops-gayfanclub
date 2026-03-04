@@ -71,6 +71,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import DOMPurify from 'dompurify'
 import { toast } from 'sonner'
 import { parseEmailAddress, extractEmailPreview } from '@/lib/utils/email-formatting'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 
 type EmailCategory = 'primary' | 'promotional' | 'spam' | 'notifications'
 type EmailTab = EmailCategory | 'support'  // Support is a tab, not a category
@@ -245,6 +246,8 @@ export default function EmailIntakePage() {
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set())
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [viewMode, setViewMode] = useState<'html' | 'text'>('text')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 25
 
   // UI state
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null)
@@ -259,14 +262,19 @@ export default function EmailIntakePage() {
 
   // Hooks
   // Fetch emails based on active tab
-  const { data: categoryEmails, isLoading: categoryLoading, refetch: refetchCategory } = useEmailsByCategory(
+  const { data: categoryResult, isLoading: categoryLoading, refetch: refetchCategory } = useEmailsByCategory(
     activeCategory === 'support' ? 'primary' : activeCategory,
-    'untriaged'
+    'untriaged',
+    { page, pageSize: PAGE_SIZE }
   )
-  const { data: supportEmails, isLoading: supportLoading, refetch: refetchSupport } = useFlaggedSupportEmails()
+  const { data: supportResult, isLoading: supportLoading, refetch: refetchSupport } = useFlaggedSupportEmails(
+    { page, pageSize: PAGE_SIZE }
+  )
 
   // Use support emails when on support tab, otherwise use category emails
-  const emails = activeCategory === 'support' ? supportEmails : categoryEmails
+  const emailResult = activeCategory === 'support' ? supportResult : categoryResult
+  const emails = emailResult?.items
+  const totalCount = emailResult?.totalCount ?? 0
   const isLoading = activeCategory === 'support' ? supportLoading : categoryLoading
   const refetch = activeCategory === 'support' ? refetchSupport : refetchCategory
 
@@ -601,7 +609,7 @@ export default function EmailIntakePage() {
       </div>
 
       {/* Category Tabs */}
-      <Tabs value={activeCategory} onValueChange={(v) => setActiveCategory(v as EmailTab)}>
+      <Tabs value={activeCategory} onValueChange={(v) => { setActiveCategory(v as EmailTab); setPage(1) }}>
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="primary" className="gap-2">
             {getCategoryIcon('primary')}
@@ -615,9 +623,9 @@ export default function EmailIntakePage() {
           <TabsTrigger value="support" className="gap-2">
             <Flag className="h-4 w-4" />
             Support
-            {supportEmails && supportEmails.length > 0 && (
+            {(supportResult?.totalCount ?? 0) > 0 && (
               <Badge variant="secondary" className="ml-1">
-                {supportEmails.length}
+                {supportResult?.totalCount ?? 0}
               </Badge>
             )}
           </TabsTrigger>
@@ -860,6 +868,7 @@ export default function EmailIntakePage() {
                   </CardContent>
                 </Card>
               ))}
+              <PaginationControls page={page} pageSize={PAGE_SIZE} totalCount={totalCount} onPageChange={setPage} />
             </div>
           )}
         </TabsContent>

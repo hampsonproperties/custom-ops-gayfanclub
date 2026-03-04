@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getShopifyCredentials } from '@/lib/shopify/get-credentials'
 import { detectOrderType } from '@/lib/shopify/detect-order-type'
+import { validateBody } from '@/lib/api/validate'
+import { importSingleOrderBody } from '@/lib/api/schemas'
+import { logger } from '@/lib/logger'
+import { badRequest, serverError } from '@/lib/api/errors'
+import { SHOPIFY_API_VERSION } from '@/lib/config'
+
+const log = logger('shopify-import-single-order')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -10,17 +17,15 @@ export async function POST(request: NextRequest) {
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
   try {
-    const { orderId } = await request.json()
-
-    if (!orderId) {
-      return NextResponse.json({ error: 'Order ID is required' }, { status: 400 })
-    }
+    const bodyResult = validateBody(await request.json(), importSingleOrderBody)
+    if (bodyResult.error) return bodyResult.error
+    const { orderId } = bodyResult.data
 
     // Get stored credentials from database
     const { shop: shopifyDomain, accessToken: shopifyToken } = await getShopifyCredentials()
 
     const response = await fetch(
-      `https://${shopifyDomain}/admin/api/2024-01/orders/${orderId}.json`,
+      `https://${shopifyDomain}/admin/api/${SHOPIFY_API_VERSION}/orders/${orderId}.json`,
       {
         headers: {
           'X-Shopify-Access-Token': shopifyToken,
@@ -55,10 +60,7 @@ export async function POST(request: NextRequest) {
     const orderType = detectOrderType(order)
 
     if (!orderType) {
-      return NextResponse.json(
-        { error: 'Not a custom order (not Customify or Custom Design Service)' },
-        { status: 400 }
-      )
+      return badRequest('Not a custom order (not Customify or Custom Design Service)')
     }
 
     // Extract data from order
@@ -183,7 +185,7 @@ export async function POST(request: NextRequest) {
               .eq('id', existingWorkItem.id)
           }
         } catch (followUpError) {
-          console.error('[Import Order - Design Fee] Error calculating follow-up:', followUpError)
+          log.error('Error calculating follow-up for design fee order', { error: followUpError })
         }
 
         // Auto-link recent emails from this customer
@@ -214,7 +216,7 @@ export async function POST(request: NextRequest) {
               })
               .in('id', recentEmails.map((e: any) => e.id))
 
-            console.log(`Auto-linked ${recentEmails.length} emails to work item ${workItemId}`)
+            log.info('Auto-linked emails to work item', { emailCount: recentEmails.length, workItemId })
           }
         }
 
@@ -240,7 +242,7 @@ export async function POST(request: NextRequest) {
         .limit(1)
         .maybeSingle()
 
-      console.log('Linking search result:', { existingWorkItem, linkError, customerEmail })
+      log.info('Linking search result', { existingWorkItem, linkError, customerEmail })
 
       if (existingWorkItem) {
         // Update existing work item with production order details
@@ -281,7 +283,7 @@ export async function POST(request: NextRequest) {
               .eq('id', existingWorkItem.id)
           }
         } catch (followUpError) {
-          console.error('[Import Order - Production] Error calculating follow-up:', followUpError)
+          log.error('Error calculating follow-up for production order', { error: followUpError })
         }
 
         // Auto-link recent emails from this customer
@@ -308,7 +310,7 @@ export async function POST(request: NextRequest) {
               })
               .in('id', recentEmails.map((e: any) => e.id))
 
-            console.log(`Auto-linked ${recentEmails.length} emails to work item ${workItemId}`)
+            log.info('Auto-linked emails to work item', { emailCount: recentEmails.length, workItemId })
           }
         }
 
@@ -426,7 +428,7 @@ export async function POST(request: NextRequest) {
           })
           .in('id', recentEmails.map((e: any) => e.id))
 
-        console.log(`Auto-linked ${recentEmails.length} emails to new work item ${workItemId}`)
+        log.info('Auto-linked emails to new work item', { emailCount: recentEmails.length, workItemId })
       }
     }
 
@@ -438,10 +440,7 @@ export async function POST(request: NextRequest) {
       message: 'Order imported successfully',
     })
   } catch (error) {
-    console.error('Import error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Import failed' },
-      { status: 500 }
-    )
+    log.error('Import error', { error })
+    return serverError(error instanceof Error ? error.message : 'Import failed')
   }
 }

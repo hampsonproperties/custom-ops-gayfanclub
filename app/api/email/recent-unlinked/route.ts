@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
+import { serverError } from '@/lib/api/errors'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const log = logger('email-recent-unlinked')
+
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = await createClient()
 
     // Get work item ID and customer email from query params
     const { searchParams } = new URL(request.url)
@@ -34,12 +36,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ emails: emails || [] })
   } catch (error) {
-    console.error('Recent emails error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to fetch emails',
-      },
-      { status: 500 }
-    )
+    log.error('Recent emails error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to fetch emails')
   }
 }

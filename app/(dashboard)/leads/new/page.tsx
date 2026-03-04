@@ -14,6 +14,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { formatDistanceToNow } from 'date-fns'
+import { logger } from '@/lib/logger'
 
 interface ShopifyCustomerInfo {
   exists: boolean
@@ -29,6 +30,8 @@ interface ShopifyCustomerInfo {
     created_at: string
   }
 }
+
+const log = logger('lead-new')
 
 export default function NewLeadPage() {
   const router = useRouter()
@@ -73,7 +76,7 @@ export default function NewLeadPage() {
           }
         }
       } catch (error) {
-        console.error('Failed to lookup customer:', error)
+        log.error('Failed to lookup customer', { error })
       } finally {
         setIsCheckingShopify(false)
       }
@@ -163,7 +166,7 @@ export default function NewLeadPage() {
       toast.success('Lead created successfully!')
       router.push(`/work-items/${workItem.id}`)
     } catch (error: any) {
-      console.error('Failed to create lead:', error)
+      log.error('Failed to create lead', { error })
       toast.error(error.message || 'Failed to create lead')
     } finally {
       setIsSubmitting(false)

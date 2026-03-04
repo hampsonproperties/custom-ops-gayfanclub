@@ -3,6 +3,10 @@ import { Client } from '@microsoft/microsoft-graph-client'
 import { ClientSecretCredential } from '@azure/identity'
 import 'isomorphic-fetch'
 import { importEmail, isJunkEmail } from '@/lib/utils/email-import'
+import { logger } from '@/lib/logger'
+import { serverError } from '@/lib/api/errors'
+
+const log = logger('email-import')
 
 function getGraphClient() {
   const credential = new ClientSecretCredential(
@@ -23,7 +27,11 @@ function getGraphClient() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { limit = 100, daysBack = 60 } = await request.json()
+    const { validateBody } = await import('@/lib/api/validate')
+    const { importEmailsBody } = await import('@/lib/api/schemas')
+    const bodyResult = validateBody(await request.json(), importEmailsBody)
+    if (bodyResult.error) return bodyResult.error
+    const { limit = 100, daysBack = 60 } = bodyResult.data
     const mailboxEmail = process.env.MICROSOFT_MAILBOX_EMAIL || 'sales@thegayfanclub.com'
 
     const client = getGraphClient()
@@ -44,7 +52,7 @@ export async function POST(request: NextRequest) {
       .orderby('receivedDateTime desc')
       .get()
 
-    console.log(`[Email Import] Fetched ${messages.value.length} emails from mailbox`)
+    log.info('Fetched emails from mailbox', { count: messages.value.length })
 
     let imported = 0
     let skipped = 0
@@ -58,7 +66,7 @@ export async function POST(request: NextRequest) {
       // Skip obvious junk emails (form submissions are exempt)
       if (isJunkEmail(fromEmail, subject)) {
         filtered++
-        console.log(`[Email Import] Filtered junk email from: ${fromEmail}`)
+        log.info('Filtered junk email', { fromEmail })
         continue
       }
 
@@ -71,9 +79,9 @@ export async function POST(request: NextRequest) {
             .get()
 
           message.attachments = attachments.value || []
-          console.log(`[Email Import] Fetched ${message.attachments.length} attachments for: ${subject}`)
+          log.info('Fetched attachments for message', { count: message.attachments.length, subject })
         } catch (err) {
-          console.error(`[Email Import] Failed to fetch attachments for ${message.id}:`, err)
+          log.error('Failed to fetch attachments', { error: err, messageId: message.id })
           message.attachments = []
         }
       }
@@ -88,12 +96,12 @@ export async function POST(request: NextRequest) {
           skipped++
         }
       } else {
-        console.error(`[Email Import] Failed to import: ${result.error}`)
+        log.error('Failed to import email', { error: result.error })
         // Continue with next email even if one fails
       }
     }
 
-    console.log(`[Email Import] Complete: ${imported} imported, ${skipped} duplicates, ${filtered} junk`)
+    log.info('Import complete', { imported, skipped: skipped, filtered })
 
     return NextResponse.json({
       success: true,
@@ -103,10 +111,7 @@ export async function POST(request: NextRequest) {
       total: messages.value.length,
     })
   } catch (error) {
-    console.error('[Email Import] Error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to import emails' },
-      { status: 500 }
-    )
+    log.error('Error during email import', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to import emails')
   }
 }

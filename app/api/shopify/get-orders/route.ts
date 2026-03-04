@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getShopifyCredentials } from '@/lib/shopify/get-credentials'
+import { logger } from '@/lib/logger'
+import { badRequest } from '@/lib/api/errors'
+
+const log = logger('shopify-get-orders')
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,10 +13,7 @@ export async function GET(request: NextRequest) {
     const email = searchParams.get('email')
 
     if (orderIds.length === 0 && !customerId && !email) {
-      return NextResponse.json(
-        { error: 'Either orderIds, customerId, or email parameter required' },
-        { status: 400 }
-      )
+      return badRequest('Either orderIds, customerId, or email parameter required')
     }
 
     const { shop, accessToken } = await getShopifyCredentials()
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
           orders.push(data.order)
         }
       } catch (error) {
-        console.error(`[Shopify] Failed to fetch order ${orderId}:`, error)
+        log.error('Failed to fetch order', { orderId, error })
       }
     }
 
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
           customerOrders = ordersData.orders || []
         }
       } catch (error) {
-        console.error('[Shopify] Failed to fetch customer orders by ID:', error)
+        log.error('Failed to fetch customer orders by ID', { customerId, error })
       }
     } else if (email) {
       // Fallback to email lookup
@@ -100,7 +101,7 @@ export async function GET(request: NextRequest) {
           }
         }
       } catch (error) {
-        console.error('[Shopify] Failed to fetch customer orders by email:', error)
+        log.error('Failed to fetch customer orders by email', { email, error })
       }
     }
 
@@ -120,7 +121,7 @@ export async function GET(request: NextRequest) {
       count: allOrders.length,
     })
   } catch (error: any) {
-    console.error('[API] Get orders error:', error)
+    log.error('Get orders error', { error })
     return NextResponse.json(
       { error: 'Failed to fetch orders', message: error.message },
       { status: 500 }

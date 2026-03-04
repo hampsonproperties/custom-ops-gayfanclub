@@ -21,6 +21,9 @@ import type { Database } from '@/types/database'
 import type { WorkItemStatus } from '@/types/database'
 import { toast } from 'sonner'
 import { AlertCircle } from 'lucide-react'
+import { logger } from '@/lib/logger'
+
+const log = logger('change-status-dialog')
 
 type WorkItem = Database['public']['Tables']['work_items']['Row']
 
@@ -78,7 +81,7 @@ export function ChangeStatusDialog({
       onOpenChange(false)
     } catch (error) {
       toast.error('Failed to update status')
-      console.error('Status update error:', error)
+      log.error('Status update error', { error })
     }
   }
 

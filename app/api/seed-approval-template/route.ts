@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('api-seed-approval-template')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -65,7 +69,7 @@ export async function POST(request: NextRequest) {
       .select()
 
     if (error) {
-      console.error('Failed to seed template:', error)
+      log.error('Failed to seed template', { error })
       return NextResponse.json(
         { error: 'Failed to seed template', details: error.message },
         { status: 500 }
@@ -78,10 +82,7 @@ export async function POST(request: NextRequest) {
       template: data,
     })
   } catch (error) {
-    console.error('Seed template error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to seed template' },
-      { status: 500 }
-    )
+    log.error('Seed template error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to seed template')
   }
 }

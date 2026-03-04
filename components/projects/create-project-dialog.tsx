@@ -26,6 +26,9 @@ import { toast } from 'sonner'
 import { Loader2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useQuery } from '@tanstack/react-query'
+import { logger } from '@/lib/logger'
+
+const log = logger('create-project-dialog')
 
 interface CreateProjectDialogProps {
   trigger?: React.ReactNode
@@ -106,7 +109,7 @@ export function CreateProjectDialog({
         .single()
 
       if (error) {
-        console.error('Error creating project:', error)
+        log.error('Error creating project', { error })
         throw new Error(error.message)
       }
 
@@ -150,7 +153,7 @@ export function CreateProjectDialog({
       }
 
     } catch (error: any) {
-      console.error('Create project error:', error)
+      log.error('Create project error', { error })
       toast.error(error.message || 'Failed to create project')
     } finally {
       setIsCreating(false)

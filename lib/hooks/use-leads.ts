@@ -38,12 +38,22 @@ export interface LeadsFilters {
   status?: LeadStatus | 'all'
   leadSource?: string | 'all'
   search?: string
+  page?: number
+  pageSize?: number
+}
+
+export interface PaginatedLeadsResult {
+  items: Lead[]
+  totalCount: number
 }
 
 export function useLeads(filters: LeadsFilters = {}) {
+  const isPaginated = filters.page !== undefined
+  const pageSize = filters.pageSize ?? 25
+
   return useQuery({
     queryKey: ['leads', filters],
-    queryFn: async () => {
+    queryFn: async (): Promise<PaginatedLeadsResult> => {
       const supabase = createClient()
 
       // Get current user for "my leads" filter
@@ -51,7 +61,7 @@ export function useLeads(filters: LeadsFilters = {}) {
 
       let query = supabase
         .from('work_items')
-        .select('*')
+        .select('*', isPaginated ? { count: 'exact' } : {})
         .eq('type', 'assisted_project')
         .in('status', [
           'new_inquiry',
@@ -91,11 +101,18 @@ export function useLeads(filters: LeadsFilters = {}) {
         )
       }
 
-      const { data, error } = await query
+      // Apply pagination range
+      if (isPaginated) {
+        const from = (filters.page! - 1) * pageSize
+        const to = from + pageSize - 1
+        query = query.range(from, to)
+      }
+
+      const { data, error, count } = await query
 
       if (error) throw error
 
-      return data as Lead[]
+      return { items: (data ?? []) as Lead[], totalCount: count ?? data?.length ?? 0 }
     },
   })
 }

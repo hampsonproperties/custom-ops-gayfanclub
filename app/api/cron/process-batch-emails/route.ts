@@ -7,6 +7,11 @@ import {
   markQueueItemFailed,
   cancelBatchEmail,
 } from '@/lib/email/batch-emails'
+import { addToDLQ } from '@/lib/utils/dead-letter-queue'
+import { unauthorized, serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('cron-batch-emails')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -18,7 +23,7 @@ export async function GET(request: NextRequest) {
     const cronSecret = process.env.CRON_SECRET
 
     if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return unauthorized('Unauthorized')
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
@@ -32,8 +37,8 @@ export async function GET(request: NextRequest) {
       .limit(50) // Process max 50 emails per run
 
     if (fetchError) {
-      console.error('Failed to fetch pending emails:', fetchError)
-      return NextResponse.json({ error: 'Failed to fetch pending emails' }, { status: 500 })
+      log.error('Failed to fetch pending emails', { error: fetchError })
+      return serverError('Failed to fetch pending emails')
     }
 
     const results = {
@@ -56,7 +61,7 @@ export async function GET(request: NextRequest) {
           // Cancel the email
           await cancelBatchEmail(queueItem.id, verification.reason || 'Conditions changed')
           results.cancelled++
-          console.log(`Cancelled email ${queueItem.id}: ${verification.reason}`)
+          log.info('Cancelled email', { queueItemId: queueItem.id, reason: verification.reason })
           continue
         }
 
@@ -72,7 +77,7 @@ export async function GET(request: NextRequest) {
         if (alreadySent) {
           await cancelBatchEmail(queueItem.id, 'Email already sent')
           results.skipped++
-          console.log(`Skipped duplicate email ${queueItem.id}`)
+          log.info('Skipped duplicate email', { queueItemId: queueItem.id })
           continue
         }
 
@@ -90,21 +95,53 @@ export async function GET(request: NextRequest) {
           // Mark as sent
           await markQueueItemSent(queueItem.id)
           results.sent++
-          console.log(`Sent email ${queueItem.id} to ${queueItem.recipient_email}`)
+          log.info('Sent email', { queueItemId: queueItem.id, recipientEmail: queueItem.recipient_email })
         } else {
-          // Mark as failed
+          // Mark as failed in queue
           await markQueueItemFailed(queueItem.id, sendResult.error || 'Unknown error')
           results.failed++
           results.errors.push(`${queueItem.id}: ${sendResult.error}`)
-          console.error(`Failed to send email ${queueItem.id}:`, sendResult.error)
+          log.error('Failed to send email', { queueItemId: queueItem.id, error: sendResult.error })
+
+          // Add to Dead Letter Queue for visibility and retry tracking
+          await addToDLQ({
+            operationType: 'email_send',
+            operationKey: `batch_email:${queueItem.batch_id}:${queueItem.work_item_id}:${queueItem.email_type}`,
+            errorMessage: sendResult.error || 'Unknown error',
+            operationPayload: {
+              queueItemId: queueItem.id,
+              batchId: queueItem.batch_id,
+              workItemId: queueItem.work_item_id,
+              emailType: queueItem.email_type,
+              recipientEmail: queueItem.recipient_email,
+            },
+            workItemId: queueItem.work_item_id,
+          })
         }
       } catch (error) {
-        // Mark as failed
+        // Mark as failed in queue
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        const errorStack = error instanceof Error ? error.stack : undefined
         await markQueueItemFailed(queueItem.id, errorMessage)
         results.failed++
         results.errors.push(`${queueItem.id}: ${errorMessage}`)
-        console.error(`Error processing email ${queueItem.id}:`, error)
+        log.error('Error processing email', { queueItemId: queueItem.id, error })
+
+        // Add to Dead Letter Queue for visibility and retry tracking
+        await addToDLQ({
+          operationType: 'email_send',
+          operationKey: `batch_email:${queueItem.batch_id}:${queueItem.work_item_id}:${queueItem.email_type}`,
+          errorMessage,
+          errorStack,
+          operationPayload: {
+            queueItemId: queueItem.id,
+            batchId: queueItem.batch_id,
+            workItemId: queueItem.work_item_id,
+            emailType: queueItem.email_type,
+            recipientEmail: queueItem.recipient_email,
+          },
+          workItemId: queueItem.work_item_id,
+        })
       }
     }
 
@@ -114,10 +151,7 @@ export async function GET(request: NextRequest) {
       ...results,
     })
   } catch (error) {
-    console.error('Process batch emails cron error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to process batch emails' },
-      { status: 500 }
-    )
+    log.error('Process batch emails cron error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to process batch emails')
   }
 }

@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 import JSZip from 'jszip'
+import { serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const log = logger('batch-export')
+
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  const supabase = await createClient()
   const { id } = await params
 
   try {
@@ -46,10 +48,10 @@ export async function GET(
       f.version === 2 || f.original_filename.includes('design-design')
     )
 
-    console.log(`Found ${files?.length || 0} preview files (version 2) for ${workItemIds.length} work items`)
+    log.info('Found preview files (version 2)', { fileCount: files?.length || 0, workItemCount: workItemIds.length })
     if (files) {
       files.forEach((f: any) => {
-        console.log(`  - Work Item: ${f.work_item_id}, File: ${f.original_filename}, Version: ${f.version}, Storage: ${f.storage_path}`)
+        log.info('Preview file details', { workItemId: f.work_item_id, filename: f.original_filename, version: f.version, storagePath: f.storage_path })
       })
     }
 
@@ -139,7 +141,7 @@ export async function GET(
 
       if (designFile && designsFolder) {
         try {
-          console.log(`Downloading file for ${workItem.customer_name}: ${designFile.storage_path}`)
+          log.info('Downloading file', { customerName: workItem.customer_name, storagePath: designFile.storage_path })
 
           // Check if storage_path is a URL or a Supabase path
           let fileData: ArrayBuffer
@@ -177,12 +179,12 @@ export async function GET(
 
           const fileName = `${i + 1}_${workItem.customer_name?.replace(/[^a-z0-9]/gi, '_') || 'design'}.${extension}`
           designsFolder.file(fileName, fileData)
-          console.log(`Added file to zip: ${fileName} (${fileData.byteLength} bytes)`)
+          log.info('Added file to zip', { fileName, bytes: fileData.byteLength })
         } catch (error) {
-          console.error(`Failed to download file for ${workItem.customer_name}:`, error)
+          log.error('Failed to download file', { customerName: workItem.customer_name, error })
         }
       } else {
-        console.log(`No design file found for ${workItem.customer_name}`)
+        log.info('No design file found', { customerName: workItem.customer_name })
       }
     }
 
@@ -230,10 +232,7 @@ ${batch.tracking_number ? `Tracking Number: ${batch.tracking_number}` : ''}
       },
     })
   } catch (error) {
-    console.error('Batch export error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Export failed' },
-      { status: 500 }
-    )
+    log.error('Batch export error', { error })
+    return serverError(error instanceof Error ? error.message : 'Export failed')
   }
 }

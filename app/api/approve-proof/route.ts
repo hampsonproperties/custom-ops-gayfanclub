@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import jwt from 'jsonwebtoken'
+import { badRequest, unauthorized, notFound, serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('approve-proof')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -18,10 +22,7 @@ export async function GET(request: NextRequest) {
     const token = searchParams.get('token')
 
     if (!token) {
-      return NextResponse.json(
-        { error: 'Missing token parameter' },
-        { status: 400 }
-      )
+      return badRequest('Missing token parameter')
     }
 
     // Verify and decode JWT token
@@ -30,15 +31,9 @@ export async function GET(request: NextRequest) {
       payload = jwt.verify(token, jwtSecret) as TokenPayload
     } catch (error) {
       if (error instanceof jwt.TokenExpiredError) {
-        return NextResponse.json(
-          { error: 'Token has expired' },
-          { status: 401 }
-        )
+        return unauthorized('Token has expired')
       }
-      return NextResponse.json(
-        { error: 'Invalid token' },
-        { status: 401 }
-      )
+      return unauthorized('Invalid token')
     }
 
     const { workItemId, action } = payload
@@ -53,27 +48,18 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (tokenError || !tokenRecord) {
-      return NextResponse.json(
-        { error: 'Token not found' },
-        { status: 404 }
-      )
+      return notFound('Token not found')
     }
 
     if (tokenRecord.used_at) {
-      return NextResponse.json(
-        { error: 'Token has already been used' },
-        { status: 400 }
-      )
+      return badRequest('Token has already been used')
     }
 
     // Check if token is expired
     const now = new Date()
     const expiresAt = new Date(tokenRecord.expires_at)
     if (now > expiresAt) {
-      return NextResponse.json(
-        { error: 'Token has expired' },
-        { status: 401 }
-      )
+      return unauthorized('Token has expired')
     }
 
     // Mark token as used
@@ -90,10 +76,7 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (workItemError || !workItem) {
-      return NextResponse.json(
-        { error: 'Work item not found' },
-        { status: 404 }
-      )
+      return notFound('Work item not found')
     }
 
     // Update work item approval status and status
@@ -124,11 +107,8 @@ export async function GET(request: NextRequest) {
       .eq('id', workItemId)
 
     if (updateError) {
-      console.error('Failed to update work item:', updateError)
-      return NextResponse.json(
-        { error: 'Failed to update work item' },
-        { status: 500 }
-      )
+      log.error('Failed to update work item', { error: updateError, workItemId })
+      return serverError('Failed to update work item')
     }
 
     // Recalculate next follow-up after status change
@@ -143,7 +123,7 @@ export async function GET(request: NextRequest) {
           .eq('id', workItemId)
       }
     } catch (followUpError) {
-      console.error('[Approve Proof] Error calculating follow-up:', followUpError)
+      log.error('Error calculating follow-up', { error: followUpError, workItemId })
       // Don't fail the whole operation if follow-up calc fails
     }
 
@@ -153,12 +133,7 @@ export async function GET(request: NextRequest) {
       `${baseUrl}/approve-proof?success=true&action=${action}&workItemId=${workItemId}`
     )
   } catch (error) {
-    console.error('Approve proof error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to process approval',
-      },
-      { status: 500 }
-    )
+    log.error('Approve proof error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to process approval')
   }
 }

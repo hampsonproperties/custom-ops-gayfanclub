@@ -1,5 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { unauthorized, serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('cron-email-priority')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -22,19 +26,13 @@ export async function GET(request: Request) {
     const cronSecret = process.env.CRON_SECRET
 
     if (!cronSecret) {
-      console.error('CRON_SECRET not configured')
-      return NextResponse.json(
-        { error: 'Cron secret not configured' },
-        { status: 500 }
-      )
+      log.error('CRON_SECRET not configured')
+      return serverError('Cron secret not configured')
     }
 
     if (authHeader !== `Bearer ${cronSecret}`) {
-      console.error('Unauthorized cron request')
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      log.error('Unauthorized cron request')
+      return unauthorized('Unauthorized')
     }
 
     // Use service role key for cron job
@@ -61,10 +59,10 @@ export async function GET(request: Request) {
       .select('id')
 
     if (error1) {
-      console.error('Error updating high priority inbound:', error1)
+      log.error('Error updating high priority inbound', { error: error1 })
     } else {
       totalUpdated += highPriorityInbound?.length || 0
-      console.log(`Set ${highPriorityInbound?.length || 0} inbound emails to HIGH priority (>48h old)`)
+      log.info('Set inbound emails to HIGH priority (>48h old)', { count: highPriorityInbound?.length || 0 })
     }
 
     // ========================================================================
@@ -83,10 +81,10 @@ export async function GET(request: Request) {
       .select('id')
 
     if (error2) {
-      console.error('Error updating medium-high priority inbound:', error2)
+      log.error('Error updating medium-high priority inbound', { error: error2 })
     } else {
       totalUpdated += mediumHighInbound?.length || 0
-      console.log(`Set ${mediumHighInbound?.length || 0} inbound emails to HIGH priority (>24h old)`)
+      log.info('Set inbound emails to HIGH priority (>24h old)', { count: mediumHighInbound?.length || 0 })
     }
 
     // ========================================================================
@@ -105,10 +103,10 @@ export async function GET(request: Request) {
       .select('id')
 
     if (error3) {
-      console.error('Error updating medium priority outbound:', error3)
+      log.error('Error updating medium priority outbound', { error: error3 })
     } else {
       totalUpdated += mediumPriorityOutbound?.length || 0
-      console.log(`Set ${mediumPriorityOutbound?.length || 0} outbound emails to MEDIUM priority (>48h waiting)`)
+      log.info('Set outbound emails to MEDIUM priority (>48h waiting)', { count: mediumPriorityOutbound?.length || 0 })
     }
 
     // ========================================================================
@@ -125,10 +123,10 @@ export async function GET(request: Request) {
       .select('id')
 
     if (error4) {
-      console.error('Error updating low priority recent:', error4)
+      log.error('Error updating low priority recent', { error: error4 })
     } else {
       totalUpdated += lowPriorityRecent?.length || 0
-      console.log(`Set ${lowPriorityRecent?.length || 0} recent emails to LOW priority (<24h)`)
+      log.info('Set recent emails to LOW priority (<24h)', { count: lowPriorityRecent?.length || 0 })
     }
 
     // ========================================================================
@@ -150,14 +148,13 @@ export async function GET(request: Request) {
       .limit(50) // Limit to prevent spam
 
     if (error5) {
-      console.error('Error finding emails needing attention:', error5)
+      log.error('Error finding emails needing attention', { error: error5 })
     }
 
     // TODO: Send notifications to email owners for high priority emails
     // This could be implemented as in-app notifications or email alerts
 
-    console.log(`Total emails updated: ${totalUpdated}`)
-    console.log(`Emails needing attention: ${needsAttention?.length || 0}`)
+    log.info('Priority calculation complete', { totalUpdated, needsAttentionCount: needsAttention?.length || 0 })
 
     return NextResponse.json({
       success: true,
@@ -172,12 +169,7 @@ export async function GET(request: Request) {
       needsAttention: needsAttention || [],
     })
   } catch (error) {
-    console.error('Cron job error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to calculate email priorities',
-      },
-      { status: 500 }
-    )
+    log.error('Cron job error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to calculate email priorities')
   }
 }

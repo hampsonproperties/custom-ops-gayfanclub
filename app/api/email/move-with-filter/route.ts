@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
+import { validateBody } from '@/lib/api/validate'
+import { moveWithFilterBody } from '@/lib/api/schemas'
+import { logger } from '@/lib/logger'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const log = logger('email-move-with-filter')
+
 
 /**
  * Move email(s) to a category and create a filter
@@ -10,16 +13,11 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
  */
 export async function POST(request: NextRequest) {
   try {
-    const { fromEmail, category, createFilter } = await request.json()
+    const bodyResult = validateBody(await request.json(), moveWithFilterBody)
+    if (bodyResult.error) return bodyResult.error
+    const { fromEmail, category, createFilter } = bodyResult.data
 
-    if (!fromEmail || !category) {
-      return NextResponse.json(
-        { error: 'Missing required fields: fromEmail, category' },
-        { status: 400 }
-      )
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = await createClient()
 
     // 1. Create filter if requested
     if (createFilter) {
@@ -35,10 +33,10 @@ export async function POST(request: NextRequest) {
         })
 
       if (filterError) {
-        console.error('Failed to create filter:', filterError)
+        log.error('Failed to create filter', { error: filterError })
         // Continue anyway - we can still move the emails
       } else {
-        console.log(`Created filter for ${fromEmail} → ${category}`)
+        log.info('Created filter', { fromEmail, category })
       }
     }
 
@@ -51,7 +49,7 @@ export async function POST(request: NextRequest) {
       .select()
 
     if (updateError) {
-      console.error('Failed to update emails:', updateError)
+      log.error('Failed to update emails', { error: updateError })
       return NextResponse.json(
         { error: 'Failed to update emails', details: updateError.message },
         { status: 500 }
@@ -59,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     const count = updatedEmails?.length || 0
-    console.log(`Moved ${count} email(s) from ${fromEmail} to ${category}`)
+    log.info('Moved emails', { count, fromEmail, category })
 
     return NextResponse.json({
       success: true,
@@ -68,7 +66,7 @@ export async function POST(request: NextRequest) {
       fromEmail,
     })
   } catch (error) {
-    console.error('Error in move-with-filter:', error)
+    log.error('Error in move-with-filter', { error })
     return NextResponse.json(
       { error: 'Internal server error', details: String(error) },
       { status: 500 }

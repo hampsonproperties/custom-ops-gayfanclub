@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { queueBatchEmailsForWorkItem } from '@/lib/email/batch-emails'
+import { createClient } from '@/lib/supabase/server'
+import { queueBatchEmail, getBatchWorkItemRecipients } from '@/lib/email/batch-emails'
+import { badRequest, notFound, serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const log = logger('batch-queue-tracking-email')
+
 
 /**
  * Queue Email 3 (en_route) for all work items in a batch
@@ -14,10 +16,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { id: batchId } = await params
 
     if (!batchId) {
-      return NextResponse.json({ error: 'Missing batch ID' }, { status: 400 })
+      return badRequest('Missing batch ID')
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = await createClient()
 
     // Get batch to verify it exists and has tracking
     const { data: batch, error: batchError } = await supabase
@@ -27,11 +29,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .single()
 
     if (batchError || !batch) {
-      return NextResponse.json({ error: 'Batch not found' }, { status: 404 })
+      return notFound('Batch not found')
     }
 
     if (!batch.tracking_number) {
-      return NextResponse.json({ error: 'Batch must have tracking number before queueing en route email' }, { status: 400 })
+      return badRequest('Batch must have tracking number before queueing en route email')
     }
 
     // Get all work items in the batch
@@ -41,8 +43,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .eq('batch_id', batchId)
 
     if (itemsError) {
-      console.error('Failed to get batch items:', itemsError)
-      return NextResponse.json({ error: 'Failed to get batch items' }, { status: 500 })
+      log.error('Failed to get batch items', { error: itemsError })
+      return serverError('Failed to get batch items')
     }
 
     // Queue Email 3 (en_route) - 5 minutes after tracking added (verification delay)
@@ -52,17 +54,31 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     let totalQueued = 0
     const allErrors: string[] = []
 
-    for (const item of batchItems || []) {
-      const result = await queueBatchEmailsForWorkItem({
-        batchId,
-        workItemId: item.work_item_id,
-        emailType: 'en_route',
-        scheduledSendAt,
-        expectedHasTracking: true,
-      })
+    // Pre-fetch all recipients in a single query (instead of N queries in the loop)
+    const workItemIds = (batchItems || []).map(i => i.work_item_id)
+    const recipientsMap = await getBatchWorkItemRecipients(workItemIds)
 
-      totalQueued += result.queued
-      allErrors.push(...result.errors)
+    for (const item of batchItems || []) {
+      const recipients = recipientsMap.get(item.work_item_id)
+      if (!recipients?.primaryEmail) continue
+
+      const allEmails = [recipients.primaryEmail, ...recipients.alternateEmails]
+
+      for (const email of allEmails) {
+        const result = await queueBatchEmail({
+          batchId,
+          workItemId: item.work_item_id,
+          emailType: 'en_route',
+          recipientEmail: email,
+          recipientName: recipients.customerName || undefined,
+          scheduledSendAt,
+          expectedHasTracking: true,
+        })
+        if (result.success) totalQueued++
+        else if (result.error && !result.error.includes('Already')) {
+          allErrors.push(`(${email}): ${result.error}`)
+        }
+      }
     }
 
     return NextResponse.json({
@@ -74,10 +90,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       errors: allErrors.length > 0 ? allErrors : undefined,
     })
   } catch (error) {
-    console.error('Queue tracking email error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to queue tracking email' },
-      { status: 500 }
-    )
+    log.error('Queue tracking email error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to queue tracking email')
   }
 }

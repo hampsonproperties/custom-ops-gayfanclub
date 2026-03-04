@@ -97,7 +97,7 @@ export function useCustomerProfile(customerId: string | null) {
         completed_projects: allProjects?.filter((p) => p.closed_at).length || 0,
         total_conversations: conversations?.length || 0,
         unread_conversations: conversations?.filter((c) => c.has_unread).length || 0,
-        total_spent: 0, // TODO: Calculate from Shopify orders
+        total_spent: customer.total_spent ?? 0,
       }
 
       // Filter out closed projects for display
@@ -112,37 +112,6 @@ export function useCustomerProfile(customerId: string | null) {
     },
     enabled: !!customerId,
     refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
-  })
-}
-
-/**
- * Fetch customer by email
- */
-export function useCustomerByEmail(email: string | null) {
-  const supabase = createClient()
-
-  return useQuery({
-    queryKey: ['customer-by-email', email],
-    queryFn: async () => {
-      if (!email) return null
-
-      const { data, error } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('email', email.toLowerCase())
-        .single()
-
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // Not found
-          return null
-        }
-        throw error
-      }
-
-      return data
-    },
-    enabled: !!email,
   })
 }
 

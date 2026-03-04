@@ -11,6 +11,10 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { processSyncQueue } from '@/lib/shopify/sync/sync-queue-processor'
+import { unauthorized, serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('cron-shopify-sync')
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,31 +23,23 @@ export async function GET(request: NextRequest) {
     const expectedAuth = `Bearer ${process.env.CRON_SECRET}`
 
     if (!process.env.CRON_SECRET) {
-      console.error('CRON_SECRET not configured')
-      return NextResponse.json(
-        { error: 'Cron secret not configured' },
-        { status: 500 }
-      )
+      log.error('CRON_SECRET not configured')
+      return serverError('Cron secret not configured')
     }
 
     if (authHeader !== expectedAuth) {
-      console.error('Unauthorized cron request')
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      log.error('Unauthorized cron request')
+      return unauthorized('Unauthorized')
     }
 
     // Process sync queue
-    console.log('[Cron] Processing Shopify sync queue...')
+    log.info('Processing Shopify sync queue')
     const result = await processSyncQueue(50) // Process up to 50 items
 
-    console.log(
-      `[Cron] Processed ${result.processed} items: ${result.succeeded} succeeded, ${result.failed} failed`
-    )
+    log.info('Sync queue processing complete', { processed: result.processed, succeeded: result.succeeded, failed: result.failed })
 
     if (result.errors.length > 0) {
-      console.error('[Cron] Errors:', result.errors)
+      log.error('Sync queue errors', { errors: result.errors })
     }
 
     return NextResponse.json({
@@ -54,7 +50,7 @@ export async function GET(request: NextRequest) {
       errors: result.errors,
     })
   } catch (error) {
-    console.error('[Cron] Error processing sync queue:', error)
+    log.error('Error processing sync queue', { error })
     return NextResponse.json(
       {
         error: 'Failed to process sync queue',

@@ -15,16 +15,21 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
+import { validateBody } from '@/lib/api/validate'
+import { syncFulfillmentBody } from '@/lib/api/schemas'
+import { logger } from '@/lib/logger'
+import { notFound, serverError } from '@/lib/api/errors'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const log = logger('shopify-sync-fulfillment')
+
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  const supabase = await createClient()
 
   try {
-    const body = await request.json()
+    const bodyResult = validateBody(await request.json(), syncFulfillmentBody)
+    if (bodyResult.error) return bodyResult.error
     const {
       orderId,
       trackingNumber,
@@ -32,14 +37,7 @@ export async function POST(request: NextRequest) {
       trackingCompany,
       lineItems,
       notifyCustomer,
-    } = body
-
-    if (!orderId) {
-      return NextResponse.json(
-        { error: 'Missing orderId' },
-        { status: 400 }
-      )
-    }
+    } = bodyResult.data
 
     // Get customer order with shopify_order_id
     const { data: order, error: orderError } = await supabase
@@ -49,10 +47,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (orderError || !order) {
-      return NextResponse.json(
-        { error: 'Order not found' },
-        { status: 404 }
-      )
+      return notFound('Order not found')
     }
 
     // Build fulfillment payload
@@ -83,10 +78,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (queueError) {
-      return NextResponse.json(
-        { error: `Failed to queue sync: ${queueError.message}` },
-        { status: 500 }
-      )
+      return serverError(`Failed to queue sync: ${queueError.message}`)
     }
 
     return NextResponse.json({
@@ -95,10 +87,7 @@ export async function POST(request: NextRequest) {
       message: 'Fulfillment queued for sync to Shopify',
     })
   } catch (error) {
-    console.error('Error queuing fulfillment sync:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    log.error('Error queuing fulfillment sync', { error })
+    return serverError('Internal server error')
   }
 }

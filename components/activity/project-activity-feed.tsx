@@ -28,6 +28,9 @@ import { formatDistanceToNow, format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { cleanEmailContent, getEmailPreview } from '@/lib/utils/email-content-cleaner'
+import { logger } from '@/lib/logger'
+
+const log = logger('project-activity-feed')
 
 type ActivityType = 'note' | 'email' | 'task'
 type FilterType = 'all' | 'starred' | 'note' | 'email' | 'task'
@@ -112,7 +115,7 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
 
         emails = emailsData || []
       } catch (error) {
-        console.warn('Failed to fetch emails:', error)
+        log.warn('Failed to fetch emails', { error })
       }
 
       // Fetch tasks (if table exists)
@@ -301,7 +304,7 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
       toast.success('Email generated! Review and edit before sending.')
     } catch (error) {
       toast.error('Failed to generate email')
-      console.error(error)
+      log.error('Failed to generate email', { error })
     } finally {
       setIsGenerating(false)
     }

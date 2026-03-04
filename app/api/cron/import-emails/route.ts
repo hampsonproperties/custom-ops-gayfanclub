@@ -4,6 +4,11 @@ import { ClientSecretCredential } from '@azure/identity'
 import 'isomorphic-fetch'
 import { importEmail, isJunkEmail } from '@/lib/utils/email-import'
 import { addToDLQ } from '@/lib/utils/dead-letter-queue'
+import { unauthorized, serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+import { EMAIL_CRON_LOOKBACK_MINUTES } from '@/lib/config'
+
+const log = logger('cron-import-emails')
 
 function getGraphClient() {
   const credential = new ClientSecretCredential(
@@ -35,30 +40,24 @@ export async function GET(request: Request) {
     const cronSecret = process.env.CRON_SECRET
 
     if (!cronSecret) {
-      console.error('CRON_SECRET not configured')
-      return NextResponse.json(
-        { error: 'Cron secret not configured' },
-        { status: 500 }
-      )
+      log.error('CRON_SECRET not configured')
+      return serverError('Cron secret not configured')
     }
 
     if (authHeader !== `Bearer ${cronSecret}`) {
-      console.error('Unauthorized cron request')
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      log.error('Unauthorized cron request')
+      return unauthorized('Unauthorized')
     }
 
     const mailboxEmail = process.env.MICROSOFT_MAILBOX_EMAIL || 'sales@thegayfanclub.com'
     const client = getGraphClient()
 
     // Fetch emails from the last 30 minutes (with some overlap for safety)
-    const lookbackMinutes = 30
+    const lookbackMinutes = EMAIL_CRON_LOOKBACK_MINUTES
     const dateFilter = new Date(Date.now() - lookbackMinutes * 60 * 1000)
     const dateFilterISO = dateFilter.toISOString()
 
-    console.log(`[Email Cron] Checking for emails since ${dateFilterISO}`)
+    log.info('Checking for emails', { since: dateFilterISO })
 
     const messages = await client
       .api(`/users/${mailboxEmail}/messages`)
@@ -70,7 +69,7 @@ export async function GET(request: Request) {
       .orderby('receivedDateTime desc')
       .get()
 
-    console.log(`[Email Cron] Found ${messages.value.length} emails`)
+    log.info('Found emails', { count: messages.value.length })
 
     let imported = 0
     let skipped = 0
@@ -92,18 +91,16 @@ export async function GET(request: Request) {
       if (result.success) {
         if (result.action === 'inserted') {
           imported++
-          console.log(`[Email Cron] Imported: ${message.subject}`)
+          log.info('Imported email', { subject: message.subject })
         } else if (result.action === 'duplicate') {
           skipped++
         }
       } else {
-        console.error(`[Email Cron] Failed to import: ${result.error}`)
+        log.error('Failed to import email', { error: result.error })
       }
     }
 
-    console.log(
-      `[Email Cron] Complete: ${imported} imported, ${skipped} duplicates, ${filtered} junk`
-    )
+    log.info('Email import complete', { imported, skipped, filtered })
 
     return NextResponse.json({
       success: true,
@@ -114,7 +111,7 @@ export async function GET(request: Request) {
       timestamp: new Date().toISOString(),
     })
   } catch (error) {
-    console.error('[Email Cron] Error:', error)
+    log.error('Email import cron error', { error })
 
     // Add to DLQ for retry (critical cron job failure)
     await addToDLQ({
@@ -127,14 +124,9 @@ export async function GET(request: Request) {
         cronTimestamp: new Date().toISOString(),
       },
     }).catch((dlqError) => {
-      console.error('[Email Cron] Failed to add to DLQ:', dlqError)
+      log.error('Failed to add to DLQ', { error: dlqError })
     })
 
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to import emails',
-      },
-      { status: 500 }
-    )
+    return serverError(error instanceof Error ? error.message : 'Failed to import emails')
   }
 }

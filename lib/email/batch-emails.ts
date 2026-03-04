@@ -2,6 +2,9 @@ import { createClient } from '@supabase/supabase-js'
 import { getAndRenderTemplate } from './templates'
 import { Client } from '@microsoft/microsoft-graph-client'
 import { ClientSecretCredential } from '@azure/identity'
+import { logger } from '@/lib/logger'
+
+const log = logger('batch-emails')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -55,6 +58,40 @@ export async function getWorkItemRecipients(workItemId: string): Promise<{
   }
 }
 
+interface WorkItemRecipient {
+  primaryEmail: string | null
+  alternateEmails: string[]
+  customerName: string | null
+}
+
+/**
+ * Batch-fetch recipients for multiple work items in a single query.
+ * Returns a Map keyed by work item ID.
+ */
+export async function getBatchWorkItemRecipients(
+  workItemIds: string[]
+): Promise<Map<string, WorkItemRecipient>> {
+  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  const result = new Map<string, WorkItemRecipient>()
+
+  if (workItemIds.length === 0) return result
+
+  const { data: workItems } = await supabase
+    .from('work_items')
+    .select('id, customer_email, alternate_emails, customer_name')
+    .in('id', workItemIds)
+
+  for (const item of workItems || []) {
+    result.set(item.id, {
+      primaryEmail: item.customer_email,
+      alternateEmails: item.alternate_emails || [],
+      customerName: item.customer_name,
+    })
+  }
+
+  return result
+}
+
 /**
  * Queue a batch email for delayed send with verification
  */
@@ -105,7 +142,7 @@ export async function queueBatchEmail(params: QueueBatchEmailParams): Promise<{ 
   })
 
   if (error) {
-    console.error('Failed to queue batch email:', error)
+    log.error('Failed to queue batch email', { error })
     return { success: false, error: error.message }
   }
 
@@ -322,7 +359,7 @@ export async function sendBatchEmail(params: SendBatchEmailParams): Promise<{
         internetMessageId = sentItems.value[0].internetMessageId
       }
     } catch (error) {
-      console.error('Failed to fetch sent message metadata:', error)
+      log.error('Failed to fetch sent message metadata', { error })
     }
 
     // Create communication record
@@ -346,7 +383,7 @@ export async function sendBatchEmail(params: SendBatchEmailParams): Promise<{
       .single()
 
     if (commError) {
-      console.error('Failed to log email to database:', commError)
+      log.error('Failed to log email to database', { error: commError })
     }
 
     // Record in batch_email_sends for audit trail
@@ -362,7 +399,7 @@ export async function sendBatchEmail(params: SendBatchEmailParams): Promise<{
 
     return { success: true, communicationId: communication?.id }
   } catch (error) {
-    console.error('Failed to send batch email:', error)
+    log.error('Failed to send batch email', { error })
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',

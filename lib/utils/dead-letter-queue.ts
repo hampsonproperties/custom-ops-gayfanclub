@@ -1,4 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
+import { logger } from '@/lib/logger'
+
+const log = logger('dead-letter-queue')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -97,11 +100,11 @@ export async function addToDLQ(options: AddToDLQOptions): Promise<string | null>
     })
 
     if (error) {
-      console.error('[DLQ] Failed to add to Dead Letter Queue:', error)
+      log.error('Failed to add to Dead Letter Queue', { error })
       return null
     }
 
-    console.log('[DLQ] Added to Dead Letter Queue:', {
+    log.info('Added to Dead Letter Queue', {
       dlqId: data,
       operationType: options.operationType,
       operationKey: options.operationKey,
@@ -109,7 +112,7 @@ export async function addToDLQ(options: AddToDLQOptions): Promise<string | null>
 
     return data as string
   } catch (error) {
-    console.error('[DLQ] Unexpected error adding to DLQ:', error)
+    log.error('Unexpected error adding to DLQ', { error })
     return null
   }
 }
@@ -125,7 +128,7 @@ export async function getRetryableItems(limit = 10): Promise<DLQItem[]> {
   })
 
   if (error) {
-    console.error('[DLQ] Error fetching retryable items:', error)
+    log.error('Error fetching retryable items', { error })
     throw error
   }
 
@@ -149,7 +152,7 @@ export async function resolveDLQItem(
   })
 
   if (error) {
-    console.error('[DLQ] Error resolving item:', error)
+    log.error('Error resolving item', { error })
     throw error
   }
 
@@ -177,7 +180,7 @@ export async function ignoreDLQItem(
     .eq('id', dlqId)
 
   if (error) {
-    console.error('[DLQ] Error ignoring item:', error)
+    log.error('Error ignoring item', { error })
     throw error
   }
 }
@@ -201,7 +204,7 @@ export async function getDLQHealth(): Promise<{
   const { data, error } = await supabase.from('dlq_health').select('*').single()
 
   if (error) {
-    console.error('[DLQ] Error fetching health stats:', error)
+    log.error('Error fetching health stats', { error })
     throw error
   }
 
@@ -231,7 +234,7 @@ export async function getFailurePatterns(limit = 20): Promise<
     .limit(limit)
 
   if (error) {
-    console.error('[DLQ] Error fetching failure patterns:', error)
+    log.error('Error fetching failure patterns', { error })
     throw error
   }
 

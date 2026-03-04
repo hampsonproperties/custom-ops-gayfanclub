@@ -8,6 +8,9 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { Beaker, Trash2, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
+import { logger } from '@/lib/logger'
+
+const log = logger('test-tools')
 
 export default function TestToolsPage() {
   const [email, setEmail] = useState('timothy@hampsonproperties.com')
@@ -42,7 +45,7 @@ export default function TestToolsPage() {
       setLastCreatedOrder(result.workItem)
       toast.success('Test order created successfully!')
     } catch (error) {
-      console.error('Failed to create test order:', error)
+      log.error('Failed to create test order', { error })
       toast.error(
         error instanceof Error ? error.message : 'Failed to create test order'
       )

@@ -25,6 +25,9 @@ import { toast } from 'sonner'
 import { Loader2, Plus } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useQuery } from '@tanstack/react-query'
+import { logger } from '@/lib/logger'
+
+const log = logger('create-customer-dialog')
 
 interface CreateCustomerDialogProps {
   trigger?: React.ReactNode
@@ -139,7 +142,7 @@ export function CreateCustomerDialog({
         .single()
 
       if (error) {
-        console.error('Error creating customer:', error)
+        log.error('Error creating customer', { error })
         throw new Error(error.message)
       }
 
@@ -165,7 +168,7 @@ export function CreateCustomerDialog({
       }
 
     } catch (error: any) {
-      console.error('Create customer error:', error)
+      log.error('Create customer error', { error })
       toast.error(error.message || 'Failed to create customer')
     } finally {
       setIsCreating(false)

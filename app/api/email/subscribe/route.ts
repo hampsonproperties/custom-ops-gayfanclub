@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Client } from '@microsoft/microsoft-graph-client'
 import { ClientSecretCredential } from '@azure/identity'
+import { validateBody } from '@/lib/api/validate'
+import { subscribeEmailBody, unsubscribeEmailBody } from '@/lib/api/schemas'
 import 'isomorphic-fetch'
+import { logger } from '@/lib/logger'
+import { serverError } from '@/lib/api/errors'
+
+const log = logger('email-subscribe')
 
 export async function POST(request: NextRequest) {
   try {
-    const { notificationUrl } = await request.json()
-
-    if (!notificationUrl) {
-      return NextResponse.json(
-        { error: 'notificationUrl required (e.g., https://your-domain.com/api/webhooks/email)' },
-        { status: 400 }
-      )
-    }
+    const bodyResult = validateBody(await request.json(), subscribeEmailBody)
+    if (bodyResult.error) return bodyResult.error
+    const { notificationUrl } = bodyResult.data
 
     const credential = new ClientSecretCredential(
       process.env.MICROSOFT_TENANT_ID!,
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
       clientState: 'customOpsEmailSubscription', // Secret for validation
     })
 
-    console.log('Email subscription created:', subscription.id)
+    log.info('Email subscription created', { subscriptionId: subscription.id })
 
     return NextResponse.json({
       success: true,
@@ -51,13 +52,8 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error('Subscription error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to create subscription',
-      },
-      { status: 500 }
-    )
+    log.error('Subscription creation error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to create subscription')
   }
 }
 
@@ -85,24 +81,17 @@ export async function GET() {
       subscriptions: subscriptions.value || [],
     })
   } catch (error) {
-    console.error('Get subscriptions error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to get subscriptions',
-      },
-      { status: 500 }
-    )
+    log.error('Get subscriptions error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to get subscriptions')
   }
 }
 
 // DELETE endpoint to remove subscription
 export async function DELETE(request: NextRequest) {
   try {
-    const { subscriptionId } = await request.json()
-
-    if (!subscriptionId) {
-      return NextResponse.json({ error: 'subscriptionId required' }, { status: 400 })
-    }
+    const bodyResult = validateBody(await request.json(), unsubscribeEmailBody)
+    if (bodyResult.error) return bodyResult.error
+    const { subscriptionId } = bodyResult.data
 
     const credential = new ClientSecretCredential(
       process.env.MICROSOFT_TENANT_ID!,
@@ -123,12 +112,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Delete subscription error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to delete subscription',
-      },
-      { status: 500 }
-    )
+    log.error('Delete subscription error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to delete subscription')
   }
 }

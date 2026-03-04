@@ -6,6 +6,10 @@
  */
 
 import { getShopifyCredentials } from './get-credentials'
+import { logger } from '@/lib/logger'
+import { SHOPIFY_API_VERSION } from '@/lib/config'
+
+const log = logger('shopify-webhook-manager')
 
 interface WebhookRegistration {
   topic: string
@@ -72,7 +76,7 @@ export async function registerWebhook(topic: string): Promise<WebhookRegistratio
     // Create webhook
     const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/shopify`
 
-    const response = await fetch(`https://${shop}/admin/api/2024-01/webhooks.json`, {
+    const response = await fetch(`https://${shop}/admin/api/${SHOPIFY_API_VERSION}/webhooks.json`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -125,7 +129,7 @@ async function getExistingWebhook(
   topic: string
 ): Promise<{ id: string; topic: string } | null> {
   try {
-    const response = await fetch(`https://${shop}/admin/api/2024-01/webhooks.json`, {
+    const response = await fetch(`https://${shop}/admin/api/${SHOPIFY_API_VERSION}/webhooks.json`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -144,7 +148,7 @@ async function getExistingWebhook(
 
     return existing ? { id: existing.id?.toString(), topic: existing.topic } : null
   } catch (error) {
-    console.error('Error fetching existing webhooks:', error)
+    log.error('Error fetching existing webhooks', { error })
     return null
   }
 }
@@ -158,7 +162,7 @@ export async function listWebhooks(): Promise<any[]> {
   try {
     const { shop, accessToken } = await getShopifyCredentials()
 
-    const response = await fetch(`https://${shop}/admin/api/2024-01/webhooks.json`, {
+    const response = await fetch(`https://${shop}/admin/api/${SHOPIFY_API_VERSION}/webhooks.json`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -169,13 +173,13 @@ export async function listWebhooks(): Promise<any[]> {
     const data = await response.json()
 
     if (!response.ok) {
-      console.error('Failed to list webhooks:', data)
+      log.error('Failed to list webhooks', { data })
       return []
     }
 
     return data.webhooks || []
   } catch (error) {
-    console.error('Error listing webhooks:', error)
+    log.error('Error listing webhooks', { error })
     return []
   }
 }

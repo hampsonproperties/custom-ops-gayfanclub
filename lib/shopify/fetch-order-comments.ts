@@ -5,6 +5,9 @@
  */
 
 import { getShopifyCredentials } from './get-credentials'
+import { logger } from '@/lib/logger'
+
+const log = logger('shopify-order-comments')
 
 interface ShopifyEvent {
   id: number
@@ -40,7 +43,7 @@ export async function fetchOrderComments(shopifyOrderId: string): Promise<OrderC
 
     if (!response.ok) {
       const error = await response.text()
-      console.error(`[Shopify] Failed to fetch order events: ${response.status} ${error}`)
+      log.error('Failed to fetch order events', { status: response.status, error })
       return []
     }
 
@@ -62,7 +65,7 @@ export async function fetchOrderComments(shopifyOrderId: string): Promise<OrderC
 
     return comments
   } catch (error) {
-    console.error('[Shopify] Error fetching order comments:', error)
+    log.error('Error fetching order comments', { error })
     return []
   }
 }

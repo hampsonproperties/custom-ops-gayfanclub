@@ -6,13 +6,13 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
 import {
   useCustomerProfile,
   useConversationMessages,
   markConversationAsRead,
   type CustomerConversation,
 } from '@/lib/hooks/use-customer-profile'
+import { logger } from '@/lib/logger'
 import {
   User,
   Mail,
@@ -46,13 +46,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { InlineEmailComposer } from '@/components/email/inline-email-composer'
+import DOMPurify from 'dompurify'
 import { EmailComposer } from '@/components/email/email-composer'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { AlternativeContactsManager } from '@/components/customers/alternative-contacts-manager'
 import { CustomerActivityFeed } from '@/components/activity/customer-activity-feed'
 import { CreateProjectDialog } from '@/components/projects/create-project-dialog'
 import { ShopifyOrdersTab } from '@/components/shopify/shopify-orders-tab'
+
+const log = logger('customer-detail')
 
 // Project Card Component with Enhanced Details
 function ProjectCard({ project, customerId }: { project: any; customerId: string }) {
@@ -210,7 +212,6 @@ function ConversationDetail({
   customerEmail: string
 }) {
   const { data: messages, isLoading } = useConversationMessages(conversationId)
-  const [showComposer, setShowComposer] = useState(false)
 
   if (isLoading) {
     return <div className="p-6">Loading messages...</div>
@@ -253,7 +254,18 @@ function ConversationDetail({
                 <div
                   className="text-sm prose prose-sm max-w-none"
                   dangerouslySetInnerHTML={{
-                    __html: message.body_preview || message.body_html || '',
+                    __html: DOMPurify.sanitize(
+                      message.body_preview || message.body_html || '',
+                      {
+                        ALLOWED_TAGS: [
+                          'p', 'br', 'strong', 'em', 'u', 'a',
+                          'ul', 'ol', 'li', 'h1', 'h2', 'h3',
+                          'div', 'span', 'blockquote', 'table',
+                          'tr', 'td', 'th', 'tbody', 'thead', 'img',
+                        ],
+                        ALLOWED_ATTR: ['href', 'target', 'src', 'alt', 'width', 'height', 'class'],
+                      }
+                    ),
                   }}
                 />
               </CardContent>
@@ -262,46 +274,20 @@ function ConversationDetail({
         </div>
       </div>
 
-      {/* Inline Email Composer */}
-      <Card className="border-primary/20">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Mail className="h-4 w-4" />
-            Reply to Conversation
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {/* Simple composer for customer context - work item context handled separately */}
-          <div className="space-y-4">
-            <div>
-              <Label>To</Label>
-              <div className="mt-1 text-sm text-muted-foreground">{customerEmail}</div>
-            </div>
-            <div>
-              <Label>Subject</Label>
-              <div className="mt-1 text-sm text-muted-foreground">
-                Re: {messages?.[0]?.subject || 'Conversation'}
-              </div>
-            </div>
-            <div>
-              <Label>Message</Label>
-              <Textarea
-                placeholder="Type your message here..."
-                rows={6}
-                className="mt-1"
-              />
-            </div>
-            <div className="flex items-center gap-3">
-              <Button>
-                <Mail className="mr-2 h-4 w-4" />
-                Send Email
-              </Button>
-              <Button variant="outline">Save Draft</Button>
-              <Button variant="ghost">Preview</Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Reply Action */}
+      <div className="flex items-center gap-3">
+        <EmailComposer
+          recipientEmail={customerEmail}
+          customerId={customerId}
+          subject={`Re: ${messages?.[0]?.subject || 'Conversation'}`}
+          trigger={
+            <Button>
+              <Mail className="mr-2 h-4 w-4" />
+              Reply to Conversation
+            </Button>
+          }
+        />
+      </div>
     </div>
   )
 }
@@ -367,10 +353,7 @@ function FilesTab({ customerId }: { customerId: string }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">{files.length} Files</h3>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Upload File
-        </Button>
+        <p className="text-xs text-muted-foreground">Upload files from individual project pages</p>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {files.map((file: any) => (
@@ -406,7 +389,7 @@ function FilesTab({ customerId }: { customerId: string }) {
                       window.open(data.url, '_blank')
                     }
                   } catch (error) {
-                    console.error('Download error:', error)
+                    log.error('Download error', { error })
                     toast.error('Failed to download file')
                   }
                 }}
@@ -438,7 +421,7 @@ function NotesTab({ customerId }: { customerId: string }) {
 
       if (error) {
         // If table doesn't exist yet, return empty array
-        console.warn('Customer notes table not found:', error)
+        log.warn('Customer notes table not found', { error })
         return []
       }
       return data
@@ -742,9 +725,18 @@ export default function CustomerProfilePage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem>Edit Customer</DropdownMenuItem>
-                <DropdownMenuItem>View in Shopify</DropdownMenuItem>
-                <DropdownMenuItem>Export Data</DropdownMenuItem>
+                {customer.shopify_customer_id && (
+                  <DropdownMenuItem asChild>
+                    <a
+                      href={`https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/customers/${customer.shopify_customer_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      View in Shopify
+                    </a>
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -915,20 +907,34 @@ export default function CustomerProfilePage() {
                     <p className="text-muted-foreground mb-4">
                       This customer hasn't had any email conversations.
                     </p>
-                    <Button>
-                      <Mail className="mr-2 h-4 w-4" />
-                      Send First Email
-                    </Button>
+                    <EmailComposer
+                      recipientEmail={customer.email}
+                      recipientName={customer.display_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || customer.email}
+                      customerId={customerId}
+                      trigger={
+                        <Button>
+                          <Mail className="mr-2 h-4 w-4" />
+                          Send First Email
+                        </Button>
+                      }
+                    />
                   </CardContent>
                 </Card>
               ) : (
                 <>
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold">{conversations.length} Conversations</h3>
-                    <Button size="sm">
-                      <Mail className="mr-2 h-4 w-4" />
-                      New Email
-                    </Button>
+                    <EmailComposer
+                      recipientEmail={customer.email}
+                      recipientName={customer.display_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || customer.email}
+                      customerId={customerId}
+                      trigger={
+                        <Button size="sm">
+                          <Mail className="mr-2 h-4 w-4" />
+                          New Email
+                        </Button>
+                      }
+                    />
                   </div>
                   <div className="space-y-4">
                     {conversations.map((conversation) => (
@@ -1043,8 +1049,9 @@ export default function CustomerProfilePage() {
                 <div className="text-sm text-muted-foreground mb-1">Lifetime Value</div>
                 <div className="text-2xl font-bold text-green-600">
                   <DollarSign className="inline h-5 w-5" />
-                  {/* TODO: Calculate from Shopify orders */}
-                  ---
+                  {stats.total_spent > 0
+                    ? stats.total_spent.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : '0.00'}
                 </div>
               </div>
             </CardContent>

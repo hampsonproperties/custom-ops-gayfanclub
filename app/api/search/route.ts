@@ -1,5 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('api-search')
 
 /**
  * Universal Search API
@@ -25,19 +29,47 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createClient()
     const searchQuery = `%${query}%`
+
+    // Run all 5 searches in parallel instead of sequentially
+    const [
+      customersResult,
+      workItemsResult,
+      communicationsResult,
+      filesResult,
+      batchesResult,
+    ] = await Promise.all([
+      supabase
+        .from('customers')
+        .select('id, email, first_name, last_name, display_name, organization_name')
+        .or(`email.ilike.${searchQuery},first_name.ilike.${searchQuery},last_name.ilike.${searchQuery},display_name.ilike.${searchQuery},organization_name.ilike.${searchQuery}`)
+        .limit(10),
+      supabase
+        .from('work_items')
+        .select('id, title, customer_name, status, type')
+        .or(`title.ilike.${searchQuery},customer_name.ilike.${searchQuery}`)
+        .limit(10),
+      supabase
+        .from('communications')
+        .select('id, subject, from_email, work_item_id, direction')
+        .or(`subject.ilike.${searchQuery},from_email.ilike.${searchQuery}`)
+        .limit(10),
+      supabase
+        .from('files')
+        .select('id, original_filename, kind, work_item_id')
+        .ilike('original_filename', searchQuery)
+        .limit(10),
+      supabase
+        .from('batches')
+        .select('id, name, alibaba_order_number, status')
+        .or(`name.ilike.${searchQuery},alibaba_order_number.ilike.${searchQuery}`)
+        .limit(10),
+    ])
+
     const results: any[] = []
 
-    // ========================================================================
-    // Search Customers
-    // ========================================================================
-    const { data: customers, error: customersError } = await supabase
-      .from('customers')
-      .select('id, email, first_name, last_name, display_name, organization_name')
-      .or(`email.ilike.${searchQuery},first_name.ilike.${searchQuery},last_name.ilike.${searchQuery},display_name.ilike.${searchQuery},organization_name.ilike.${searchQuery}`)
-      .limit(10)
-
-    if (!customersError && customers) {
-      for (const customer of customers) {
+    // Process customers
+    if (!customersResult.error && customersResult.data) {
+      for (const customer of customersResult.data) {
         const name = customer.display_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || customer.email
         results.push({
           id: customer.id,
@@ -49,17 +81,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ========================================================================
-    // Search Work Items
-    // ========================================================================
-    const { data: workItems, error: workItemsError } = await supabase
-      .from('work_items')
-      .select('id, title, customer_name, status, type')
-      .or(`title.ilike.${searchQuery},customer_name.ilike.${searchQuery}`)
-      .limit(10)
-
-    if (!workItemsError && workItems) {
-      for (const item of workItems) {
+    // Process work items
+    if (!workItemsResult.error && workItemsResult.data) {
+      for (const item of workItemsResult.data) {
         results.push({
           id: item.id,
           type: 'work_item',
@@ -70,17 +94,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ========================================================================
-    // Search Communications (Emails)
-    // ========================================================================
-    const { data: communications, error: communicationsError } = await supabase
-      .from('communications')
-      .select('id, subject, from_email, work_item_id, direction')
-      .or(`subject.ilike.${searchQuery},from_email.ilike.${searchQuery}`)
-      .limit(10)
-
-    if (!communicationsError && communications) {
-      for (const comm of communications) {
+    // Process communications
+    if (!communicationsResult.error && communicationsResult.data) {
+      for (const comm of communicationsResult.data) {
         results.push({
           id: comm.id,
           type: 'communication',
@@ -91,17 +107,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ========================================================================
-    // Search Files
-    // ========================================================================
-    const { data: files, error: filesError } = await supabase
-      .from('files')
-      .select('id, original_filename, kind, work_item_id')
-      .ilike('original_filename', searchQuery)
-      .limit(10)
-
-    if (!filesError && files) {
-      for (const file of files) {
+    // Process files
+    if (!filesResult.error && filesResult.data) {
+      for (const file of filesResult.data) {
         results.push({
           id: file.id,
           type: 'file',
@@ -112,17 +120,9 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ========================================================================
-    // Search Batches
-    // ========================================================================
-    const { data: batches, error: batchesError } = await supabase
-      .from('batches')
-      .select('id, name, alibaba_order_number, status')
-      .or(`name.ilike.${searchQuery},alibaba_order_number.ilike.${searchQuery}`)
-      .limit(10)
-
-    if (!batchesError && batches) {
-      for (const batch of batches) {
+    // Process batches
+    if (!batchesResult.error && batchesResult.data) {
+      for (const batch of batchesResult.data) {
         results.push({
           id: batch.id,
           type: 'batch',
@@ -141,12 +141,7 @@ export async function GET(request: NextRequest) {
       count: results.length,
     })
   } catch (error) {
-    console.error('Search error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Search failed',
-      },
-      { status: 500 }
-    )
+    log.error('Search error', { error })
+    return serverError(error instanceof Error ? error.message : 'Search failed')
   }
 }

@@ -1,5 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { validateBody, validateParams } from '@/lib/api/validate'
+import { snoozeBody, idParams } from '@/lib/api/schemas'
+import { serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('work-items-snooze')
 
 /**
  * Snooze a work item's follow-up for a specified number of days
@@ -10,17 +16,15 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params
-    const supabase = await createClient()
-    const { days } = await request.json()
-    const workItemId = id
+    const paramResult = validateParams(await params, idParams)
+    if (paramResult.error) return paramResult.error
+    const workItemId = paramResult.data.id
 
-    if (!days || typeof days !== 'number' || days <= 0) {
-      return NextResponse.json(
-        { error: 'Invalid days parameter. Must be a positive number.' },
-        { status: 400 }
-      )
-    }
+    const supabase = await createClient()
+
+    const bodyResult = validateBody(await request.json(), snoozeBody)
+    if (bodyResult.error) return bodyResult.error
+    const { days } = bodyResult.data
 
     // Calculate snooze until date
     const snoozeUntil = new Date()
@@ -33,11 +37,8 @@ export async function POST(
       .eq('id', workItemId)
 
     if (error) {
-      console.error('Error snoozing follow-up:', error)
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500 }
-      )
+      log.error('Error snoozing follow-up', { error })
+      return serverError(error.message)
     }
 
     return NextResponse.json({
@@ -46,12 +47,7 @@ export async function POST(
       days: days
     })
   } catch (error) {
-    console.error('Snooze error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to snooze follow-up',
-      },
-      { status: 500 }
-    )
+    log.error('Snooze error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to snooze follow-up')
   }
 }

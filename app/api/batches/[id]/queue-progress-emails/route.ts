@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { queueBatchEmailsForWorkItem } from '@/lib/email/batch-emails'
+import { createClient } from '@/lib/supabase/server'
+import { queueBatchEmail, getBatchWorkItemRecipients } from '@/lib/email/batch-emails'
+import { badRequest, notFound, serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const log = logger('batch-queue-progress-emails')
+
 
 /**
  * Queue Email 1 (entering_production) and Email 2 (midway_checkin) for all work items in a batch
@@ -14,10 +16,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { id: batchId } = await params
 
     if (!batchId) {
-      return NextResponse.json({ error: 'Missing batch ID' }, { status: 400 })
+      return badRequest('Missing batch ID')
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = await createClient()
 
     // Get batch to verify it exists and is confirmed
     const { data: batch, error: batchError } = await supabase
@@ -27,11 +29,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .single()
 
     if (batchError || !batch) {
-      return NextResponse.json({ error: 'Batch not found' }, { status: 404 })
+      return notFound('Batch not found')
     }
 
     if (batch.status !== 'confirmed') {
-      return NextResponse.json({ error: 'Batch must be confirmed before queueing progress emails' }, { status: 400 })
+      return badRequest('Batch must be confirmed before queueing progress emails')
     }
 
     // Get all work items in the batch
@@ -41,8 +43,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .eq('batch_id', batchId)
 
     if (itemsError) {
-      console.error('Failed to get batch items:', itemsError)
-      return NextResponse.json({ error: 'Failed to get batch items' }, { status: 500 })
+      log.error('Failed to get batch items', { error: itemsError })
+      return serverError('Failed to get batch items')
     }
 
     let totalQueuedEmail1 = 0
@@ -57,30 +59,47 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const email2ScheduledAt = new Date()
     email2ScheduledAt.setDate(email2ScheduledAt.getDate() + 10)
 
+    // Pre-fetch all recipients in a single query (instead of N queries in the loop)
+    const workItemIds = (batchItems || []).map(i => i.work_item_id)
+    const recipientsMap = await getBatchWorkItemRecipients(workItemIds)
+
     for (const item of batchItems || []) {
-      // Queue Email 1
-      const result1 = await queueBatchEmailsForWorkItem({
-        batchId,
-        workItemId: item.work_item_id,
-        emailType: 'entering_production',
-        scheduledSendAt: email1ScheduledAt,
-        expectedBatchStatus: 'confirmed',
-      })
+      const recipients = recipientsMap.get(item.work_item_id)
+      if (!recipients?.primaryEmail) continue
 
-      totalQueuedEmail1 += result1.queued
-      allErrors.push(...result1.errors)
+      const allEmails = [recipients.primaryEmail, ...recipients.alternateEmails]
 
-      // Queue Email 2
-      const result2 = await queueBatchEmailsForWorkItem({
-        batchId,
-        workItemId: item.work_item_id,
-        emailType: 'midway_checkin',
-        scheduledSendAt: email2ScheduledAt,
-        expectedBatchStatus: 'confirmed',
-      })
+      for (const email of allEmails) {
+        // Queue Email 1
+        const result1 = await queueBatchEmail({
+          batchId,
+          workItemId: item.work_item_id,
+          emailType: 'entering_production',
+          recipientEmail: email,
+          recipientName: recipients.customerName || undefined,
+          scheduledSendAt: email1ScheduledAt,
+          expectedBatchStatus: 'confirmed',
+        })
+        if (result1.success) totalQueuedEmail1++
+        else if (result1.error && !result1.error.includes('Already')) {
+          allErrors.push(`Email 1 (${email}): ${result1.error}`)
+        }
 
-      totalQueuedEmail2 += result2.queued
-      allErrors.push(...result2.errors)
+        // Queue Email 2
+        const result2 = await queueBatchEmail({
+          batchId,
+          workItemId: item.work_item_id,
+          emailType: 'midway_checkin',
+          recipientEmail: email,
+          recipientName: recipients.customerName || undefined,
+          scheduledSendAt: email2ScheduledAt,
+          expectedBatchStatus: 'confirmed',
+        })
+        if (result2.success) totalQueuedEmail2++
+        else if (result2.error && !result2.error.includes('Already')) {
+          allErrors.push(`Email 2 (${email}): ${result2.error}`)
+        }
+      }
     }
 
     return NextResponse.json({
@@ -94,10 +113,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       errors: allErrors.length > 0 ? allErrors : undefined,
     })
   } catch (error) {
-    console.error('Queue progress emails error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to queue progress emails' },
-      { status: 500 }
-    )
+    log.error('Queue progress emails error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to queue progress emails')
   }
 }

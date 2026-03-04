@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Client } from '@microsoft/microsoft-graph-client'
+import { logger } from '@/lib/logger'
+import { serverError, notFound } from '@/lib/api/errors'
+
+const log = logger('email-attachment-download')
 
 /**
  * Download email attachment from Microsoft Graph
@@ -19,10 +23,7 @@ export async function GET(
     const mailboxEmail = 'sales@thegayfanclub.com'
 
     if (!tenantId || !clientId || !clientSecret) {
-      return NextResponse.json(
-        { error: 'Missing Microsoft Graph credentials' },
-        { status: 500 }
-      )
+      return serverError('Missing Microsoft Graph credentials')
     }
 
     // Get OAuth token
@@ -41,10 +42,7 @@ export async function GET(
     })
 
     if (!tokenResponse.ok) {
-      return NextResponse.json(
-        { error: 'Failed to get access token' },
-        { status: 500 }
-      )
+      return serverError('Failed to get access token')
     }
 
     const { access_token } = await tokenResponse.json()
@@ -64,10 +62,7 @@ export async function GET(
     // Extract content bytes (base64 encoded)
     const contentBytes = attachment.contentBytes
     if (!contentBytes) {
-      return NextResponse.json(
-        { error: 'Attachment content not found' },
-        { status: 404 }
-      )
+      return notFound('Attachment content not found')
     }
 
     // Decode base64 to binary
@@ -82,10 +77,7 @@ export async function GET(
       },
     })
   } catch (error) {
-    console.error('[Attachment Download] Error:', error)
-    return NextResponse.json(
-      { error: 'Failed to download attachment' },
-      { status: 500 }
-    )
+    log.error('Error downloading attachment', { error })
+    return serverError('Failed to download attachment')
   }
 }

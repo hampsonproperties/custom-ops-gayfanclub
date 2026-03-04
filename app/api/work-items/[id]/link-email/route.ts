@@ -1,18 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
+import { validateBody, validateParams } from '@/lib/api/validate'
+import { linkEmailBody, idParams } from '@/lib/api/schemas'
+import { serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const log = logger('work-items-link-email')
+
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params
-    const { emailId } = await request.json()
+    const paramResult = validateParams(await params, idParams)
+    if (paramResult.error) return paramResult.error
+    const { id } = paramResult.data
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const bodyResult = validateBody(await request.json(), linkEmailBody)
+    if (bodyResult.error) return bodyResult.error
+    const { emailId } = bodyResult.data
+
+    const supabase = await createClient()
 
     // Link the email to the work item
     const { error } = await supabase
@@ -27,13 +36,8 @@ export async function POST(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Link email error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to link email',
-      },
-      { status: 500 }
-    )
+    log.error('Link email error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to link email')
   }
 }
 
@@ -44,7 +48,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = await createClient()
 
     // Get the work item to find customer email and creation time
     const { data: workItem } = await supabase
@@ -117,12 +121,7 @@ export async function GET(
       }
     })
   } catch (error) {
-    console.error('Search emails error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to search emails',
-      },
-      { status: 500 }
-    )
+    log.error('Search emails error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to search emails')
   }
 }

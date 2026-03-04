@@ -1,5 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { unauthorized, serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('cron-recalculate-follow-ups')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -18,19 +22,13 @@ export async function GET(request: Request) {
     const cronSecret = process.env.CRON_SECRET
 
     if (!cronSecret) {
-      console.error('CRON_SECRET not configured')
-      return NextResponse.json(
-        { error: 'Cron secret not configured' },
-        { status: 500 }
-      )
+      log.error('CRON_SECRET not configured')
+      return serverError('Cron secret not configured')
     }
 
     if (authHeader !== `Bearer ${cronSecret}`) {
-      console.error('Unauthorized cron request')
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      log.error('Unauthorized cron request')
+      return unauthorized('Unauthorized')
     }
 
     // Use service role key for cron job
@@ -40,16 +38,13 @@ export async function GET(request: Request) {
     const { data, error } = await supabase.rpc('recalculate_all_follow_ups')
 
     if (error) {
-      console.error('Error recalculating follow-ups:', error)
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500 }
-      )
+      log.error('Error recalculating follow-ups', { error })
+      return serverError(error.message)
     }
 
     // Log results
     const updated = data?.length || 0
-    console.log(`Recalculated follow-ups for ${updated} work items`)
+    log.info('Recalculated follow-ups', { updatedWorkItems: updated })
 
     return NextResponse.json({
       success: true,
@@ -58,12 +53,7 @@ export async function GET(request: Request) {
       changes: data || []
     })
   } catch (error) {
-    console.error('Cron job error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to recalculate follow-ups',
-      },
-      { status: 500 }
-    )
+    log.error('Cron job error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to recalculate follow-ups')
   }
 }

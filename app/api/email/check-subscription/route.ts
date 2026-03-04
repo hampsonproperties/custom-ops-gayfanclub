@@ -4,6 +4,10 @@ import { ClientSecretCredential } from '@azure/identity'
 import { createClient } from '@supabase/supabase-js'
 import 'isomorphic-fetch'
 import { importEmail, isJunkEmail } from '@/lib/utils/email-import'
+import { logger } from '@/lib/logger'
+import { serverError } from '@/lib/api/errors'
+
+const log = logger('email-check-subscription')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -54,7 +58,7 @@ export async function POST() {
     }
 
     // Need to renew - either no subscription or expiring soon
-    console.log('Email subscription needs renewal...')
+    log.info('Email subscription needs renewal')
 
     const client = getGraphClient()
     const mailboxEmail = process.env.MICROSOFT_MAILBOX_EMAIL || 'sales@thegayfanclub.com'
@@ -68,7 +72,7 @@ export async function POST() {
           .update({ status: 'expired' })
           .eq('id', existingSubscription.id)
       } catch (error) {
-        console.log('Old subscription already deleted or expired:', error)
+        log.info('Old subscription already deleted or expired', { error })
       }
     }
 
@@ -81,7 +85,7 @@ export async function POST() {
       clientState: 'customOpsEmailSubscription',
     })
 
-    console.log('New email subscription created:', subscription.id)
+    log.info('New email subscription created', { subscriptionId: subscription.id })
 
     // Store in database
     await supabase.from('email_subscriptions').insert({
@@ -93,7 +97,7 @@ export async function POST() {
     })
 
     // Also import any missed emails from the last 3 days
-    console.log('[Subscription Check] Importing any missed emails...')
+    log.info('Importing any missed emails')
     try {
       const messages = await client
         .api(`/users/${mailboxEmail}/messages`)
@@ -131,11 +135,9 @@ export async function POST() {
         }
       }
 
-      console.log(
-        `[Subscription Check] Missed emails: ${imported} imported, ${skipped} duplicates, ${filtered} junk`
-      )
+      log.info('Missed emails import complete', { imported, skipped, filtered })
     } catch (importError) {
-      console.error('[Subscription Check] Error importing missed emails:', importError)
+      log.error('Error importing missed emails', { error: importError })
       // Don't fail the renewal if import fails
     }
 
@@ -147,13 +149,7 @@ export async function POST() {
       renewalNeeded: false,
     })
   } catch (error) {
-    console.error('Subscription check/renewal error:', error)
-    return NextResponse.json(
-      {
-        status: 'error',
-        error: error instanceof Error ? error.message : 'Failed to check subscription',
-      },
-      { status: 500 }
-    )
+    log.error('Subscription check/renewal error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to check subscription')
   }
 }

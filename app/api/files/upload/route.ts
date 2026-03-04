@@ -1,6 +1,22 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { nanoid } from 'nanoid'
+import { z } from 'zod'
+import { MAX_FILE_SIZE, ALLOWED_MIME_TYPES } from '@/lib/api/schemas'
+import { unauthorized, badRequest, serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('api-files-upload')
+
+// Sanitize filename: remove path separators and special characters
+function sanitizeFilename(filename: string): string {
+  return filename
+    .replace(/[/\\]/g, '_')           // Remove path separators
+    .replace(/\.\./g, '_')            // Remove directory traversal
+    .replace(/[^\w\s.\-()]/g, '_')    // Only allow safe characters
+    .replace(/\s+/g, '_')             // Replace spaces with underscores
+    .slice(0, 200)                     // Limit length
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,7 +25,7 @@ export async function POST(request: NextRequest) {
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return unauthorized('Unauthorized')
     }
 
     // Parse form data
@@ -19,15 +35,32 @@ export async function POST(request: NextRequest) {
     const customerId = formData.get('customerId') as string
 
     if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+      return badRequest('No file provided')
     }
 
-    if (!projectId || !customerId) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    // Validate projectId and customerId are UUIDs
+    const uuidSchema = z.string().uuid()
+    const projectIdResult = uuidSchema.safeParse(projectId)
+    const customerIdResult = uuidSchema.safeParse(customerId)
+
+    if (!projectIdResult.success || !customerIdResult.success) {
+      return badRequest('Invalid projectId or customerId')
     }
 
-    // Generate unique filename
-    const fileExt = file.name.split('.').pop()
+    // Validate file size (10MB limit)
+    if (file.size > MAX_FILE_SIZE) {
+      return badRequest(`File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB`)
+    }
+
+    // Validate file type
+    const allowedTypes: readonly string[] = ALLOWED_MIME_TYPES
+    if (!allowedTypes.includes(file.type)) {
+      return badRequest(`File type "${file.type}" is not allowed. Accepted types: images, PDF, AI, PSD, ZIP`)
+    }
+
+    // Sanitize filename and generate unique path
+    const safeOriginalName = sanitizeFilename(file.name)
+    const fileExt = safeOriginalName.split('.').pop() || 'bin'
     const fileName = `${nanoid()}.${fileExt}`
     const filePath = `${customerId}/${projectId}/${fileName}`
 
@@ -44,8 +77,8 @@ export async function POST(request: NextRequest) {
       })
 
     if (storageError) {
-      console.error('Storage upload error:', storageError)
-      return NextResponse.json({ error: 'Failed to upload file to storage' }, { status: 500 })
+      log.error('Storage upload error', { error: storageError })
+      return serverError('Failed to upload file to storage')
     }
 
     // Get public URL
@@ -59,7 +92,7 @@ export async function POST(request: NextRequest) {
       .insert({
         work_item_id: projectId,
         customer_id: customerId,
-        filename: file.name,
+        filename: safeOriginalName,
         file_path: filePath,
         external_url: publicUrl,
         mime_type: file.type,
@@ -71,10 +104,10 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (dbError) {
-      console.error('Database insert error:', dbError)
+      log.error('Database insert error', { error: dbError })
       // Clean up uploaded file
       await supabase.storage.from('files').remove([filePath])
-      return NextResponse.json({ error: 'Failed to create file record' }, { status: 500 })
+      return serverError('Failed to create file record')
     }
 
     // Create activity log entry
@@ -88,7 +121,7 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         metadata: {
           file_id: fileRecord.id,
-          filename: file.name,
+          filename: safeOriginalName,
           file_size: file.size
         }
       })
@@ -99,9 +132,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Upload error:', error)
-    return NextResponse.json({
-      error: error.message || 'Internal server error'
-    }, { status: 500 })
+    log.error('Upload error', { error })
+    return serverError(error.message || 'Internal server error')
   }
 }

@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { Client } from '@microsoft/microsoft-graph-client'
+import { logger } from '@/lib/logger'
+
+const log = logger('email-attachments')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -47,7 +50,7 @@ export async function downloadAndSaveEmailAttachments(
     const mailboxEmail = 'sales@thegayfanclub.com'
 
     if (!tenantId || !clientId || !clientSecret) {
-      console.error('[Email Attachments] Missing Microsoft Graph credentials')
+      log.error('Missing Microsoft Graph credentials')
       return {
         success: false,
         downloadedCount: 0,
@@ -71,7 +74,7 @@ export async function downloadAndSaveEmailAttachments(
     })
 
     if (!tokenResponse.ok) {
-      console.error('[Email Attachments] Failed to get access token')
+      log.error('Failed to get access token')
       return {
         success: false,
         downloadedCount: 0,
@@ -91,7 +94,7 @@ export async function downloadAndSaveEmailAttachments(
     // Download each attachment
     for (const attachment of downloadableAttachments) {
       try {
-        console.log(`[Email Attachments] Downloading: ${attachment.name}`)
+        log.info('Downloading attachment', { name: attachment.name })
 
         // Fetch attachment from Microsoft Graph
         const graphAttachment = await client
@@ -124,7 +127,7 @@ export async function downloadAndSaveEmailAttachments(
           })
 
         if (uploadError) {
-          console.error(`[Email Attachments] Upload error for ${attachment.name}:`, uploadError)
+          log.error('Upload error', { name: attachment.name, error: uploadError })
           errors.push(`Failed to upload ${attachment.name}: ${uploadError.message}`)
           continue
         }
@@ -150,7 +153,7 @@ export async function downloadAndSaveEmailAttachments(
           .insert(fileRecord)
 
         if (dbError) {
-          console.error(`[Email Attachments] DB error for ${attachment.name}:`, dbError)
+          log.error('DB error', { name: attachment.name, error: dbError })
           errors.push(`Failed to save ${attachment.name} to database: ${dbError.message}`)
 
           // Clean up the uploaded file
@@ -161,17 +164,17 @@ export async function downloadAndSaveEmailAttachments(
         }
 
         downloadedCount++
-        console.log(`[Email Attachments] Successfully saved: ${attachment.name}`)
+        log.info('Successfully saved attachment', { name: attachment.name })
 
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-        console.error(`[Email Attachments] Error downloading ${attachment.name}:`, error)
+        log.error('Error downloading attachment', { name: attachment.name, error })
         errors.push(`${attachment.name}: ${errorMessage}`)
       }
     }
 
     const success = errors.length === 0
-    console.log(`[Email Attachments] Download complete: ${downloadedCount}/${downloadableAttachments.length} successful`)
+    log.info('Download complete', { downloadedCount, totalCount: downloadableAttachments.length })
 
     return {
       success,
@@ -180,7 +183,7 @@ export async function downloadAndSaveEmailAttachments(
     }
 
   } catch (error) {
-    console.error('[Email Attachments] Unexpected error:', error)
+    log.error('Unexpected error', { error })
     return {
       success: false,
       downloadedCount,

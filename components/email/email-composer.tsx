@@ -16,8 +16,11 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
-import { Loader2, Mail, Paperclip, X } from 'lucide-react'
+import { Loader2, Mail, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { logger } from '@/lib/logger'
+
+const log = logger('email-composer')
 
 interface AlternativeContact {
   id: string
@@ -109,7 +112,7 @@ export function EmailComposer({
       }
 
     } catch (error: any) {
-      console.error('Send email error:', error)
+      log.error('Send email error', { error })
       toast.error(error.message || 'Failed to send email')
     } finally {
       setIsSending(false)

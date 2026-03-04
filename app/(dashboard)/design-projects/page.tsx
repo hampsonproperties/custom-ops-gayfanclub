@@ -27,10 +27,11 @@ export default function DesignProjectsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('active')
 
   // Get work items assigned to current user
-  const { data: myProjects } = useWorkItems({
+  const { data: myProjectsResult } = useWorkItems({
     assignedTo: 'me',
     type: 'assisted_project'
   })
+  const myProjects = myProjectsResult?.items
 
   // Filter by design-related statuses
   const designStatuses = [

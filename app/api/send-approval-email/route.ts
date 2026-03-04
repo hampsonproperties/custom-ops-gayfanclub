@@ -5,25 +5,27 @@ import { createClient } from '@supabase/supabase-js'
 import jwt from 'jsonwebtoken'
 import 'isomorphic-fetch'
 import { getTemplateByKey, renderTemplate } from '@/lib/email/templates'
+import { validateBody } from '@/lib/api/validate'
+import { approvalEmailBody } from '@/lib/api/schemas'
+import { badRequest, notFound, serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+import { APPROVAL_TOKEN_EXPIRY_SECONDS } from '@/lib/config'
+
+const log = logger('send-approval-email')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const jwtSecret = process.env.JWT_SECRET!
 
 if (!jwtSecret) {
-  console.error('JWT_SECRET environment variable is not set')
+  log.error('JWT_SECRET environment variable is not set')
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { workItemId, fileId } = await request.json()
-
-    if (!workItemId || !fileId) {
-      return NextResponse.json(
-        { error: 'Missing required fields: workItemId, fileId' },
-        { status: 400 }
-      )
-    }
+    const bodyResult = validateBody(await request.json(), approvalEmailBody)
+    if (bodyResult.error) return bodyResult.error
+    const { workItemId, fileId } = bodyResult.data
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
@@ -35,17 +37,11 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (workItemError || !workItem) {
-      return NextResponse.json(
-        { error: 'Work item not found' },
-        { status: 404 }
-      )
+      return notFound('Work item not found')
     }
 
     if (!workItem.customer_email) {
-      return NextResponse.json(
-        { error: 'Work item has no customer email' },
-        { status: 400 }
-      )
+      return badRequest('Work item has no customer email')
     }
 
     // Fetch file details
@@ -56,10 +52,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (fileError || !file) {
-      return NextResponse.json(
-        { error: 'File not found' },
-        { status: 404 }
-      )
+      return notFound('File not found')
     }
 
     // Get proof image URL
@@ -73,20 +66,17 @@ export async function POST(request: NextRequest) {
       const { data: signedUrlData, error: signedUrlError } = await supabase
         .storage
         .from(file.storage_bucket)
-        .createSignedUrl(file.storage_path, 604800) // 7 days in seconds
+        .createSignedUrl(file.storage_path, APPROVAL_TOKEN_EXPIRY_SECONDS)
 
       if (signedUrlError || !signedUrlData) {
-        return NextResponse.json(
-          { error: 'Failed to generate signed URL for proof image' },
-          { status: 500 }
-        )
+        return serverError('Failed to generate signed URL for proof image')
       }
 
       proofImageUrl = signedUrlData.signedUrl
     }
 
     // Generate JWT approval tokens (7-day expiry)
-    const tokenExpiry = Math.floor(Date.now() / 1000) + 604800 // 7 days
+    const tokenExpiry = Math.floor(Date.now() / 1000) + APPROVAL_TOKEN_EXPIRY_SECONDS
     const approveToken = jwt.sign(
       {
         workItemId,
@@ -132,10 +122,7 @@ export async function POST(request: NextRequest) {
     const template = await getTemplateByKey('customify-proof-approval')
 
     if (!template) {
-      return NextResponse.json(
-        { error: 'Email template not found' },
-        { status: 500 }
-      )
+      return serverError('Email template not found')
     }
 
     const { subject, body } = renderTemplate(template, {
@@ -202,7 +189,7 @@ export async function POST(request: NextRequest) {
         internetMessageId = sentItems.value[0].internetMessageId
       }
     } catch (error) {
-      console.error('Failed to fetch sent message metadata:', error)
+      log.error('Failed to fetch sent message metadata', { error })
     }
 
     // Create communication record
@@ -224,7 +211,7 @@ export async function POST(request: NextRequest) {
       })
 
     if (commError) {
-      console.error('Failed to log email to database:', commError)
+      log.error('Failed to log email to database', { error: commError })
     }
 
     // Update work item status to awaiting_approval
@@ -237,7 +224,7 @@ export async function POST(request: NextRequest) {
       .eq('id', workItemId)
 
     if (updateError) {
-      console.error('Failed to update work item status:', updateError)
+      log.error('Failed to update work item status', { error: updateError, workItemId })
     }
 
     // Recalculate next follow-up after status change
@@ -252,7 +239,7 @@ export async function POST(request: NextRequest) {
           .eq('id', workItemId)
       }
     } catch (followUpError) {
-      console.error('[Send Approval Email] Error calculating follow-up:', followUpError)
+      log.error('Error calculating follow-up', { error: followUpError, workItemId })
       // Don't fail the whole operation if follow-up calc fails
     }
 
@@ -261,12 +248,7 @@ export async function POST(request: NextRequest) {
       message: 'Approval email sent successfully',
     })
   } catch (error) {
-    console.error('Send approval email error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to send approval email',
-      },
-      { status: 500 }
-    )
+    log.error('Send approval email error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to send approval email')
   }
 }

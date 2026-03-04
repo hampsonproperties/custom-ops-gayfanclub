@@ -1,5 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { queueBatchEmailsForWorkItem } from '@/lib/email/batch-emails'
+import { unauthorized, serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+import { DRIP_EMAIL_SCHEDULE } from '@/lib/config'
+
+const log = logger('cron-batch-drip-emails')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -25,29 +31,23 @@ export async function GET(request: Request) {
     const cronSecret = process.env.CRON_SECRET
 
     if (!cronSecret) {
-      console.error('CRON_SECRET not configured')
-      return NextResponse.json(
-        { error: 'Cron secret not configured' },
-        { status: 500 }
-      )
+      log.error('CRON_SECRET not configured')
+      return serverError('Cron secret not configured')
     }
 
     if (authHeader !== `Bearer ${cronSecret}`) {
-      console.error('Unauthorized cron request')
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
+      log.error('Unauthorized cron request')
+      return unauthorized('Unauthorized')
     }
 
     // Use service role key for cron job
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
     const results = {
-      email1_sent: 0,
-      email2_sent: 0,
-      email3_sent: 0,
-      email4_sent: 0,
+      email1_queued: 0,
+      email2_queued: 0,
+      email3_queued: 0,
+      email4_queued: 0,
       errors: [] as string[],
     }
 
@@ -61,13 +61,13 @@ export async function GET(request: Request) {
       .is('drip_email_1_sent_at', null)
 
     if (error1) {
-      console.error('Error fetching batches for email 1:', error1)
+      log.error('Error fetching batches for email 1', { error: error1 })
       results.errors.push(`Email 1 fetch error: ${error1.message}`)
     } else {
       for (const batch of batchesForEmail1 || []) {
         try {
-          await sendDripEmail(supabase, batch, 1)
-          results.email1_sent++
+          const queued = await queueDripEmail(supabase, batch, 1)
+          results.email1_queued += queued
         } catch (error) {
           const msg = error instanceof Error ? error.message : 'Unknown error'
           results.errors.push(`Email 1 for batch ${batch.id}: ${msg}`)
@@ -79,7 +79,7 @@ export async function GET(request: Request) {
     // EMAIL 2: Shipped from Facility (Day 7)
     // ========================================================================
     const sevenDaysAgo = new Date()
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - DRIP_EMAIL_SCHEDULE.email2_days)
 
     const { data: batchesForEmail2, error: error2 } = await supabase
       .from('batches')
@@ -90,13 +90,13 @@ export async function GET(request: Request) {
       .lte('drip_email_1_sent_at', sevenDaysAgo.toISOString())
 
     if (error2) {
-      console.error('Error fetching batches for email 2:', error2)
+      log.error('Error fetching batches for email 2', { error: error2 })
       results.errors.push(`Email 2 fetch error: ${error2.message}`)
     } else {
       for (const batch of batchesForEmail2 || []) {
         try {
-          await sendDripEmail(supabase, batch, 2)
-          results.email2_sent++
+          const queued = await queueDripEmail(supabase, batch, 2)
+          results.email2_queued += queued
         } catch (error) {
           const msg = error instanceof Error ? error.message : 'Unknown error'
           results.errors.push(`Email 2 for batch ${batch.id}: ${msg}`)
@@ -108,7 +108,7 @@ export async function GET(request: Request) {
     // EMAIL 3: Going Through Customs (Day 14)
     // ========================================================================
     const fourteenDaysAgo = new Date()
-    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14)
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - DRIP_EMAIL_SCHEDULE.email3_days)
 
     const { data: batchesForEmail3, error: error3 } = await supabase
       .from('batches')
@@ -119,13 +119,13 @@ export async function GET(request: Request) {
       .lte('drip_email_1_sent_at', fourteenDaysAgo.toISOString())
 
     if (error3) {
-      console.error('Error fetching batches for email 3:', error3)
+      log.error('Error fetching batches for email 3', { error: error3 })
       results.errors.push(`Email 3 fetch error: ${error3.message}`)
     } else {
       for (const batch of batchesForEmail3 || []) {
         try {
-          await sendDripEmail(supabase, batch, 3)
-          results.email3_sent++
+          const queued = await queueDripEmail(supabase, batch, 3)
+          results.email3_queued += queued
         } catch (error) {
           const msg = error instanceof Error ? error.message : 'Unknown error'
           results.errors.push(`Email 3 for batch ${batch.id}: ${msg}`)
@@ -138,7 +138,7 @@ export async function GET(request: Request) {
     // Skipped if drip_email_4_skipped = true (Shopify already sent tracking)
     // ========================================================================
     const twentyOneDaysAgo = new Date()
-    twentyOneDaysAgo.setDate(twentyOneDaysAgo.getDate() - 21)
+    twentyOneDaysAgo.setDate(twentyOneDaysAgo.getDate() - DRIP_EMAIL_SCHEDULE.email4_days)
 
     const { data: batchesForEmail4, error: error4 } = await supabase
       .from('batches')
@@ -150,13 +150,13 @@ export async function GET(request: Request) {
       .lte('drip_email_1_sent_at', twentyOneDaysAgo.toISOString())
 
     if (error4) {
-      console.error('Error fetching batches for email 4:', error4)
+      log.error('Error fetching batches for email 4', { error: error4 })
       results.errors.push(`Email 4 fetch error: ${error4.message}`)
     } else {
       for (const batch of batchesForEmail4 || []) {
         try {
-          await sendDripEmail(supabase, batch, 4)
-          results.email4_sent++
+          const queued = await queueDripEmail(supabase, batch, 4)
+          results.email4_queued += queued
         } catch (error) {
           const msg = error instanceof Error ? error.message : 'Unknown error'
           results.errors.push(`Email 4 for batch ${batch.id}: ${msg}`)
@@ -164,7 +164,7 @@ export async function GET(request: Request) {
       }
     }
 
-    console.log('Batch drip email processing complete:', results)
+    log.info('Batch drip email processing complete', { results })
 
     return NextResponse.json({
       success: true,
@@ -172,109 +172,90 @@ export async function GET(request: Request) {
       ...results,
     })
   } catch (error) {
-    console.error('Batch drip email cron error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to process drip emails',
-      },
-      { status: 500 }
-    )
+    log.error('Batch drip email cron error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to process drip emails')
   }
 }
 
 /**
- * Send a drip email for a batch
+ * Map drip email numbers to batch email types used by the queue system.
+ * This eliminates the parallel sending code — all emails flow through
+ * the queue-based sendBatchEmail() which handles Microsoft Graph,
+ * communications logging, and deduplication.
  */
-async function sendDripEmail(
+const DRIP_TO_BATCH_EMAIL_TYPE: Record<1 | 2 | 3 | 4, 'entering_production' | 'midway_checkin' | 'en_route' | 'arrived_stateside'> = {
+  1: 'entering_production',
+  2: 'midway_checkin',
+  3: 'en_route',
+  4: 'arrived_stateside',
+}
+
+/**
+ * Queue drip emails for a batch via the batch_email_queue system.
+ * Returns the number of emails queued.
+ *
+ * The actual sending is handled by process-batch-emails cron (every 5 min),
+ * which calls sendBatchEmail() with Microsoft Graph integration.
+ */
+async function queueDripEmail(
   supabase: any,
   batch: any,
   emailNumber: 1 | 2 | 3 | 4
-): Promise<void> {
-  // Get the template key for this email
-  const templateKeys = {
-    1: 'drip_email_1_production',
-    2: 'drip_email_2_shipped',
-    3: 'drip_email_3_customs',
-    4: 'drip_email_4_warehouse',
-  }
-  const templateKey = templateKeys[emailNumber]
+): Promise<number> {
+  const emailType = DRIP_TO_BATCH_EMAIL_TYPE[emailNumber]
 
-  // Get the template
-  const { data: template, error: templateError } = await supabase
-    .from('templates')
-    .select('*')
-    .eq('key', templateKey)
-    .eq('is_active', true)
-    .single()
-
-  if (templateError || !template) {
-    throw new Error(`Template ${templateKey} not found`)
-  }
-
-  // Get all work items in this batch to find customer emails
+  // Get all work items in this batch
   const { data: batchItems, error: batchItemsError } = await supabase
     .from('batch_items')
-    .select('work_item_id, work_items!inner(customer_email, customer_name)')
+    .select('work_item_id')
     .eq('batch_id', batch.id)
 
   if (batchItemsError) {
     throw new Error(`Failed to fetch batch items: ${batchItemsError.message}`)
   }
 
-  // Get unique customer emails
-  const customerEmails = new Set<string>()
-  const customerNames: { [email: string]: string } = {}
+  if (!batchItems || batchItems.length === 0) {
+    log.info('No work items in batch, marking as processed', { batchId: batch.id })
+    await updateDripEmailTimestamp(supabase, batch.id, emailNumber)
+    return 0
+  }
 
-  for (const item of batchItems || []) {
-    if (item.work_items?.customer_email) {
-      customerEmails.add(item.work_items.customer_email)
-      if (item.work_items.customer_name) {
-        customerNames[item.work_items.customer_email] = item.work_items.customer_name
-      }
+  // Schedule for immediate send (drip cron already determined it's time)
+  const scheduledSendAt = new Date()
+
+  let totalQueued = 0
+
+  for (const item of batchItems) {
+    // queueBatchEmailsForWorkItem handles:
+    // - Looking up customer email + alternates
+    // - Dedup checking (already queued/sent)
+    // - Inserting into batch_email_queue
+    const result = await queueBatchEmailsForWorkItem({
+      batchId: batch.id,
+      workItemId: item.work_item_id,
+      emailType,
+      scheduledSendAt,
+    })
+
+    totalQueued += result.queued
+
+    if (result.errors.length > 0) {
+      log.error('Errors queueing for work item', { workItemId: item.work_item_id, errors: result.errors })
     }
   }
 
-  if (customerEmails.size === 0) {
-    console.log(`No customer emails found for batch ${batch.id}`)
-    // Still mark as sent to avoid retry
-    await updateDripEmailSentAt(supabase, batch.id, emailNumber)
-    return
-  }
+  log.info('Queued drip emails for batch', { totalQueued, batchName: batch.name, emailNumber, emailType })
 
-  // Prepare merge fields
-  const mergeFields = {
-    batch_name: batch.name,
-    alibaba_order_number: batch.alibaba_order_number,
-  }
+  // Mark drip timestamp so this cron doesn't re-queue on next run
+  await updateDripEmailTimestamp(supabase, batch.id, emailNumber)
 
-  // Replace merge fields in template
-  let subject = template.subject_template
-  let body = template.body_html_template
-
-  for (const [key, value] of Object.entries(mergeFields)) {
-    const placeholder = `{{${key}}}`
-    subject = subject.replace(new RegExp(placeholder, 'g'), value)
-    body = body.replace(new RegExp(placeholder, 'g'), value)
-  }
-
-  // Send email to each customer
-  // TODO: Implement actual email sending via Microsoft Graph API
-  // For now, just log and mark as sent
-  console.log(`Sending drip email ${emailNumber} for batch ${batch.name} to ${customerEmails.size} customers`)
-  console.log(`Subject: ${subject}`)
-  console.log(`Recipients: ${Array.from(customerEmails).join(', ')}`)
-
-  // TODO: Call Microsoft Graph API to send email
-  // await fetch('/api/email/send', { ... })
-
-  // Mark email as sent
-  await updateDripEmailSentAt(supabase, batch.id, emailNumber)
+  return totalQueued
 }
 
 /**
- * Update the drip_email_X_sent_at timestamp
+ * Update the drip_email_X_sent_at timestamp to prevent re-processing.
  */
-async function updateDripEmailSentAt(
+async function updateDripEmailTimestamp(
   supabase: any,
   batchId: string,
   emailNumber: 1 | 2 | 3 | 4

@@ -8,24 +8,22 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
+import { validateBody } from '@/lib/api/validate'
+import { syncTagsBody } from '@/lib/api/schemas'
+import { logger } from '@/lib/logger'
+import { badRequest, notFound, serverError } from '@/lib/api/errors'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const log = logger('shopify-sync-tags')
+
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  const supabase = await createClient()
 
   try {
-    const body = await request.json()
-    const { customerId, tags } = body
-
-    if (!customerId || !tags || !Array.isArray(tags)) {
-      return NextResponse.json(
-        { error: 'Missing or invalid customerId or tags' },
-        { status: 400 }
-      )
-    }
+    const bodyResult = validateBody(await request.json(), syncTagsBody)
+    if (bodyResult.error) return bodyResult.error
+    const { customerId, tags } = bodyResult.data
 
     // Get customer's shopify_customer_id
     const { data: customer, error: customerError } = await supabase
@@ -35,17 +33,11 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (customerError || !customer) {
-      return NextResponse.json(
-        { error: 'Customer not found' },
-        { status: 404 }
-      )
+      return notFound('Customer not found')
     }
 
     if (!customer.shopify_customer_id) {
-      return NextResponse.json(
-        { error: 'Customer does not have a Shopify customer ID' },
-        { status: 400 }
-      )
+      return badRequest('Customer does not have a Shopify customer ID')
     }
 
     // Queue the sync
@@ -63,10 +55,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (queueError) {
-      return NextResponse.json(
-        { error: `Failed to queue sync: ${queueError.message}` },
-        { status: 500 }
-      )
+      return serverError(`Failed to queue sync: ${queueError.message}`)
     }
 
     return NextResponse.json({
@@ -75,10 +64,7 @@ export async function POST(request: NextRequest) {
       message: 'Tags queued for sync to Shopify',
     })
   } catch (error) {
-    console.error('Error queuing tags sync:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    log.error('Error queuing tags sync', { error })
+    return serverError('Internal server error')
   }
 }

@@ -21,6 +21,9 @@ import {
 import { formatDistanceToNow } from 'date-fns'
 import DOMPurify from 'dompurify'
 import { parseEmailAddress, extractEmailPreview } from '@/lib/utils/email-formatting'
+import { logger } from '@/lib/logger'
+
+const log = logger('inbox-replies')
 
 export default function InboxRepliesPage() {
   const { data: replies, isLoading } = useInboxReplies()
@@ -32,7 +35,7 @@ export default function InboxRepliesPage() {
       await markActioned.mutateAsync(communicationId)
       toast.success('Marked as actioned')
     } catch (error) {
-      console.error('Mark actioned error:', error)
+      log.error('Mark actioned error', { error })
       toast.error('Failed to mark as actioned')
     }
   }

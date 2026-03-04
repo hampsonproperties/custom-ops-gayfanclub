@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/logger'
+import { serverError } from '@/lib/api/errors'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const log = logger('email-cleanup')
+
 
 export async function POST() {
   try {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = await createClient()
     const mailboxEmail = process.env.MICROSOFT_MAILBOX_EMAIL || 'sales@thegayfanclub.com'
 
     // Find all emails that are FROM sales@ but marked as inbound
@@ -44,10 +46,7 @@ export async function POST() {
       updated: outboundEmails.length,
     })
   } catch (error) {
-    console.error('Cleanup error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to clean up emails' },
-      { status: 500 }
-    )
+    log.error('Cleanup error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to clean up emails')
   }
 }

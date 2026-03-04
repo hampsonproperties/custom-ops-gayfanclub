@@ -23,6 +23,9 @@ import {
   Calendar,
   Settings,
 } from 'lucide-react'
+import { logger } from '@/lib/logger'
+
+const log = logger('command-palette')
 
 interface SearchResult {
   id: string
@@ -72,7 +75,7 @@ export function CommandPalette() {
       const data = await response.json()
       setResults(data.results || [])
     } catch (error) {
-      console.error('Search error:', error)
+      log.error('Search error', { error })
       setResults([])
     } finally {
       setLoading(false)

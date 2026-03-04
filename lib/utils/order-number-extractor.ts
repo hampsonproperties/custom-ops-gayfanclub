@@ -12,6 +12,11 @@
  * - etc.
  */
 
+import { logger } from '@/lib/logger'
+import { EMAIL_IMPORT_LOOKBACK_DAYS } from '@/lib/config'
+
+const log = logger('order-number-extractor')
+
 export interface OrderNumberMatch {
   orderNumber: string
   source: 'subject' | 'body'
@@ -222,9 +227,7 @@ export async function autoLinkEmailToWorkItem(
       .maybeSingle()
 
     if (threadEmail?.work_item_id) {
-      console.log(
-        `[Auto-Link] Linked via thread: ${message.conversationId} → ${threadEmail.work_item_id}`
-      )
+      log.info('Linked via thread', { conversationId: message.conversationId, workItemId: threadEmail.work_item_id })
       return threadEmail.work_item_id
     }
   }
@@ -236,9 +239,7 @@ export async function autoLinkEmailToWorkItem(
   for (const match of orderNumbers.filter((m) => m.confidence === 'high')) {
     const workItemId = await findWorkItemByOrderNumber(supabase, match.orderNumber)
     if (workItemId) {
-      console.log(
-        `[Auto-Link] Linked via order number (${match.pattern}): ${match.orderNumber} → ${workItemId}`
-      )
+      log.info('Linked via order number', { pattern: match.pattern, orderNumber: match.orderNumber, workItemId })
       return workItemId
     }
   }
@@ -247,17 +248,15 @@ export async function autoLinkEmailToWorkItem(
   for (const match of orderNumbers.filter((m) => m.confidence === 'medium')) {
     const workItemId = await findWorkItemByOrderNumber(supabase, match.orderNumber)
     if (workItemId) {
-      console.log(
-        `[Auto-Link] Linked via order number (${match.pattern}): ${match.orderNumber} → ${workItemId}`
-      )
+      log.info('Linked via order number', { pattern: match.pattern, orderNumber: match.orderNumber, workItemId })
       return workItemId
     }
   }
 
-  // Strategy 3: Email-based linking (existing - 60-day window)
+  // Strategy 3: Email-based linking (existing - configurable window)
   // For inbound emails, check from_email; for outbound emails, check to_emails
   const lookbackDate = new Date()
-  lookbackDate.setDate(lookbackDate.getDate() - 60)
+  lookbackDate.setDate(lookbackDate.getDate() - EMAIL_IMPORT_LOOKBACK_DAYS)
 
   // Build list of emails to check (from for inbound, to for outbound)
   const emailsToCheck = [fromEmail, ...toEmails]
@@ -275,9 +274,7 @@ export async function autoLinkEmailToWorkItem(
       .maybeSingle()
 
     if (recentWorkItem) {
-      console.log(
-        `[Auto-Link] Linked via email match (60-day window): ${emailToCheck} → ${recentWorkItem.id}`
-      )
+      log.info('Linked via email match (60-day window)', { email: emailToCheck, workItemId: recentWorkItem.id })
       return recentWorkItem.id
     }
   }
@@ -297,90 +294,13 @@ export async function autoLinkEmailToWorkItem(
         .maybeSingle()
 
       if (titleMatch) {
-        console.log(
-          `[Auto-Link] Linked via subject title: "${cleanSubject}" → ${titleMatch.id}`
-        )
+        log.info('Linked via subject title', { cleanSubject, workItemId: titleMatch.id })
         return titleMatch.id
       }
     }
   }
 
-  console.log('[Auto-Link] No work item found for email')
+  log.info('No work item found for email')
   return null
 }
 
-/**
- * Suggest new work item creation based on email content
- */
-export function shouldCreateWorkItem(
-  message: {
-    subject: string | null
-    body?: string
-    from: { emailAddress: { address: string } }
-  },
-  existingWorkItemFound: boolean
-): {
-  shouldCreate: boolean
-  reason: string
-  suggestedTitle: string | null
-} {
-  // Don't create if already linked
-  if (existingWorkItemFound) {
-    return {
-      shouldCreate: false,
-      reason: 'Already linked to existing work item',
-      suggestedTitle: null,
-    }
-  }
-
-  const fromEmail = message.from.emailAddress.address.toLowerCase()
-  const subject = (message.subject || '').toLowerCase()
-  const body = (message.body || '').toLowerCase()
-
-  // Don't create for auto-replies or notifications
-  const autoReplyPatterns = [
-    'out of office',
-    'automatic reply',
-    'away message',
-    'vacation',
-  ]
-  if (autoReplyPatterns.some((pattern) => subject.includes(pattern))) {
-    return {
-      shouldCreate: false,
-      reason: 'Auto-reply detected',
-      suggestedTitle: null,
-    }
-  }
-
-  // Look for inquiry keywords
-  const inquiryKeywords = [
-    'quote',
-    'inquiry',
-    'interested in',
-    'looking for',
-    'custom',
-    'order',
-    'purchase',
-    'bulk',
-    'event',
-  ]
-
-  const hasInquiryKeyword = inquiryKeywords.some(
-    (keyword) => subject.includes(keyword) || body.includes(keyword)
-  )
-
-  if (hasInquiryKeyword) {
-    return {
-      shouldCreate: true,
-      reason: 'New inquiry detected',
-      suggestedTitle: message.subject || 'Inquiry from ' + fromEmail,
-    }
-  }
-
-  // Default: don't auto-create (let operator decide)
-  return {
-    shouldCreate: false,
-    reason: 'No clear inquiry detected',
-    suggestedTitle: message.subject || 'Email from ' + fromEmail,
-  }
-}

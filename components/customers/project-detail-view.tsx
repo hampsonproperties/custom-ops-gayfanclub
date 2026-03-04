@@ -31,6 +31,9 @@ import { UpdateStatusDialog } from '@/components/projects/update-status-dialog'
 import { EmailComposer } from '@/components/email/email-composer'
 import { AssignDesignerDialog } from '@/components/projects/assign-designer-dialog'
 import { EventCountdown } from '@/components/projects/event-countdown'
+import { logger } from '@/lib/logger'
+
+const log = logger('project-detail-view')
 
 interface ProjectDetailViewProps {
   projectId: string
@@ -288,7 +291,7 @@ export function ProjectDetailView({ projectId, customerId, customerName }: Proje
                               window.open(data.url, '_blank')
                             }
                           } catch (error) {
-                            console.error('Download error:', error)
+                            log.error('Download error', { error })
                           }
                         }}
                       >

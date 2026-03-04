@@ -4,6 +4,9 @@
  */
 
 import { getShopifyCredentials } from './get-credentials'
+import { logger } from '@/lib/logger'
+
+const log = logger('shopify-draft-order')
 
 export interface DraftOrderLineItem {
   title: string
@@ -88,14 +91,14 @@ async function findOrCreateCustomer(
 
     if (!createResponse.ok) {
       const error = await createResponse.text()
-      console.error('[Shopify] Failed to create customer:', error)
+      log.error('Failed to create customer', { error })
       return { customerId: '', error: `Failed to create customer: ${error}` }
     }
 
     const createData = await createResponse.json()
     return { customerId: createData.customer.id.toString() }
   } catch (error: any) {
-    console.error('[Shopify] Error finding/creating customer:', error)
+    log.error('Error finding/creating customer', { error })
     return { customerId: '', error: error.message }
   }
 }
@@ -152,7 +155,7 @@ export async function createDraftOrder(
 
     if (!draftOrderResponse.ok) {
       const error = await draftOrderResponse.text()
-      console.error('[Shopify] Failed to create draft order:', error)
+      log.error('Failed to create draft order', { error })
       return {
         success: false,
         error: `Failed to create draft order: ${error}`,
@@ -170,7 +173,7 @@ export async function createDraftOrder(
       invoiceUrl: draftOrder.invoice_url,
     }
   } catch (error: any) {
-    console.error('[Shopify] Error creating draft order:', error)
+    log.error('Error creating draft order', { error })
     return {
       success: false,
       error: error.message || 'Unknown error creating draft order',

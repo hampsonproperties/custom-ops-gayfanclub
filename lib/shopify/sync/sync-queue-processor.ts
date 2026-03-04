@@ -12,6 +12,7 @@ import {
   pushFulfillmentToShopify,
   pushMetafieldToShopify,
 } from './push-to-shopify'
+import { DLQ_RETRY_DELAYS_MINUTES } from '@/lib/config'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -221,8 +222,7 @@ async function handleFailure(
  * @returns Next retry timestamp
  */
 function calculateNextRetry(retryCount: number): Date {
-  // Exponential backoff: 5min, 15min, 45min, 2hr, 6hr
-  const delaysMinutes = [5, 15, 45, 120, 360]
+  const delaysMinutes = [...DLQ_RETRY_DELAYS_MINUTES]
   const delayMinutes = delaysMinutes[Math.min(retryCount, delaysMinutes.length - 1)]
   return new Date(Date.now() + delayMinutes * 60 * 1000)
 }

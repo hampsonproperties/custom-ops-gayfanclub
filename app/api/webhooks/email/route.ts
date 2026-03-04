@@ -4,6 +4,10 @@ import { ClientSecretCredential } from '@azure/identity'
 import 'isomorphic-fetch'
 import { importEmail } from '@/lib/utils/email-import'
 import { createClient } from '@supabase/supabase-js'
+import { serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('email-webhook')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -34,7 +38,7 @@ export async function POST(request: NextRequest) {
 
     // Microsoft Graph sends validation request when creating subscription
     if (validationToken) {
-      console.log('[Email Webhook] Validation received')
+      log.info('Validation token received')
       return new NextResponse(validationToken, {
         status: 200,
         headers: { 'Content-Type': 'text/plain' },
@@ -44,10 +48,15 @@ export async function POST(request: NextRequest) {
     // Process notification
     const notification = JSON.parse(body)
 
-    console.log('[Email Webhook] Notification received:', notification.value?.length || 0, 'items')
+    log.info('Notification received', { itemCount: notification.value?.length || 0 })
 
-    // Process each notification
+    // Process each notification — validate clientState to confirm it came from our subscription
+    const expectedClientState = 'customOpsEmailSubscription'
     for (const item of notification.value || []) {
+      if (item.clientState !== expectedClientState) {
+        log.error('Rejected: invalid or missing clientState', { clientState: item.clientState })
+        continue
+      }
       if (item.changeType === 'created' && item.resourceData?.id) {
         await processEmailNotification(item)
       }
@@ -55,11 +64,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ received: true })
   } catch (error) {
-    console.error('[Email Webhook] Error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Webhook processing failed' },
-      { status: 500 }
-    )
+    log.error('Webhook handler error', { error })
+    return serverError(error instanceof Error ? error.message : 'Webhook processing failed')
   }
 }
 
@@ -78,16 +84,16 @@ async function processEmailNotification(notification: any) {
       )
       .get()
 
-    console.log('[Email Webhook] Fetched message:', message.subject)
+    log.info('Fetched message', { subject: message.subject })
 
     // Use shared import function (handles deduplication, categorization, auto-linking)
     const result = await importEmail(message, { mailboxEmail })
 
     if (result.success) {
       if (result.action === 'inserted') {
-        console.log('[Email Webhook] Successfully imported:', result.communicationId)
+        log.info('Successfully imported', { communicationId: result.communicationId })
       } else if (result.action === 'duplicate') {
-        console.log('[Email Webhook] Duplicate detected, skipped')
+        log.info('Duplicate detected, skipped')
       }
 
       // Recalculate follow-up if email is inbound and linked to a work item
@@ -120,15 +126,15 @@ async function processEmailNotification(notification: any) {
             .eq('id', result.workItemId)
             .eq('is_waiting', true)
 
-          console.log('[Email Webhook] Recalculated follow-up for work item:', result.workItemId)
+          log.info('Recalculated follow-up', { workItemId: result.workItemId })
         } catch (followUpError) {
-          console.error('[Email Webhook] Error recalculating follow-up:', followUpError)
+          log.error('Error recalculating follow-up', { error: followUpError, workItemId: result.workItemId })
         }
       }
     } else {
-      console.error('[Email Webhook] Import failed:', result.error)
+      log.error('Import failed', { error: result.error })
     }
   } catch (error) {
-    console.error('[Email Webhook] Error processing notification:', error)
+    log.error('Error processing notification', { error })
   }
 }

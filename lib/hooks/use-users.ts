@@ -26,6 +26,7 @@ export function useActiveUsers() {
       if (error) throw error
       return data as User[]
     },
+    staleTime: 5 * 60 * 1000, // 5 min — user list rarely changes
   })
 }
 
@@ -43,5 +44,6 @@ export function useAllUsers() {
       if (error) throw error
       return data as User[]
     },
+    staleTime: 5 * 60 * 1000, // 5 min — user list rarely changes
   })
 }

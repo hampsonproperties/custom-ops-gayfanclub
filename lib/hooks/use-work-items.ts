@@ -16,17 +16,29 @@ interface WorkItemFilters {
   dateTo?: string
   search?: string
   includeClosed?: boolean // Default false - only show open items
+  page?: number
+  pageSize?: number
+}
+
+export interface PaginatedResult<T> {
+  items: T[]
+  totalCount: number
 }
 
 export function useWorkItems(filters?: WorkItemFilters) {
   const supabase = createClient()
+  const isPaginated = filters?.page !== undefined
+  const pageSize = filters?.pageSize ?? 25
 
   return useQuery({
     queryKey: ['work-items', filters],
-    queryFn: async () => {
+    queryFn: async (): Promise<PaginatedResult<WorkItem>> => {
       let query = supabase
         .from('work_items')
-        .select('*, customer:customers(*), assigned_to:users!assigned_to_user_id(id, full_name, email)')
+        .select(
+          '*, customer:customers(*), assigned_to:users!assigned_to_user_id(id, full_name, email)',
+          isPaginated ? { count: 'exact' } : {}
+        )
         .order('created_at', { ascending: false })
 
       // By default, only show open items (not closed)
@@ -51,11 +63,6 @@ export function useWorkItems(filters?: WorkItemFilters) {
         query = query.eq('assigned_to_user_id', assignedToUserId)
       }
       if (filters?.search) {
-        // Search across multiple fields:
-        // - Customer info: name, email
-        // - Order numbers: Shopify order #, design fee order #, raw order IDs
-        // - Project: title
-        // Note: alternate_emails search will be enabled after migration runs
         const searchTerm = filters.search.toLowerCase()
         query = query.or(
           `customer_name.ilike.%${searchTerm}%,` +
@@ -68,35 +75,39 @@ export function useWorkItems(filters?: WorkItemFilters) {
         )
       }
 
-      const { data, error } = await query
+      // Apply pagination range
+      if (isPaginated) {
+        const from = (filters!.page! - 1) * pageSize
+        const to = from + pageSize - 1
+        query = query.range(from, to)
+      }
+
+      const { data, error, count } = await query
 
       if (error) throw error
 
-      // Fetch file counts for all work items
-      if (data && data.length > 0) {
-        const workItemIds = data.map(item => item.id)
+      // Fetch file counts for loaded work items
+      let items = (data ?? []) as WorkItem[]
+      if (items.length > 0) {
+        const workItemIds = items.map(item => item.id)
         const { data: fileCounts } = await supabase
           .from('files')
           .select('work_item_id')
           .in('work_item_id', workItemIds)
 
-        // Count files per work item
         const fileCountMap = new Map<string, number>()
         fileCounts?.forEach((file: any) => {
-          const count = fileCountMap.get(file.work_item_id) || 0
-          fileCountMap.set(file.work_item_id, count + 1)
+          const current = fileCountMap.get(file.work_item_id) || 0
+          fileCountMap.set(file.work_item_id, current + 1)
         })
 
-        // Add file count to each work item
-        const dataWithCounts = data.map((item: any) => ({
+        items = items.map((item: any) => ({
           ...item,
           file_count: fileCountMap.get(item.id) || 0
         }))
-
-        return dataWithCounts as WorkItem[]
       }
 
-      return data as WorkItem[]
+      return { items, totalCount: count ?? items.length }
     },
   })
 }

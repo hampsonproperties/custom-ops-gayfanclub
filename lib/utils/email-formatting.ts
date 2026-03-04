@@ -54,29 +54,6 @@ export function parseEmailAddress(emailString: string): ParsedEmailAddress {
 }
 
 /**
- * Format a single email address for display
- */
-export function formatEmailAddress(
-  emailString: string,
-  options: { showEmail?: boolean; short?: boolean } = {}
-): string {
-  const { showEmail = false, short = false } = options
-  const parsed = parseEmailAddress(emailString)
-
-  if (!parsed.email) return ''
-
-  if (short && parsed.name) {
-    return parsed.name
-  }
-
-  if (parsed.name && showEmail) {
-    return `${parsed.name} <${parsed.email}>`
-  }
-
-  return parsed.displayName
-}
-
-/**
  * Format multiple email addresses for display
  * Returns formatted list with optional truncation
  */
@@ -189,27 +166,6 @@ export function separateQuotedContent(html: string): {
     hasQuoted: false,
     quotedContent: '',
   }
-}
-
-/**
- * Clean up email HTML for better display
- * Removes inline styles that conflict with our design
- */
-export function cleanEmailHTML(html: string): string {
-  if (!html) return ''
-
-  return (
-    html
-      // Remove potentially conflicting inline styles
-      .replace(/style="[^"]*"/gi, '')
-      .replace(/class="[^"]*"/gi, '')
-      // Remove empty paragraphs and divs
-      .replace(/<p>\s*<\/p>/gi, '')
-      .replace(/<div>\s*<\/div>/gi, '')
-      // Normalize whitespace
-      .replace(/\s+/g, ' ')
-      .trim()
-  )
 }
 
 /**

@@ -8,6 +8,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { AlertCircle } from 'lucide-react'
 import { Suspense, useState } from 'react'
 import { toast } from 'sonner'
+import { logger } from '@/lib/logger'
+
+const log = logger('request-changes')
 
 function RequestChangesContent() {
   const searchParams = useSearchParams()
@@ -78,7 +81,7 @@ function RequestChangesContent() {
         `/approve-proof?success=true&action=reject&workItemId=${result.workItemId}`
       )
     } catch (error) {
-      console.error('Failed to submit changes request:', error)
+      log.error('Failed to submit changes request', { error })
       toast.error(
         error instanceof Error ? error.message : 'Failed to submit changes request'
       )

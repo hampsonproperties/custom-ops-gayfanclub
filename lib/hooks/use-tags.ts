@@ -31,6 +31,7 @@ export function useAllTags() {
       if (error) throw error
       return data as Tag[]
     },
+    staleTime: 5 * 60 * 1000, // 5 min — tags rarely change
   })
 }
 

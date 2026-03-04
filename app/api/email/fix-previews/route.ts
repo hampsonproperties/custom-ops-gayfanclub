@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 import { htmlToPlainText } from '@/lib/utils/html-entities'
+import { validateBody } from '@/lib/api/validate'
+import { fixPreviewsBody } from '@/lib/api/schemas'
+import { logger } from '@/lib/logger'
+import { serverError } from '@/lib/api/errors'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const log = logger('email-fix-previews')
+
 
 export async function POST(request: NextRequest) {
   try {
-    const { dryRun = false } = await request.json()
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const bodyResult = validateBody(await request.json(), fixPreviewsBody)
+    if (bodyResult.error) return bodyResult.error
+    const { dryRun = false } = bodyResult.data
+    const supabase = await createClient()
 
     // Fetch all communications with body_preview
     const { data: communications, error: fetchError } = await supabase
@@ -60,7 +66,7 @@ export async function POST(request: NextRequest) {
             .eq('id', comm.id)
 
           if (updateError) {
-            console.error(`Failed to update ${comm.id}:`, updateError)
+            log.error('Failed to update preview', { error: updateError, commId: comm.id })
             continue
           }
         }
@@ -80,10 +86,7 @@ export async function POST(request: NextRequest) {
       samples: updates.slice(0, 5), // Show first 5 examples
     })
   } catch (error) {
-    console.error('Fix previews error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to fix previews' },
-      { status: 500 }
-    )
+    log.error('Fix previews error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to fix previews')
   }
 }

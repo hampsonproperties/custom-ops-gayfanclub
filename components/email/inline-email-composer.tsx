@@ -13,6 +13,9 @@ import { Send } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Database } from '@/types/database'
 import type { EmailTemplate } from '@/lib/email-templates'
+import { logger } from '@/lib/logger'
+
+const log = logger('inline-email-composer')
 
 type WorkItem = Database['public']['Tables']['work_items']['Row']
 
@@ -73,7 +76,7 @@ export function InlineEmailComposer({
 
       onSendSuccess?.()
     } catch (error) {
-      console.error('Failed to send email:', error)
+      log.error('Failed to send email', { error })
       toast.error(error instanceof Error ? error.message : 'Failed to send email')
     }
   }

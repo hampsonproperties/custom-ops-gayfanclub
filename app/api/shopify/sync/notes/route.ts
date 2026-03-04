@@ -8,24 +8,22 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
+import { validateBody } from '@/lib/api/validate'
+import { syncNotesBody } from '@/lib/api/schemas'
+import { logger } from '@/lib/logger'
+import { badRequest, notFound, serverError } from '@/lib/api/errors'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const log = logger('shopify-sync-notes')
+
 
 export async function POST(request: NextRequest) {
-  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  const supabase = await createClient()
 
   try {
-    const body = await request.json()
-    const { workItemId, noteId } = body
-
-    if (!workItemId || !noteId) {
-      return NextResponse.json(
-        { error: 'Missing workItemId or noteId' },
-        { status: 400 }
-      )
-    }
+    const bodyResult = validateBody(await request.json(), syncNotesBody)
+    if (bodyResult.error) return bodyResult.error
+    const { workItemId, noteId } = bodyResult.data
 
     // Get work item with customer info
     const { data: workItem, error: workItemError } = await supabase
@@ -35,20 +33,14 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (workItemError || !workItem) {
-      return NextResponse.json(
-        { error: 'Work item not found' },
-        { status: 404 }
-      )
+      return notFound('Work item not found')
     }
 
     // Get customer's shopify_customer_id
     const shopifyCustomerId = (workItem as any).customers?.shopify_customer_id
 
     if (!shopifyCustomerId) {
-      return NextResponse.json(
-        { error: 'Customer does not have a Shopify customer ID' },
-        { status: 400 }
-      )
+      return badRequest('Customer does not have a Shopify customer ID')
     }
 
     // Get the note content
@@ -59,10 +51,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (noteError || !note) {
-      return NextResponse.json(
-        { error: 'Note not found' },
-        { status: 404 }
-      )
+      return notFound('Note not found')
     }
 
     // Queue the sync
@@ -81,10 +70,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (queueError) {
-      return NextResponse.json(
-        { error: `Failed to queue sync: ${queueError.message}` },
-        { status: 500 }
-      )
+      return serverError(`Failed to queue sync: ${queueError.message}`)
     }
 
     return NextResponse.json({
@@ -93,10 +79,7 @@ export async function POST(request: NextRequest) {
       message: 'Note queued for sync to Shopify',
     })
   } catch (error) {
-    console.error('Error queuing note sync:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    log.error('Error queuing note sync', { error })
+    return serverError('Internal server error')
   }
 }

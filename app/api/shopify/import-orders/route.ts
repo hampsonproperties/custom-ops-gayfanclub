@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { detectOrderType } from '@/lib/shopify/detect-order-type'
 import { addToDLQ } from '@/lib/utils/dead-letter-queue'
+import { validateBody } from '@/lib/api/validate'
+import { importOrdersBody } from '@/lib/api/schemas'
+import { logger } from '@/lib/logger'
+import { serverError } from '@/lib/api/errors'
+import { SHOPIFY_API_VERSION } from '@/lib/config'
+
+const log = logger('shopify-import-orders')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -10,7 +17,9 @@ export async function POST(request: NextRequest) {
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
   try {
-    const { orderIds, startDate, endDate } = await request.json()
+    const bodyResult = validateBody(await request.json(), importOrdersBody)
+    if (bodyResult.error) return bodyResult.error
+    const { orderIds, startDate, endDate } = bodyResult.data
 
     // Fetch orders from Shopify Admin API
     const shopifyDomain = process.env.SHOPIFY_STORE_DOMAIN!
@@ -26,7 +35,7 @@ export async function POST(request: NextRequest) {
     params.append('status', 'any')
 
     const response = await fetch(
-      `https://${shopifyDomain}/admin/api/2024-01/orders.json?${params}`,
+      `https://${shopifyDomain}/admin/api/${SHOPIFY_API_VERSION}/orders.json?${params}`,
       {
         headers: {
           'X-Shopify-Access-Token': shopifyToken,
@@ -204,7 +213,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(results)
   } catch (error) {
-    console.error('Import error:', error)
+    log.error('Import error', { error })
 
     // Add to DLQ for retry
     await addToDLQ({
@@ -216,12 +225,9 @@ export async function POST(request: NextRequest) {
         timestamp: new Date().toISOString(),
       },
     }).catch((dlqError) => {
-      console.error('[Order Import] Failed to add to DLQ:', dlqError)
+      log.error('Failed to add to DLQ', { error: dlqError })
     })
 
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Import failed' },
-      { status: 500 }
-    )
+    return serverError(error instanceof Error ? error.message : 'Import failed')
   }
 }

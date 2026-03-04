@@ -1,4 +1,7 @@
 import { convert } from 'html-to-text'
+import { logger } from '@/lib/logger'
+
+const log = logger('html-entities')
 
 /**
  * Decode HTML entities to plain text
@@ -74,7 +77,7 @@ export function htmlToPlainText(html: string): string {
     return decodeHtmlEntities(plainText)
   } catch (error) {
     // Fallback to basic stripping if conversion fails
-    console.error('Error converting HTML to text:', error)
+    log.error('Error converting HTML to text', { error })
     const withoutTags = html.replace(/<[^>]*>/g, ' ')
     return decodeHtmlEntities(withoutTags).trim()
   }

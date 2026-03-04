@@ -14,6 +14,9 @@ import { useFiles } from '@/lib/hooks/use-files'
 import { toast } from 'sonner'
 import { FileIcon, CheckCircle2, Eye, EyeOff } from 'lucide-react'
 import type { Database } from '@/types/database'
+import { logger } from '@/lib/logger'
+
+const log = logger('send-approval-dialog')
 
 type FileRecord = Database['public']['Tables']['files']['Row']
 type WorkItem = Database['public']['Tables']['work_items']['Row']
@@ -98,7 +101,7 @@ export function SendApprovalDialog({
           throw new Error(result.error || 'Failed to load preview')
         }
 
-        console.log('Preview loaded with proofImageUrl:', result.proofImageUrl)
+        log.info('Preview loaded', { proofImageUrl: result.proofImageUrl })
 
         setPreviewData({
           subject: result.subject,
@@ -107,7 +110,7 @@ export function SendApprovalDialog({
           fileInfo: result.fileInfo,
         })
       } catch (error) {
-        console.error('Failed to load preview:', error)
+        log.error('Failed to load preview', { error })
         toast.error('Failed to load email preview')
       } finally {
         setLoadingPreview(false)
@@ -145,7 +148,7 @@ export function SendApprovalDialog({
       onOpenChange(false)
       onSuccess?.()
     } catch (error) {
-      console.error('Failed to send approval email:', error)
+      log.error('Failed to send approval email', { error })
       toast.error(
         error instanceof Error ? error.message : 'Failed to send approval email'
       )

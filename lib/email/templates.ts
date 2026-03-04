@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
+import { logger } from '@/lib/logger'
+
+const log = logger('email-templates')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -20,7 +23,7 @@ export async function getTemplateByKey(key: string): Promise<Template | null> {
     .single()
 
   if (error) {
-    console.error(`Failed to fetch template with key "${key}":`, error)
+    log.error('Failed to fetch template', { key, error })
     return null
   }
 
@@ -53,7 +56,7 @@ export function renderTemplate(
   const unreplacedInBody = body.match(unreplacedPattern)
 
   if (unreplacedInSubject || unreplacedInBody) {
-    console.warn('Unreplaced merge fields found:', {
+    log.warn('Unreplaced merge fields found', {
       subject: unreplacedInSubject,
       body: unreplacedInBody,
     })

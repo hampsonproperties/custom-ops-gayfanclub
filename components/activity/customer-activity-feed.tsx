@@ -23,6 +23,9 @@ import { formatDistanceToNow, format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { cleanEmailContent, getEmailPreview } from '@/lib/utils/email-content-cleaner'
+import { logger } from '@/lib/logger'
+
+const log = logger('customer-activity-feed')
 
 type ActivityType = 'note' | 'email' | 'task'
 type FilterType = 'all' | 'starred' | 'note' | 'email' | 'task'
@@ -217,7 +220,7 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
       setAiPrompt('')
       toast.success('Email generated! Review and edit before sending.')
     } catch (error) {
-      console.error('Email generation error:', error)
+      log.error('Email generation error', { error })
     } finally {
       setIsGenerating(false)
     }

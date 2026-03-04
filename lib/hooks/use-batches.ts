@@ -3,6 +3,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/types/database'
+import { logger } from '@/lib/logger'
+
+const log = logger('use-batches')
 
 type Batch = Database['public']['Tables']['batches']['Row']
 type BatchInsert = Database['public']['Tables']['batches']['Insert']
@@ -72,46 +75,27 @@ export function useCreateBatch() {
     mutationFn: async ({ name, workItemIds }: { name: string; workItemIds: string[] }) => {
       const { data: { user } } = await supabase.auth.getUser()
 
-      // Create batch
-      const { data: batch, error: batchError } = await supabase
-        .from('batches')
-        .insert({
-          name,
-          status: 'draft',
-          created_by_user_id: user?.id || null,
+      // Atomic batch creation: creates batch + inserts items + updates work_items
+      // All 3 steps succeed or all roll back (PostgreSQL transaction via RPC)
+      const { data: batchId, error: rpcError } = await supabase
+        .rpc('create_batch_with_items', {
+          p_name: name,
+          p_created_by_user_id: user?.id || null,
+          p_work_item_ids: workItemIds,
         })
+
+      if (rpcError) throw rpcError
+
+      // Fetch the created batch for return value
+      const { data: batch, error: fetchError } = await supabase
+        .from('batches')
         .select()
+        .eq('id', batchId)
         .single()
 
-      if (batchError) throw batchError
+      if (fetchError) throw fetchError
 
-      // Add work items to batch
-      const batchItems = workItemIds.map((workItemId, index) => ({
-        batch_id: batch.id,
-        work_item_id: workItemId,
-        position: index + 1,
-      }))
-
-      const { error: itemsError } = await supabase
-        .from('batch_items')
-        .insert(batchItems)
-
-      if (itemsError) throw itemsError
-
-      // Update work items to link to this batch
-      const { error: updateError } = await supabase
-        .from('work_items')
-        .update({
-          batch_id: batch.id,
-          batched_at: new Date().toISOString(),
-          status: 'batched',
-        })
-        .in('id', workItemIds)
-
-      if (updateError) throw updateError
-
-      // Recalculate follow-ups for all batched items
-      // Status 'batched' should pause follow-ups (set to NULL)
+      // Recalculate follow-ups (non-critical, runs after the atomic transaction)
       try {
         for (const workItemId of workItemIds) {
           const { data: nextFollowUp } = await supabase
@@ -125,8 +109,7 @@ export function useCreateBatch() {
           }
         }
       } catch (followUpError) {
-        console.error('[Create Batch] Error calculating follow-ups:', followUpError)
-        // Don't fail the whole operation if follow-up calc fails
+        log.error('Error calculating follow-ups', { error: followUpError })
       }
 
       return batch
@@ -160,7 +143,7 @@ export function useConfirmBatch() {
       fetch(`/api/batches/${batchId}/queue-progress-emails`, {
         method: 'POST',
       }).catch((error) => {
-        console.error('[Confirm Batch] Failed to queue progress emails:', error)
+        log.error('Failed to queue progress emails', { error })
       })
 
       return data
@@ -220,7 +203,7 @@ export function useUpdateBatchTracking() {
       fetch(`/api/batches/${batchId}/queue-tracking-email`, {
         method: 'POST',
       }).catch((error) => {
-        console.error('[Update Batch Tracking] Failed to queue en route email:', error)
+        log.error('Failed to queue en route email', { error })
       })
 
       return data

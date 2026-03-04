@@ -4,6 +4,9 @@
  */
 
 import { getShopifyCredentials } from './get-credentials'
+import { logger } from '@/lib/logger'
+
+const log = logger('shopify-lookup-customer')
 
 export interface ShopifyOrder {
   id: string
@@ -47,7 +50,7 @@ export async function lookupShopifyCustomer(email: string): Promise<ShopifyCusto
     )
 
     if (!response.ok) {
-      console.error('[Shopify] Customer lookup failed:', response.status, await response.text())
+      log.error('Customer lookup failed', { status: response.status, body: await response.text() })
       return { exists: false }
     }
 
@@ -88,7 +91,7 @@ export async function lookupShopifyCustomer(email: string): Promise<ShopifyCusto
         }))
       }
     } catch (error) {
-      console.error('[Shopify] Error fetching customer orders:', error)
+      log.error('Error fetching customer orders', { error })
     }
 
     return {
@@ -108,7 +111,7 @@ export async function lookupShopifyCustomer(email: string): Promise<ShopifyCusto
       orders,
     }
   } catch (error) {
-    console.error('[Shopify] Error looking up customer:', error)
+    log.error('Error looking up customer', { error })
     return { exists: false }
   }
 }

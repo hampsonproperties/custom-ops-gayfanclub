@@ -19,6 +19,7 @@ import { formatDistanceToNow } from 'date-fns'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 
 export default function DesignQueuePage() {
   const { data: queue, isLoading } = useDesignReviewQueue()
@@ -57,8 +58,23 @@ export default function DesignQueuePage() {
       note: `Design fix requested: ${fixNotes}`,
     })
 
-    // TODO: Send email to customer with fix notes
-    // This will be implemented in email send section
+    // Send email to customer with fix notes
+    try {
+      const res = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: selectedItem.customer_email,
+          subject: `Design Fix Needed — Order #${selectedItem.shopify_order_number || selectedItem.id.slice(0, 8)}`,
+          body: fixNotes,
+          projectId: selectedItem.id,
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to send email')
+      toast.success('Fix request sent to customer')
+    } catch {
+      toast.error('Status updated but email failed to send')
+    }
 
     setShowFixDialog(false)
     setSelectedItem(null)

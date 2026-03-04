@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
+import { serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+const log = logger('batch-debug')
+
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  const supabase = await createClient()
   const { id } = await params
 
   try {
@@ -84,10 +86,7 @@ export async function GET(
       }
     })
   } catch (error) {
-    console.error('Debug error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Debug failed' },
-      { status: 500 }
-    )
+    log.error('Debug error', { error })
+    return serverError(error instanceof Error ? error.message : 'Debug failed')
   }
 }

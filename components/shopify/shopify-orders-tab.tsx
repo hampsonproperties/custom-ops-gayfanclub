@@ -23,6 +23,9 @@ import {
 import { RefreshCw, ExternalLink, DollarSign, Package, CheckCircle2, Clock } from 'lucide-react'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
+import { logger } from '@/lib/logger'
+
+const log = logger('shopify-orders-tab')
 
 interface ShopifyOrdersTabProps {
   customerId: string
@@ -80,14 +83,14 @@ export function ShopifyOrdersTab({ customerId, customerEmail }: ShopifyOrdersTab
   const handleSync = async () => {
     setIsSyncing(true)
     try {
-      console.log('🔵 Starting Shopify order sync...')
+      log.info('Starting Shopify order sync')
       const response = await fetch('/api/shopify/sync-orders', {
         method: 'POST',
       })
-      console.log('🔵 Response status:', response.status, response.statusText)
+      log.info('Sync response received', { status: response.status, statusText: response.statusText })
 
       const data = await response.json()
-      console.log('🔵 Response data:', data)
+      log.info('Sync response data', { data })
 
       if (data.success) {
         toast.success(`Synced ${data.synced} orders from Shopify`)
@@ -96,7 +99,7 @@ export function ShopifyOrdersTab({ customerId, customerEmail }: ShopifyOrdersTab
         toast.error(data.error || 'Failed to sync orders')
       }
     } catch (error) {
-      console.error('🔴 Sync error:', error)
+      log.error('Sync error', { error })
       toast.error('Failed to sync orders')
     } finally {
       setIsSyncing(false)

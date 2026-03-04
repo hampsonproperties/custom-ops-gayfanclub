@@ -110,7 +110,7 @@ export default function CustomifyOrdersPage() {
 
   // Approve order mutation
   const approveMutation = useMutation({
-    mutationFn: async (orderId: string) => {
+    mutationFn: async ({ orderId, fileId }: { orderId: string; fileId: string }) => {
       const supabase = createClient()
 
       // Update work item status
@@ -124,8 +124,16 @@ export default function CustomifyOrdersPage() {
 
       if (updateError) throw updateError
 
-      // TODO: Send proof approval email with approve/deny links
-      // This would call /api/email/send with the proof template
+      // Send proof approval email with approve/deny links
+      const res = await fetch('/api/send-approval-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workItemId: orderId, fileId }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Failed to send approval email' }))
+        throw new Error(err.error || 'Failed to send approval email')
+      }
 
       return { orderId }
     },
@@ -157,14 +165,13 @@ export default function CustomifyOrdersPage() {
 
       if (updateError) throw updateError
 
-      // TODO: Send rejection email with store credit code
-      // TODO: Cancel Shopify order
-      // TODO: Generate discount code
+      // Rejection email, Shopify cancellation, and discount code generation
+      // were evaluated and deferred as low-priority (see SPRINT_PLAN.md Sprint 14)
 
       return { orderId }
     },
     onSuccess: () => {
-      toast.success('Issue flagged. Credit email sent to customer.')
+      toast.success('Issue flagged successfully')
       queryClient.invalidateQueries({ queryKey: ['customify-orders'] })
       setSelectedOrder(null)
       resetReviewForm()
@@ -403,7 +410,13 @@ export default function CustomifyOrdersPage() {
               <Button
                 className="flex-1 bg-green-600 hover:bg-green-700 h-11 sm:h-10"
                 disabled={!allChecksPass || approveMutation.isPending}
-                onClick={() => approveMutation.mutate(selectedOrder)}
+                onClick={() => {
+                  if (!selectedOrderData?.files?.length) {
+                    toast.error('Cannot approve: no design files attached to this order')
+                    return
+                  }
+                  approveMutation.mutate({ orderId: selectedOrder, fileId: selectedOrderData.files[0].id })
+                }}
               >
                 <CheckCircle className="mr-2 h-4 w-4" />
                 {approveMutation.isPending ? 'Approving...' : 'Approve & Send Proof'}

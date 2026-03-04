@@ -1,5 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { notFound, serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('work-items-toggle-waiting')
 
 /**
  * Toggle waiting status for a work item
@@ -23,11 +27,8 @@ export async function POST(
       .single()
 
     if (fetchError || !workItem) {
-      console.error('Error fetching work item:', fetchError)
-      return NextResponse.json(
-        { error: 'Work item not found' },
-        { status: 404 }
-      )
+      log.error('Error fetching work item', { error: fetchError })
+      return notFound('Work item not found')
     }
 
     const newState = !workItem.is_waiting
@@ -42,11 +43,8 @@ export async function POST(
       .eq('id', workItemId)
 
     if (updateError) {
-      console.error('Error toggling waiting:', updateError)
-      return NextResponse.json(
-        { error: updateError.message },
-        { status: 500 }
-      )
+      log.error('Error toggling waiting', { error: updateError })
+      return serverError(updateError.message)
     }
 
     // If resuming (newState = false), recalculate follow-up
@@ -56,7 +54,7 @@ export async function POST(
         .rpc('calculate_next_follow_up', { work_item_id: workItemId })
 
       if (calcError) {
-        console.error('Error calculating follow-up:', calcError)
+        log.error('Error calculating follow-up', { error: calcError })
       } else {
         nextFollowUp = calculatedFollowUp
 
@@ -74,12 +72,7 @@ export async function POST(
       next_follow_up_at: nextFollowUp
     })
   } catch (error) {
-    console.error('Toggle waiting error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to toggle waiting',
-      },
-      { status: 500 }
-    )
+    log.error('Toggle waiting error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to toggle waiting')
   }
 }

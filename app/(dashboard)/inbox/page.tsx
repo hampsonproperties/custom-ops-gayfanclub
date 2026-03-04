@@ -21,6 +21,7 @@ import {
   useFlaggedSupportEmails,
 } from '@/lib/hooks/use-communications'
 import { useCreateWorkItem } from '@/lib/hooks/use-work-items'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 import { Mail, Inbox, Archive, Plus, CheckCircle, Search, Tag, AlertCircle, Bell, Flag, User } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
@@ -46,6 +47,8 @@ export default function InboxPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedEmail, setSelectedEmail] = useState<EmailWithMetadata | null>(null)
   const [showCreateLeadDialog, setShowCreateLeadDialog] = useState(false)
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 25
   const [leadForm, setLeadForm] = useState({
     customer_name: '',
     customer_email: '',
@@ -54,22 +57,33 @@ export default function InboxPage() {
     notes: '',
   })
 
+  // Reset page when switching tabs
+  const handleCategoryChange = (cat: EmailTab) => {
+    setActiveCategory(cat)
+    setPage(1)
+  }
+
   // Fetch emails based on active tab
-  const { data: categoryEmails, isLoading: categoryLoading } = useEmailsByCategory(
+  const { data: categoryResult, isLoading: categoryLoading } = useEmailsByCategory(
     activeCategory === 'support' ? 'primary' : activeCategory,
-    'untriaged'
+    'untriaged',
+    { page, pageSize: PAGE_SIZE }
   )
-  const { data: supportEmails, isLoading: supportLoading } = useFlaggedSupportEmails()
+  const { data: supportResult, isLoading: supportLoading } = useFlaggedSupportEmails(
+    { page, pageSize: PAGE_SIZE }
+  )
 
   // Use support emails when on support tab, otherwise use category emails
-  const emails = activeCategory === 'support' ? supportEmails : categoryEmails
+  const emailResult = activeCategory === 'support' ? supportResult : categoryResult
+  const emails = emailResult?.items
+  const totalCount = emailResult?.totalCount ?? 0
   const isLoading = activeCategory === 'support' ? supportLoading : categoryLoading
 
   const { data: categoryCounts } = useEmailCategoryCounts('untriaged')
   const triageEmail = useTriageEmail()
   const createWorkItem = useCreateWorkItem()
 
-  // Filter emails by search query
+  // Filter emails by search query (client-side filter within current page)
   const filteredEmails = useMemo(() => {
     if (!emails) return []
     if (!searchQuery.trim()) return emails
@@ -199,7 +213,7 @@ export default function InboxPage() {
       </div>
 
       {/* Category Tabs */}
-      <Tabs value={activeCategory} onValueChange={(v) => setActiveCategory(v as EmailTab)}>
+      <Tabs value={activeCategory} onValueChange={(v) => handleCategoryChange(v as EmailTab)}>
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="primary" className="gap-2">
             {getCategoryIcon('primary')}
@@ -213,9 +227,9 @@ export default function InboxPage() {
           <TabsTrigger value="support" className="gap-2">
             <Flag className="h-4 w-4" />
             Support
-            {supportEmails && supportEmails.length > 0 && (
+            {(supportResult?.totalCount ?? 0) > 0 && (
               <Badge variant="secondary" className="ml-1">
-                {supportEmails.length}
+                {supportResult?.totalCount ?? 0}
               </Badge>
             )}
           </TabsTrigger>
@@ -333,6 +347,12 @@ export default function InboxPage() {
               </CardContent>
             </Card>
           )}
+          <PaginationControls
+            page={page}
+            pageSize={PAGE_SIZE}
+            totalCount={totalCount}
+            onPageChange={setPage}
+          />
         </TabsContent>
       </Tabs>
 

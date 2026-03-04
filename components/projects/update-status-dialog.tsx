@@ -24,6 +24,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { StatusBadge } from '@/components/custom/status-badge'
+import { logger } from '@/lib/logger'
+
+const log = logger('update-status-dialog')
 
 const STATUS_OPTIONS = [
   { value: 'new_inquiry', label: 'New Inquiry', description: 'Initial customer inquiry' },
@@ -99,7 +102,7 @@ export function UpdateStatusDialog({
       router.refresh()
 
     } catch (error: any) {
-      console.error('Status update error:', error)
+      log.error('Status update error', { error })
       toast.error(error.message || 'Failed to update status')
     } finally {
       setIsUpdating(false)

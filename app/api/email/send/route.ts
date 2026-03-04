@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Client } from '@microsoft/microsoft-graph-client'
 import { ClientSecretCredential } from '@azure/identity'
 import { createClient } from '@/lib/supabase/server'
+import { validateBody } from '@/lib/api/validate'
+import { sendEmailBody } from '@/lib/api/schemas'
 import 'isomorphic-fetch'
+import { logger } from '@/lib/logger'
+import { unauthorized, serverError } from '@/lib/api/errors'
+
+const log = logger('email-send')
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,17 +17,12 @@ export async function POST(request: NextRequest) {
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return unauthorized('Unauthorized')
     }
 
-    const { to, cc, subject, body, customerId, projectId } = await request.json()
-
-    if (!to || !subject || !body) {
-      return NextResponse.json(
-        { error: 'Missing required fields: to, subject, body' },
-        { status: 400 }
-      )
-    }
+    const bodyResult = validateBody(await request.json(), sendEmailBody)
+    if (bodyResult.error) return bodyResult.error
+    const { to, cc, subject, body, customerId, projectId } = bodyResult.data
 
     // Initialize Microsoft Graph client
     const credential = new ClientSecretCredential(
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
         internetMessageId = sentItems.value[0].internetMessageId
       }
     } catch (error) {
-      console.error('Failed to fetch sent message metadata:', error)
+      log.error('Failed to fetch sent message metadata', { error })
     }
 
     // Create communication record
@@ -111,7 +112,7 @@ export async function POST(request: NextRequest) {
       .insert(commData)
 
     if (commError) {
-      console.error('Failed to log email to database:', commError)
+      log.error('Failed to log email to database', { error: commError })
     }
 
     // Create activity log entry
@@ -135,12 +136,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Send email error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to send email',
-      },
-      { status: 500 }
-    )
+    log.error('Send email error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to send email')
   }
 }

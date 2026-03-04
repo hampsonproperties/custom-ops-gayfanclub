@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAndRenderTemplate } from '@/lib/email/templates'
+import { badRequest, notFound } from '@/lib/api/errors'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -8,10 +9,7 @@ export async function GET(request: NextRequest) {
 
   const validTypes = ['entering_production', 'midway_checkin', 'en_route', 'arrived_stateside']
   if (!validTypes.includes(emailType)) {
-    return NextResponse.json(
-      { error: `Invalid type. Must be one of: ${validTypes.join(', ')}` },
-      { status: 400 }
-    )
+    return badRequest(`Invalid type. Must be one of: ${validTypes.join(', ')}`)
   }
 
   const templateMap: Record<string, string> = {
@@ -30,7 +28,7 @@ export async function GET(request: NextRequest) {
   })
 
   if (!rendered) {
-    return NextResponse.json({ error: 'Template not found. Have you run migrations?' }, { status: 404 })
+    return notFound('Template not found. Have you run migrations?')
   }
 
   // Return HTML for preview in browser

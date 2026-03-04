@@ -1,5 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('work-items-mark-followed-up')
 
 /**
  * Mark a work item as followed up
@@ -22,11 +26,8 @@ export async function POST(
       .eq('id', workItemId)
 
     if (updateError) {
-      console.error('Error updating last_contact_at:', updateError)
-      return NextResponse.json(
-        { error: updateError.message },
-        { status: 500 }
-      )
+      log.error('Error updating last_contact_at', { error: updateError })
+      return serverError(updateError.message)
     }
 
     // Recalculate next_follow_up_at using the database function
@@ -34,11 +35,8 @@ export async function POST(
       .rpc('calculate_next_follow_up', { work_item_id: workItemId })
 
     if (calcError) {
-      console.error('Error calculating follow-up:', calcError)
-      return NextResponse.json(
-        { error: calcError.message },
-        { status: 500 }
-      )
+      log.error('Error calculating follow-up', { error: calcError })
+      return serverError(calcError.message)
     }
 
     // Apply calculated follow-up date
@@ -48,11 +46,8 @@ export async function POST(
       .eq('id', workItemId)
 
     if (applyError) {
-      console.error('Error applying follow-up:', applyError)
-      return NextResponse.json(
-        { error: applyError.message },
-        { status: 500 }
-      )
+      log.error('Error applying follow-up', { error: applyError })
+      return serverError(applyError.message)
     }
 
     return NextResponse.json({
@@ -61,12 +56,7 @@ export async function POST(
       last_contact_at: now
     })
   } catch (error) {
-    console.error('Mark followed up error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to mark followed up',
-      },
-      { status: 500 }
-    )
+    log.error('Mark followed up error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to mark followed up')
   }
 }

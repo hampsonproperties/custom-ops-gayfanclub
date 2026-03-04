@@ -1,19 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cancelBatchEmail } from '@/lib/email/batch-emails'
+import { validateBody } from '@/lib/api/validate'
+import { cancelBatchEmailBody } from '@/lib/api/schemas'
+import { badRequest, serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('batch-email-cancel')
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { queueId, reason } = body
-
-    if (!queueId) {
-      return NextResponse.json({ error: 'Missing required field: queueId' }, { status: 400 })
-    }
+    const bodyResult = validateBody(await request.json(), cancelBatchEmailBody)
+    if (bodyResult.error) return bodyResult.error
+    const { queueId, reason } = bodyResult.data
 
     const result = await cancelBatchEmail(queueId, reason || 'Manual cancellation')
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 })
+      return badRequest(result.error || 'Failed to cancel email')
     }
 
     return NextResponse.json({
@@ -21,10 +24,7 @@ export async function POST(request: NextRequest) {
       message: 'Email cancelled successfully',
     })
   } catch (error) {
-    console.error('Cancel batch email error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to cancel batch email' },
-      { status: 500 }
-    )
+    log.error('Cancel batch email error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to cancel batch email')
   }
 }

@@ -1,6 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { addToDLQ } from '@/lib/utils/dead-letter-queue'
+import { serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('api-backfill-files')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -27,13 +31,13 @@ async function downloadAndStoreFile(
       url = `https:${url}`
     }
 
-    console.log(`Downloading file from: ${url}`)
+    log.info('Downloading file', { url })
 
     // Download file from external URL
     const response = await fetch(url)
     if (!response.ok) {
       const errorMessage = `Failed to download file: ${response.status} ${response.statusText}`
-      console.error(errorMessage)
+      log.error('Failed to download file', { status: response.status, statusText: response.statusText })
 
       // Add to DLQ for retry
       await addToDLQ({
@@ -48,7 +52,7 @@ async function downloadAndStoreFile(
           httpStatus: response.status,
         },
       }).catch((dlqError) => {
-        console.error('[Backfill] Failed to add to DLQ:', dlqError)
+        log.error('Failed to add to DLQ', { error: dlqError })
       })
 
       return null
@@ -78,7 +82,7 @@ async function downloadAndStoreFile(
 
     if (uploadError) {
       const errorMessage = `Failed to upload file to Supabase Storage: ${uploadError.message}`
-      console.error(errorMessage)
+      log.error('Failed to upload file to Supabase Storage', { error: uploadError.message })
 
       // Add to DLQ for retry
       await addToDLQ({
@@ -94,17 +98,17 @@ async function downloadAndStoreFile(
           uploadError: uploadError.message,
         },
       }).catch((dlqError) => {
-        console.error('[Backfill] Failed to add to DLQ:', dlqError)
+        log.error('Failed to add to DLQ', { error: dlqError })
       })
 
       return null
     }
 
-    console.log(`Successfully stored file at: ${storagePath} (${sizeBytes} bytes)`)
+    log.info('Successfully stored file', { storagePath, sizeBytes })
     return { path: storagePath, sizeBytes }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error downloading/storing file'
-    console.error(`Error downloading/storing file:`, error)
+    log.error('Error downloading/storing file', { error })
 
     // Add to DLQ for retry
     await addToDLQ({
@@ -118,7 +122,7 @@ async function downloadAndStoreFile(
         filename,
       },
     }).catch((dlqError) => {
-      console.error('[Backfill] Failed to add to DLQ:', dlqError)
+      log.error('Failed to add to DLQ', { error: dlqError })
     })
 
     return null
@@ -137,7 +141,7 @@ export async function POST(request: Request) {
       .order('created_at', { ascending: true })
 
     if (filesError) {
-      console.error('Error fetching Customify files:', filesError)
+      log.error('Error fetching Customify files', { error: filesError })
       return NextResponse.json({
         error: 'Failed to fetch files',
         details: filesError.message,
@@ -154,7 +158,7 @@ export async function POST(request: Request) {
       })
     }
 
-    console.log(`Found ${customifyFiles.length} Customify files to backfill`)
+    log.info('Found Customify files to backfill', { count: customifyFiles.length })
 
     const results = {
       total: customifyFiles.length,
@@ -190,12 +194,12 @@ export async function POST(request: Request) {
             .eq('id', file.id)
 
           if (updateError) {
-            console.error(`Failed to update file record ${file.id}:`, updateError)
+            log.error('Failed to update file record', { fileId: file.id, error: updateError })
             results.failed++
             results.errors.push({ fileId: file.id, error: updateError.message })
           } else {
             results.successful++
-            console.log(`✓ Backfilled file ${file.id}`)
+            log.info('Backfilled file', { fileId: file.id })
           }
         } else {
           results.failed++
@@ -205,7 +209,7 @@ export async function POST(request: Request) {
           })
         }
       } catch (error) {
-        console.error(`Error processing file ${file.id}:`, error)
+        log.error('Error processing file', { fileId: file.id, error })
         results.failed++
         results.errors.push({
           fileId: file.id,
@@ -219,7 +223,7 @@ export async function POST(request: Request) {
       ...results
     })
   } catch (error) {
-    console.error('Error in backfill endpoint:', error)
+    log.error('Error in backfill endpoint', { error })
 
     // Add to DLQ for retry
     await addToDLQ({
@@ -231,12 +235,9 @@ export async function POST(request: Request) {
         timestamp: new Date().toISOString(),
       },
     }).catch((dlqError) => {
-      console.error('[Backfill] Failed to add to DLQ:', dlqError)
+      log.error('Failed to add to DLQ', { error: dlqError })
     })
 
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return serverError('Internal server error')
   }
 }

@@ -1,96 +1,79 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { validateBody, validateParams } from '@/lib/api/validate'
+import { updateStatusBody, idParams } from '@/lib/api/schemas'
+import { badRequest, unauthorized, notFound, serverError } from '@/lib/api/errors'
+import { analyzeTransition } from '@/lib/utils/status-transitions'
+import { WorkItemStatus, WorkItemType } from '@/types/database'
+import { logger } from '@/lib/logger'
+
+const log = logger('projects-status')
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: projectId } = await params
+    const paramResult = validateParams(await params, idParams)
+    if (paramResult.error) return paramResult.error
+    const { id: projectId } = paramResult.data
+
     const supabase = await createClient()
 
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return unauthorized('Unauthorized')
     }
 
-    // Parse request body
-    const body = await request.json()
-    const { status, note } = body
+    // Parse and validate request body
+    const bodyResult = validateBody(await request.json(), updateStatusBody)
+    if (bodyResult.error) return bodyResult.error
+    const { status, note } = bodyResult.data
 
-    if (!status) {
-      return NextResponse.json({ error: 'Status is required' }, { status: 400 })
-    }
-
-    // Get current project to know customer_id
-    const { data: project, error: projectError } = await supabase
+    // Fetch current work item to validate the transition
+    const { data: workItem, error: fetchError } = await supabase
       .from('work_items')
-      .select('id, status, customer_id')
+      .select('status, type')
       .eq('id', projectId)
       .single()
 
-    if (projectError || !project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    if (fetchError || !workItem) {
+      return notFound('Project not found')
     }
 
-    const oldStatus = project.status
+    // Validate status transition using the same rules as the frontend
+    const transition = analyzeTransition(
+      workItem.status as WorkItemStatus,
+      status as WorkItemStatus,
+      workItem.type as WorkItemType
+    )
 
-    // Update project status
-    const { error: updateError } = await supabase
-      .from('work_items')
-      .update({
-        status,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', projectId)
-
-    if (updateError) {
-      console.error('Error updating project status:', updateError)
-      return NextResponse.json({ error: 'Failed to update status' }, { status: 500 })
+    if (transition.isBlocked) {
+      return badRequest(transition.blockReason || 'This status transition is not allowed')
     }
 
-    // Create activity log entry for status change
-    const activityMetadata: any = {
-      old_status: oldStatus,
-      new_status: status
+    if (transition.requiresNotes && !note) {
+      return badRequest('A note is required for this status change')
     }
 
-    if (note) {
-      activityMetadata.note = note
-    }
-
-    const { error: activityError } = await supabase
-      .from('activity_logs')
-      .insert({
-        activity_type: 'status_changed',
-        related_entity_type: 'work_item',
-        related_entity_id: projectId,
-        customer_id: project.customer_id,
-        user_id: user.id,
-        metadata: activityMetadata
+    // Atomic status change: updates work_items.status + creates work_item_status_events audit trail
+    // Uses FOR UPDATE row locking to prevent concurrent status changes on the same work item
+    const { data, error: rpcError } = await supabase
+      .rpc('change_work_item_status', {
+        p_work_item_id: projectId,
+        p_new_status: status,
+        p_changed_by_user_id: user.id,
+        p_note: note || null,
       })
 
-    if (activityError) {
-      console.error('Error creating activity log:', activityError)
-      // Don't fail the request if activity log fails
-    }
-
-    // If there's a note, also create a note activity
-    if (note) {
-      await supabase
-        .from('activity_logs')
-        .insert({
-          activity_type: 'note_added',
-          related_entity_type: 'work_item',
-          related_entity_id: projectId,
-          customer_id: project.customer_id,
-          user_id: user.id,
-          metadata: {
-            note,
-            context: 'status_update'
-          }
-        })
+    if (rpcError) {
+      // RPC raises exception if work item not found
+      if (rpcError.message?.includes('Work item not found')) {
+        return notFound('Project not found')
+      }
+      log.error('Error updating project status', { error: rpcError })
+      return serverError('Failed to update status')
     }
 
     return NextResponse.json({
@@ -99,9 +82,7 @@ export async function PATCH(
     })
 
   } catch (error: any) {
-    console.error('Status update error:', error)
-    return NextResponse.json({
-      error: error.message || 'Internal server error'
-    }, { status: 500 })
+    log.error('Status update error', { error })
+    return serverError(error.message || 'Internal server error')
   }
 }

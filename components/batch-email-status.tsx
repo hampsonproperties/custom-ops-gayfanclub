@@ -4,6 +4,9 @@ import { useBatchEmailStatus, useCancelBatchEmail } from '@/lib/hooks/use-batch-
 import { useMarkBatchReceived } from '@/lib/hooks/use-batches'
 import { format } from 'date-fns'
 import { CheckCircle2, Clock, XCircle, Circle, Loader2 } from 'lucide-react'
+import { logger } from '@/lib/logger'
+
+const log = logger('batch-email-status')
 
 interface BatchEmailStatusProps {
   batchId: string
@@ -75,7 +78,7 @@ export function BatchEmailStatus({ batchId }: BatchEmailStatusProps) {
       try {
         await markReceived.mutateAsync({ batchId })
       } catch (error) {
-        console.error('Failed to mark batch as received:', error)
+        log.error('Failed to mark batch as received', { error })
         alert('Failed to mark batch as received. Please try again.')
       }
     }

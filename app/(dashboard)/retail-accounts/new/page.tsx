@@ -18,6 +18,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCreateRetailAccount } from '@/lib/hooks/use-retail-accounts'
 import { toast } from 'sonner'
+import { logger } from '@/lib/logger'
+
+const log = logger('retail-account-new')
 
 export default function NewRetailAccountPage() {
   const router = useRouter()
@@ -81,7 +84,7 @@ export default function NewRetailAccountPage() {
       toast.success('Account created successfully!')
       router.push(`/retail-accounts/${account.id}`)
     } catch (error) {
-      console.error('Failed to create account:', error)
+      log.error('Failed to create account', { error })
       toast.error('Failed to create account')
     }
   }

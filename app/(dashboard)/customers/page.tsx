@@ -45,6 +45,7 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { CustomerKanban } from '@/components/customers/customer-kanban'
 import { CreateCustomerDialog } from '@/components/customers/create-customer-dialog'
+import { PaginationControls } from '@/components/ui/pagination-controls'
 
 interface Customer {
   id: string
@@ -72,19 +73,35 @@ export default function CustomersPage() {
   const [view, setView] = useState<'pipeline' | 'list'>('pipeline')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'with_projects' | 'no_projects'>('all')
+  const [page, setPage] = useState(1)
+  const PAGE_SIZE = 25
+
+  // Reset page when filters change
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    setPage(1)
+  }
+  const handleFilterChange = (value: 'all' | 'with_projects' | 'no_projects') => {
+    setFilterStatus(value)
+    setPage(1)
+  }
+
+  // Paginate only in list view
+  const isPaginated = view === 'list'
 
   // Fetch customers with stats
   const { data: customersData, isLoading, refetch } = useQuery({
-    queryKey: ['customers', searchQuery, filterStatus],
+    queryKey: ['customers', searchQuery, filterStatus, isPaginated ? page : 'all', isPaginated ? PAGE_SIZE : 'all'],
     queryFn: async () => {
       const supabase = createClient()
 
-      // Build base query
+      // For "with_projects" filter, use inner join to only get customers with work items
+      const joinType = filterStatus === 'with_projects' ? '!inner' : ''
       let query = supabase
         .from('customers')
         .select(`
           *,
-          work_items (
+          work_items${joinType} (
             id,
             status,
             created_at,
@@ -95,7 +112,7 @@ export default function CustomersPage() {
             full_name,
             email
           )
-        `)
+        `, isPaginated ? { count: 'exact' } : {})
         .order('updated_at', { ascending: false })
 
       // Apply search filter
@@ -103,7 +120,14 @@ export default function CustomersPage() {
         query = query.or(`email.ilike.%${searchQuery}%,first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%,display_name.ilike.%${searchQuery}%`)
       }
 
-      const { data, error } = await query
+      // Apply pagination range
+      if (isPaginated) {
+        const from = (page - 1) * PAGE_SIZE
+        const to = from + PAGE_SIZE - 1
+        query = query.range(from, to)
+      }
+
+      const { data, error, count } = await query
 
       if (error) throw error
 
@@ -114,21 +138,19 @@ export default function CustomersPage() {
           ...customer,
           project_count: projects.length,
           last_contact: projects[0]?.updated_at || customer.created_at,
-          total_spent: 0, // TODO: Calculate from Shopify orders
+          total_spent: customer.total_spent ?? 0,
         }
       })
 
-      // Apply filter
+      // Apply "no_projects" filter client-side (can't be done with Supabase join)
       let filtered = processed
-      if (filterStatus === 'with_projects') {
-        filtered = processed.filter((c: Customer) => (c.project_count || 0) > 0)
-      } else if (filterStatus === 'no_projects') {
+      if (filterStatus === 'no_projects') {
         filtered = processed.filter((c: Customer) => (c.project_count || 0) === 0)
       }
 
-      // Calculate stats
+      // Calculate stats from current page
       const stats: CustomerStats = {
-        total: processed.length,
+        total: count ?? processed.length,
         with_projects: processed.filter((c: Customer) => (c.project_count || 0) > 0).length,
         recent_contacts: processed.filter((c: Customer) => {
           const daysSince = (Date.now() - new Date(c.last_contact || c.created_at).getTime()) / (1000 * 60 * 60 * 24)
@@ -136,13 +158,13 @@ export default function CustomersPage() {
         }).length,
       }
 
-      return { customers: filtered as Customer[], stats }
+      return { customers: filtered as Customer[], stats, totalCount: count ?? filtered.length }
     },
   })
 
-
   const customers = customersData?.customers || []
   const stats = customersData?.stats || { total: 0, with_projects: 0, recent_contacts: 0 }
+  const totalCount = customersData?.totalCount ?? 0
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
@@ -213,11 +235,11 @@ export default function CustomersPage() {
                   <Input
                     placeholder="Search by name, email..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => handleSearchChange(e.target.value)}
                     className="pl-9"
                   />
                 </div>
-                <Select value={filterStatus} onValueChange={(value: any) => setFilterStatus(value)}>
+                <Select value={filterStatus} onValueChange={(value: any) => handleFilterChange(value)}>
                   <SelectTrigger className="w-full sm:w-[200px]">
                     <Filter className="mr-2 h-4 w-4" />
                     <SelectValue />
@@ -437,6 +459,12 @@ export default function CustomersPage() {
               </div>
             </>
           )}
+          <PaginationControls
+            page={page}
+            pageSize={PAGE_SIZE}
+            totalCount={totalCount}
+            onPageChange={setPage}
+          />
         </CardContent>
       </Card>
         </TabsContent>

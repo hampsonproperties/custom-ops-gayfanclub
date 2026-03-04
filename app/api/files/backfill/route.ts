@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { logger } from '@/lib/logger'
+
+const log = logger('api-files-backfill')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -20,12 +23,12 @@ async function downloadAndStoreFile(
       url = `https:${url}`
     }
 
-    console.log(`Downloading file from: ${url}`)
+    log.info('Downloading file', { url })
 
     // Download file from external URL
     const response = await fetch(url)
     if (!response.ok) {
-      console.error(`Failed to download file: ${response.status} ${response.statusText}`)
+      log.error('Failed to download file', { status: response.status, statusText: response.statusText })
       return null
     }
 
@@ -52,14 +55,14 @@ async function downloadAndStoreFile(
       })
 
     if (uploadError) {
-      console.error(`Failed to upload file to Supabase Storage:`, uploadError)
+      log.error('Failed to upload file to Supabase Storage', { error: uploadError })
       return null
     }
 
-    console.log(`Successfully stored file at: ${storagePath} (${sizeBytes} bytes)`)
+    log.info('Successfully stored file', { storagePath, sizeBytes })
     return { path: storagePath, sizeBytes }
   } catch (error) {
-    console.error(`Error downloading/storing file:`, error)
+    log.error('Error downloading/storing file', { error })
     return null
   }
 }
@@ -94,7 +97,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    console.log(`Found ${externalFiles.length} external files to backfill`)
+    log.info('Found external files to backfill', { count: externalFiles.length })
 
     const results = {
       total: externalFiles.length,
@@ -106,7 +109,7 @@ export async function POST(request: NextRequest) {
     // Process each file
     for (const file of externalFiles) {
       try {
-        console.log(`Processing file: ${file.id} - ${file.original_filename}`)
+        log.info('Processing file', { fileId: file.id, filename: file.original_filename })
 
         // Download and store the file
         const storedFile = await downloadAndStoreFile(
@@ -140,7 +143,7 @@ export async function POST(request: NextRequest) {
             filename: file.original_filename,
             status: 'success',
           })
-          console.log(`✓ Successfully backfilled: ${file.original_filename}`)
+          log.info('Successfully backfilled file', { filename: file.original_filename })
         } else {
           results.failed++
           results.details.push({
@@ -149,7 +152,7 @@ export async function POST(request: NextRequest) {
             status: 'failed',
             error: 'Download or upload failed',
           })
-          console.error(`✗ Failed to backfill: ${file.original_filename}`)
+          log.error('Failed to backfill file', { filename: file.original_filename })
         }
       } catch (error) {
         results.failed++
@@ -159,7 +162,7 @@ export async function POST(request: NextRequest) {
           status: 'failed',
           error: error instanceof Error ? error.message : 'Unknown error',
         })
-        console.error(`✗ Error processing ${file.original_filename}:`, error)
+        log.error('Error processing file', { filename: file.original_filename, error })
       }
     }
 
@@ -169,7 +172,7 @@ export async function POST(request: NextRequest) {
       ...results,
     })
   } catch (error) {
-    console.error('Backfill error:', error)
+    log.error('Backfill error', { error })
     return NextResponse.json(
       {
         success: false,

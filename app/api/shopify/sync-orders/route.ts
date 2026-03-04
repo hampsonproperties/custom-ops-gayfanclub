@@ -8,6 +8,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAuthClient } from '@/lib/supabase/server'
 import { createClient } from '@supabase/supabase-js'
 import { getShopifyClient, createShopifySession } from '@/lib/shopify/client'
+import { logger } from '@/lib/logger'
+import { unauthorized, tooManyRequests, serverError } from '@/lib/api/errors'
+import { SHOPIFY_API_VERSION } from '@/lib/config'
+
+const log = logger('shopify-sync-orders')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -46,24 +51,13 @@ export async function POST(request: NextRequest) {
     const authClient = await createAuthClient()
     const { data: { user }, error: authError } = await authClient.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return unauthorized('Unauthorized')
     }
 
-    // Rate limiting check
+    // Per-route rate limit: 5 syncs per hour per user (stricter than the general API tier)
     const rateLimitResult = checkRateLimit(user.id)
     if (!rateLimitResult.allowed) {
-      return NextResponse.json(
-        {
-          error: 'Rate limit exceeded. Please try again later.',
-          resetIn: rateLimitResult.resetIn
-        },
-        {
-          status: 429,
-          headers: {
-            'Retry-After': rateLimitResult.resetIn?.toString() || '3600'
-          }
-        }
-      )
+      return tooManyRequests('Rate limit exceeded. Please try again later.', rateLimitResult.resetIn)
     }
 
     // Use service role client for database operations (bypasses RLS)
@@ -71,27 +65,24 @@ export async function POST(request: NextRequest) {
 
     // Check if Shopify credentials are configured
     if (!process.env.SHOPIFY_API_KEY || !process.env.SHOPIFY_STORE_DOMAIN) {
-      return NextResponse.json(
-        { error: 'Shopify credentials not configured' },
-        { status: 500 }
-      )
+      return serverError('Shopify credentials not configured')
     }
 
     // Fetch orders using direct Shopify Admin API (same pattern as import-orders)
     const shopifyDomain = process.env.SHOPIFY_STORE_DOMAIN!
-    console.log('Shopify domain:', shopifyDomain)
+    log.info('Starting order sync', { shopifyDomain })
 
     const credentials = await import('@/lib/shopify/get-credentials').then(m => m.getShopifyCredentials())
     const shopifyToken = credentials.accessToken
-    console.log('Got access token:', shopifyToken ? 'YES' : 'NO')
+    log.info('Retrieved access token', { hasToken: !!shopifyToken })
 
     const params = new URLSearchParams({
       status: 'any',
       limit: '250',
     })
 
-    const apiUrl = `https://${shopifyDomain}/admin/api/2024-01/orders.json?${params}`
-    console.log('Fetching from:', apiUrl)
+    const apiUrl = `https://${shopifyDomain}/admin/api/${SHOPIFY_API_VERSION}/orders.json?${params}`
+    log.info('Fetching orders from Shopify', { apiUrl })
 
     const shopifyResponse = await fetch(apiUrl, {
       headers: {
@@ -100,21 +91,18 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    console.log('Shopify response status:', shopifyResponse.status)
+    log.info('Shopify API responded', { status: shopifyResponse.status })
 
     if (!shopifyResponse.ok) {
       const errorText = await shopifyResponse.text()
-      console.error('Shopify API error:', shopifyResponse.statusText, errorText)
-      return NextResponse.json(
-        { error: `Shopify API error: ${shopifyResponse.statusText}` },
-        { status: 500 }
-      )
+      log.error('Shopify API error', { statusText: shopifyResponse.statusText, errorText })
+      return serverError(`Shopify API error: ${shopifyResponse.statusText}`)
     }
 
     const data = await shopifyResponse.json()
     const orders = data.orders || []
 
-    console.log(`✅ Fetched ${orders.length} orders from Shopify`)
+    log.info('Fetched orders from Shopify', { count: orders.length })
 
     if (orders.length === 0) {
       return NextResponse.json({
@@ -170,13 +158,13 @@ export async function POST(request: NextRequest) {
           })
 
         if (error) {
-          console.error(`Failed to sync order ${order.name}:`, error)
+          log.error('Failed to sync order', { orderName: order.name, error })
           errors.push(`Order ${order.name}: Failed to sync`)
         } else {
           syncedCount++
         }
       } catch (orderError: any) {
-        console.error(`Error processing order ${order.name}:`, orderError)
+        log.error('Error processing order', { orderName: order.name, error: orderError })
         errors.push(`Order ${order.name}: Processing error`)
       }
     }
@@ -190,10 +178,7 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error: any) {
-    console.error('Shopify sync error:', error)
-    return NextResponse.json(
-      { error: 'An error occurred during synchronization' },
-      { status: 500 }
-    )
+    log.error('Shopify sync error', { error })
+    return serverError('An error occurred during synchronization')
   }
 }

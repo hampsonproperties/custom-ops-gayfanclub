@@ -26,7 +26,8 @@ import { formatDistanceToNow } from 'date-fns'
 export default function DashboardPage() {
   const { data: sales, isLoading: salesLoading } = useOrganizedSalesPipeline()
   const { data: production, isLoading: productionLoading } = useOrganizedProductionPipeline()
-  const { data: untriagedEmails } = useUntriagedEmails()
+  const { data: untriagedResult } = useUntriagedEmails()
+  const untriagedEmails = untriagedResult?.items
 
   const formatCurrency = (value: number | null) => {
     if (!value) return ''

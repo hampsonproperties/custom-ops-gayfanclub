@@ -6,6 +6,9 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js'
+import { logger } from '@/lib/logger'
+
+const log = logger('shopify-customer-orders')
 
 interface ShopifyCustomer {
   id: string | number
@@ -148,14 +151,14 @@ export async function findOrCreateCustomer(
         .single()
 
       if (error) {
-        console.error('Failed to create customer:', error)
+        log.error('Failed to create customer', { error })
         return null
       }
 
       return newCustomer.id
     }
   } catch (error) {
-    console.error('Error in findOrCreateCustomer:', error)
+    log.error('Error in findOrCreateCustomer', { error })
     return null
   }
 }
@@ -257,14 +260,14 @@ export async function createCustomerOrder(
         .single()
 
       if (error) {
-        console.error('Failed to create customer order:', error)
+        log.error('Failed to create customer order', { error })
         return null
       }
 
       return newOrder.id
     }
   } catch (error) {
-    console.error('Error in createCustomerOrder:', error)
+    log.error('Error in createCustomerOrder', { error })
     return null
   }
 }
@@ -289,7 +292,7 @@ export async function linkOrderToWorkItem(
       .update({ work_item_id: workItemId })
       .eq('id', orderId)
   } catch (error) {
-    console.error('Error linking order to work item:', error)
+    log.error('Error linking order to work item', { error, orderId, workItemId })
   }
 }
 
@@ -324,13 +327,13 @@ export async function getCustomerOrderHistory(
       .order('shopify_created_at', { ascending: false })
 
     if (error) {
-      console.error('Error fetching customer order history:', error)
+      log.error('Error fetching customer order history', { error, customerId })
       return []
     }
 
     return data || []
   } catch (error) {
-    console.error('Error in getCustomerOrderHistory:', error)
+    log.error('Error in getCustomerOrderHistory', { error, customerId })
     return []
   }
 }

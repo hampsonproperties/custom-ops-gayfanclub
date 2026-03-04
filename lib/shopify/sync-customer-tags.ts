@@ -6,6 +6,9 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js'
+import { logger } from '@/lib/logger'
+
+const log = logger('shopify-customer-tags')
 
 interface TagMapping {
   id: string
@@ -182,7 +185,7 @@ function matchTag(tag: string, pattern: string, matchType: 'exact' | 'contains' 
         const regex = new RegExp(pattern, 'i') // Case-insensitive
         return regex.test(tag)
       } catch (error) {
-        console.error(`Invalid regex pattern: ${pattern}`, error)
+        log.error('Invalid regex pattern', { pattern, error })
         return false
       }
 

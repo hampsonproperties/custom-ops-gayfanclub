@@ -1,5 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { serverError } from '@/lib/api/errors'
+import { logger } from '@/lib/logger'
+
+const log = logger('communications-mark-actioned')
 
 /**
  * Mark a communication (inbound email) as actioned
@@ -22,11 +26,8 @@ export async function POST(
       .eq('id', communicationId)
 
     if (error) {
-      console.error('Error marking communication as actioned:', error)
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500 }
-      )
+      log.error('Error marking communication as actioned', { error })
+      return serverError(error.message)
     }
 
     return NextResponse.json({
@@ -34,12 +35,7 @@ export async function POST(
       actioned_at: now
     })
   } catch (error) {
-    console.error('Mark actioned error:', error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to mark as actioned',
-      },
-      { status: 500 }
-    )
+    log.error('Mark actioned error', { error })
+    return serverError(error instanceof Error ? error.message : 'Failed to mark as actioned')
   }
 }

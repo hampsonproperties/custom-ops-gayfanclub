@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import crypto from 'crypto'
+import { logger } from '@/lib/logger'
+import { badRequest, serverError } from '@/lib/api/errors'
+
+const log = logger('shopify-oauth-callback')
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -14,7 +18,7 @@ export async function GET(request: NextRequest) {
   const hmac = searchParams.get('hmac')
 
   // Log what we received for debugging
-  console.log('Callback received:', {
+  log.info('Callback received', {
     code: code ? 'present' : 'missing',
     shop: shop || 'missing',
     state: state ? 'present' : 'missing',
@@ -40,7 +44,7 @@ export async function GET(request: NextRequest) {
   const storedState = cookieStore.get('shopify_oauth_state')?.value
 
   if (!storedState || storedState !== state) {
-    return NextResponse.json({ error: 'Invalid state parameter' }, { status: 400 })
+    return badRequest('Invalid state parameter')
   }
 
   // Verify HMAC
@@ -55,7 +59,7 @@ export async function GET(request: NextRequest) {
   const hash = crypto.createHmac('sha256', apiSecret).update(queryString).digest('hex')
 
   if (hash !== hmac) {
-    return NextResponse.json({ error: 'Invalid HMAC signature' }, { status: 400 })
+    return badRequest('Invalid HMAC signature')
   }
 
   // Exchange code for access token
@@ -100,7 +104,7 @@ export async function GET(request: NextRequest) {
       )
 
     if (dbError) {
-      console.error('Database error:', dbError)
+      log.error('Database error storing credentials', { error: dbError })
       throw new Error(`Failed to store credentials: ${dbError.message}`)
     }
 
@@ -110,10 +114,7 @@ export async function GET(request: NextRequest) {
     // Redirect to success page
     return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/admin/import-orders?connected=true`)
   } catch (error) {
-    console.error('OAuth callback error:', error)
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'OAuth failed' },
-      { status: 500 }
-    )
+    log.error('OAuth callback error', { error })
+    return serverError(error instanceof Error ? error.message : 'OAuth failed')
   }
 }
