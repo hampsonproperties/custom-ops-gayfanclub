@@ -1,23 +1,41 @@
 'use client'
 
+import { useState, useEffect, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   useCustomDesignDesigning,
   useCustomDesignAwaitingApproval,
   useCustomDesignAwaitingPayment,
   useUpdateWorkItemStatus,
 } from '@/lib/hooks/use-work-items'
+import { createClient } from '@/lib/supabase/client'
 import { Palette, Clock, DollarSign, ArrowRight, Upload, Mail } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 
 export default function CustomDesignQueuePage() {
-  const { data: designing } = useCustomDesignDesigning()
-  const { data: awaitingApproval } = useCustomDesignAwaitingApproval()
-  const { data: awaitingPayment } = useCustomDesignAwaitingPayment()
+  const { data: allDesigning } = useCustomDesignDesigning()
+  const { data: allAwaitingApproval } = useCustomDesignAwaitingApproval()
+  const { data: allAwaitingPayment } = useCustomDesignAwaitingPayment()
+  const [viewMode, setViewMode] = useState<'all' | 'mine'>('all')
+  const [userId, setUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null))
+  }, [])
+
+  const filterByUser = (items: any[] | undefined) => {
+    if (!items || viewMode === 'all') return items
+    return items.filter((item) => item.assigned_to_user_id === userId)
+  }
+
+  const designing = useMemo(() => filterByUser(allDesigning), [allDesigning, viewMode, userId])
+  const awaitingApproval = useMemo(() => filterByUser(allAwaitingApproval), [allAwaitingApproval, viewMode, userId])
+  const awaitingPayment = useMemo(() => filterByUser(allAwaitingPayment), [allAwaitingPayment, viewMode, userId])
   const updateStatus = useUpdateWorkItemStatus()
 
   const totalActive = (designing?.length || 0) + (awaitingApproval?.length || 0) + (awaitingPayment?.length || 0)
@@ -39,7 +57,13 @@ export default function CustomDesignQueuePage() {
           <h1 className="text-3xl font-bold">Custom Design Queue</h1>
           <p className="text-muted-foreground">Projects where we design for the customer</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'all' | 'mine')}>
+            <TabsList>
+              <TabsTrigger value="all">All Projects</TabsTrigger>
+              <TabsTrigger value="mine">My Projects</TabsTrigger>
+            </TabsList>
+          </Tabs>
           <Badge variant="secondary" className="text-base sm:text-lg px-3 py-1.5 sm:px-4 sm:py-2">
             {totalActive} Active
           </Badge>

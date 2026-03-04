@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import {
   LayoutDashboard,
-  Mail,
   Users,
   FolderKanban,
   Package,
@@ -14,12 +13,8 @@ import {
   ChevronDown,
   ChevronRight,
   TrendingUp,
-  Clock,
   AlertTriangle,
-  Palette,
-  Building2,
   Inbox,
-  HelpCircle,
 } from 'lucide-react'
 
 export function SidebarNavigation() {
@@ -34,7 +29,7 @@ export function SidebarNavigation() {
 
   // Auto-open sections when a child is active
   const isSalesChildActive = isActive('/sales-leads') || isActive('/follow-ups') || isActive('/retail-accounts')
-  const isEmailChildActive = isActive('/email-intake') || isActive('/support-queue')
+  const isEmailChildActive = isActive('/inbox') || isActive('/support-queue')
 
   return (
     <nav className="flex-1 p-4 space-y-1">
@@ -62,18 +57,6 @@ export function SidebarNavigation() {
         </Button>
       </Link>
 
-      {/* Inbox */}
-      <Link href="/inbox/my-inbox">
-        <Button
-          variant={isActive('/inbox') ? 'secondary' : 'ghost'}
-          size="sm"
-          className="w-full justify-start gap-3"
-        >
-          <Mail className="h-4 w-4" />
-          Inbox
-        </Button>
-      </Link>
-
       {/* Email Section */}
       <div className="pt-2">
         <Button
@@ -93,13 +76,22 @@ export function SidebarNavigation() {
 
         {(emailOpen || isEmailChildActive) && (
           <div className="ml-6 mt-1 space-y-1">
-            <Link href="/email-intake">
+            <Link href="/inbox">
               <Button
-                variant={isActive('/email-intake') ? 'secondary' : 'ghost'}
+                variant={isActive('/inbox') ? 'secondary' : 'ghost'}
                 size="sm"
                 className="w-full justify-start text-sm"
               >
-                Email Intake
+                Inbox
+              </Button>
+            </Link>
+            <Link href="/inbox/my-inbox">
+              <Button
+                variant={isActive('/inbox/my-inbox') ? 'secondary' : 'ghost'}
+                size="sm"
+                className="w-full justify-start text-sm"
+              >
+                My Inbox
               </Button>
             </Link>
             <Link href="/support-queue">
@@ -149,7 +141,7 @@ export function SidebarNavigation() {
                 size="sm"
                 className="w-full justify-start text-sm"
               >
-                Customify Orders
+                Customify Review
               </Button>
             </Link>
             <Link href="/custom-design-queue">
@@ -159,33 +151,6 @@ export function SidebarNavigation() {
                 className="w-full justify-start text-sm"
               >
                 Assisted Projects
-              </Button>
-            </Link>
-            <Link href="/design-queue">
-              <Button
-                variant={isActive('/design-queue') ? 'secondary' : 'ghost'}
-                size="sm"
-                className="w-full justify-start text-sm"
-              >
-                Design Review
-              </Button>
-            </Link>
-            <Link href="/design-projects">
-              <Button
-                variant={isActive('/design-projects') ? 'secondary' : 'ghost'}
-                size="sm"
-                className="w-full justify-start text-sm"
-              >
-                Design Projects
-              </Button>
-            </Link>
-            <Link href="/approved-designs">
-              <Button
-                variant={isActive('/approved-designs') ? 'secondary' : 'ghost'}
-                size="sm"
-                className="w-full justify-start text-sm"
-              >
-                Ready to Batch
               </Button>
             </Link>
           </div>
@@ -238,7 +203,7 @@ export function SidebarNavigation() {
                 size="sm"
                 className="w-full justify-start text-sm"
               >
-                Follow-ups
+                Follow-up Queue
               </Button>
             </Link>
             <Link href="/retail-accounts">

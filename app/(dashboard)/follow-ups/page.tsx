@@ -197,9 +197,9 @@ export default function LeadsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Sales Leads</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Follow-up Queue</h1>
           <p className="text-muted-foreground mt-1">
-            Active inquiries and sales pipeline - close deals and convert to orders
+            Daily action list — overdue, today, this week, rush, and waiting-on-customer
           </p>
         </div>
         <Badge variant="secondary" className="text-lg px-4 py-2">

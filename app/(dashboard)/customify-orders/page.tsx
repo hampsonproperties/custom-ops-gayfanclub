@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,47 +11,31 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { FileGallery } from '@/components/files/file-gallery'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { useDesignReviewQueue, useUpdateWorkItemStatus } from '@/lib/hooks/use-work-items'
+import { SLAIndicator } from '@/components/custom/sla-indicator'
 import {
   AlertCircle,
   CheckCircle,
   Clock,
+  ExternalLink,
   FileWarning,
   ImageIcon,
-  Send,
   XCircle,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 
-interface CustomifyOrder {
-  id: string
-  title: string
-  customer_id: string
-  customer_email: string
-  customer_name: string
-  shopify_order_number: string | null
-  quantity: number
-  event_date: string | null
-  deadline: string | null
-  design_review_status: string
-  proof_url: string | null
-  created_at: string
-  updated_at: string
-  files: Array<{
-    id: string
-    external_url: string
-    filename: string
-    kind: string
-  }>
-}
-
 export default function CustomifyOrdersPage() {
+  const { data: orders, isLoading } = useDesignReviewQueue()
+  const updateStatus = useUpdateWorkItemStatus()
+  const queryClient = useQueryClient()
+
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null)
   const [reviewChecklist, setReviewChecklist] = useState({
     bleed_ok: false,
@@ -59,72 +43,30 @@ export default function CustomifyOrdersPage() {
     design_quality_ok: false,
   })
   const [reviewNotes, setReviewNotes] = useState('')
-  const queryClient = useQueryClient()
+  const [showFixDialog, setShowFixDialog] = useState(false)
 
-  // Fetch Customify orders that need review
-  const { data: orders, isLoading } = useQuery({
-    queryKey: ['customify-orders'],
-    queryFn: async () => {
-      const supabase = createClient()
+  const resetReviewForm = () => {
+    setReviewChecklist({ bleed_ok: false, resolution_ok: false, design_quality_ok: false })
+    setReviewNotes('')
+  }
 
-      const { data, error } = await supabase
-        .from('work_items')
-        .select(`
-          id,
-          title,
-          customer_id,
-          quantity,
-          event_date,
-          deadline,
-          design_review_status,
-          proof_url,
-          shopify_order_number,
-          created_at,
-          updated_at,
-          customers (
-            email,
-            display_name
-          ),
-          files (
-            id,
-            external_url,
-            filename,
-            kind,
-            mime_type,
-            file_size_bytes
-          )
-        `)
-        .eq('type', 'customify_order')
-        .in('design_review_status', ['pending_review', 'needs_attention'])
-        .order('created_at', { ascending: false })
+  const calculateSLA = (createdAt: string) => {
+    const hours = (Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60)
+    if (hours > 24) return 'overdue'
+    if (hours > 6) return 'expiring'
+    if (hours < 1) return 'new'
+    return 'on_track'
+  }
 
-      if (error) throw error
-
-      return (data || []).map((item: any) => ({
-        ...item,
-        customer_email: item.customers?.email || 'Unknown',
-        customer_name: item.customers?.display_name || 'Unknown',
-      })) as CustomifyOrder[]
-    },
-  })
-
-  // Approve order mutation
+  // Approve: update status + send proof email
   const approveMutation = useMutation({
     mutationFn: async ({ orderId, fileId }: { orderId: string; fileId: string }) => {
-      const supabase = createClient()
+      await updateStatus.mutateAsync({
+        id: orderId,
+        status: 'approved',
+        note: 'Design approved — proof sent to customer',
+      })
 
-      // Update work item status
-      const { error: updateError } = await supabase
-        .from('work_items')
-        .update({
-          design_review_status: 'approved',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', orderId)
-
-      if (updateError) throw updateError
-
-      // Send proof approval email with approve/deny links
       const res = await fetch('/api/send-approval-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -134,87 +76,78 @@ export default function CustomifyOrdersPage() {
         const err = await res.json().catch(() => ({ error: 'Failed to send approval email' }))
         throw new Error(err.error || 'Failed to send approval email')
       }
-
-      return { orderId }
     },
     onSuccess: () => {
       toast.success('Order approved! Proof email sent to customer.')
-      queryClient.invalidateQueries({ queryKey: ['customify-orders'] })
+      queryClient.invalidateQueries({ queryKey: ['work-items', 'design-review-queue'] })
       setSelectedOrder(null)
       resetReviewForm()
     },
     onError: (error: any) => {
-      toast.error(`Failed to approve order: ${error.message}`)
+      toast.error(`Failed to approve: ${error.message}`)
     },
   })
 
-  // Flag issue mutation
-  const flagIssueMutation = useMutation({
-    mutationFn: async ({ orderId, notes }: { orderId: string; notes: string }) => {
-      const supabase = createClient()
+  // Request fix: update status + send email to customer
+  const handleRequestFix = async () => {
+    if (!selectedOrder || !reviewNotes.trim()) return
+    const order = orders?.find((o: any) => o.id === selectedOrder)
+    if (!order) return
 
-      // Update work item
-      const { error: updateError } = await supabase
-        .from('work_items')
-        .update({
-          design_review_status: 'needs_revision',
-          notes,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', orderId)
+    try {
+      await updateStatus.mutateAsync({
+        id: selectedOrder,
+        status: 'needs_customer_fix',
+        note: `Design fix requested: ${reviewNotes}`,
+      })
 
-      if (updateError) throw updateError
-
-      // Rejection email, Shopify cancellation, and discount code generation
-      // were evaluated and deferred as low-priority (see SPRINT_PLAN.md Sprint 14)
-
-      return { orderId }
-    },
-    onSuccess: () => {
-      toast.success('Issue flagged successfully')
-      queryClient.invalidateQueries({ queryKey: ['customify-orders'] })
-      setSelectedOrder(null)
-      resetReviewForm()
-    },
-    onError: (error: any) => {
-      toast.error(`Failed to flag issue: ${error.message}`)
-    },
-  })
-
-  const resetReviewForm = () => {
-    setReviewChecklist({
-      bleed_ok: false,
-      resolution_ok: false,
-      design_quality_ok: false,
-    })
-    setReviewNotes('')
-  }
-
-  const selectedOrderData = orders?.find((o) => o.id === selectedOrder)
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'pending_review':
-        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200"><Clock className="mr-1 h-3 w-3" /> Needs Review</Badge>
-      case 'approved':
-        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200"><CheckCircle className="mr-1 h-3 w-3" /> Approved</Badge>
-      case 'needs_revision':
-        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200"><XCircle className="mr-1 h-3 w-3" /> Needs Revision</Badge>
-      default:
-        return <Badge variant="outline">{status}</Badge>
+      const res = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: order.customer_email,
+          subject: `Design Fix Needed — Order #${order.shopify_order_number || order.id.slice(0, 8)}`,
+          body: reviewNotes,
+          projectId: order.id,
+        }),
+      })
+      if (!res.ok) throw new Error('Failed to send email')
+      toast.success('Fix request sent to customer')
+    } catch {
+      toast.error('Status updated but email may not have sent')
     }
+
+    queryClient.invalidateQueries({ queryKey: ['work-items', 'design-review-queue'] })
+    setShowFixDialog(false)
+    setSelectedOrder(null)
+    resetReviewForm()
   }
 
+  const selectedOrderData = orders?.find((o: any) => o.id === selectedOrder)
+  const pendingCount = orders?.filter((o: any) => o.status === 'needs_design_review').length || 0
+  const fixCount = orders?.filter((o: any) => o.status === 'needs_customer_fix').length || 0
   const allChecksPass = reviewChecklist.bleed_ok && reviewChecklist.resolution_ok && reviewChecklist.design_quality_ok
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Customify Orders</h1>
-        <p className="text-muted-foreground mt-1">
-          Review self-designed orders before sending proofs to customers
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Customify Review</h1>
+          <p className="text-muted-foreground mt-1">
+            Review self-designed orders before sending proofs to customers
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Queue:</span>
+          {pendingCount === 0 && fixCount === 0 ? (
+            <Badge className="bg-[#4CAF50] text-white">All Clear</Badge>
+          ) : pendingCount <= 5 ? (
+            <Badge className="bg-[#FFC107] text-black">Normal</Badge>
+          ) : (
+            <Badge className="bg-[#E91E63] text-white">Busy</Badge>
+          )}
+        </div>
       </div>
 
       {/* Stats */}
@@ -222,128 +155,146 @@ export default function CustomifyOrdersPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardDescription>Awaiting Review</CardDescription>
-            <CardTitle className="text-3xl">
-              {orders?.filter((o) => o.design_review_status === 'pending_review').length || 0}
-            </CardTitle>
+            <CardTitle className="text-3xl">{pendingCount}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>Need Attention</CardDescription>
-            <CardTitle className="text-3xl">
-              {orders?.filter((o) => o.design_review_status === 'needs_attention').length || 0}
-            </CardTitle>
+            <CardDescription>Awaiting Customer Fix</CardDescription>
+            <CardTitle className="text-3xl">{fixCount}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>Total Orders</CardDescription>
+            <CardDescription>Total in Queue</CardDescription>
             <CardTitle className="text-3xl">{orders?.length || 0}</CardTitle>
           </CardHeader>
         </Card>
       </div>
 
       {/* Orders List */}
-      <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
-        {isLoading ? (
-          <div className="col-span-2 text-center py-12 text-muted-foreground">
-            Loading orders...
-          </div>
-        ) : orders?.length === 0 ? (
-          <div className="col-span-2 text-center py-12">
-            <CheckCircle className="mx-auto h-12 w-12 text-green-500 mb-4" />
+      {isLoading ? (
+        <div className="text-center py-12 text-muted-foreground">Loading orders...</div>
+      ) : !orders || orders.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <CheckCircle className="h-12 w-12 mx-auto text-green-500 mb-4" />
             <p className="text-lg font-medium">All caught up!</p>
             <p className="text-muted-foreground">No Customify orders need review</p>
-          </div>
-        ) : (
-          orders?.map((order) => (
-            <Card
-              key={order.id}
-              className={`cursor-pointer transition-all ${
-                selectedOrder === order.id
-                  ? 'ring-2 ring-pink-500 shadow-lg'
-                  : 'hover:shadow-md'
-              }`}
-              onClick={() => setSelectedOrder(order.id)}
-            >
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{order.title || 'Untitled Order'}</CardTitle>
-                    <CardDescription className="mt-1">
-                      {order.customer_name} • {order.customer_email}
-                    </CardDescription>
-                  </div>
-                  {getStatusBadge(order.design_review_status)}
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {/* Design Files Gallery */}
-                  {order.files && order.files.length > 0 ? (
-                    <FileGallery files={order.files} />
-                  ) : (
-                    <div className="aspect-video rounded-lg bg-muted flex items-center justify-center">
-                      <div className="text-center text-muted-foreground">
-                        <ImageIcon className="mx-auto h-12 w-12 mb-2 opacity-50" />
-                        <p className="text-sm">No design files found</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          {orders.map((order: any) => {
+            const sla = calculateSLA(order.created_at)
+            const isSelected = selectedOrder === order.id
+
+            return (
+              <Card
+                key={order.id}
+                className={`cursor-pointer transition-all ${
+                  isSelected ? 'ring-2 ring-pink-500 shadow-lg' : 'hover:shadow-md'
+                } ${
+                  sla === 'overdue' ? 'border-l-4 border-l-[#E91E63]' :
+                  sla === 'expiring' ? 'border-l-4 border-l-[#FFC107]' :
+                  sla === 'new' ? 'border-l-4 border-l-[#9C27B0]' : ''
+                }`}
+                onClick={() => setSelectedOrder(isSelected ? null : order.id)}
+              >
+                <CardContent className="p-6">
+                  <div className="flex gap-6">
+                    {/* Design Preview / File Gallery */}
+                    <div className="flex-shrink-0 w-32">
+                      {order.files && order.files.length > 0 ? (
+                        <FileGallery files={order.files} />
+                      ) : (
+                        <div className="h-32 w-32 rounded-lg border bg-muted flex items-center justify-center">
+                          <ImageIcon className="h-8 w-8 text-muted-foreground opacity-50" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Order Details */}
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h3 className="font-semibold text-lg">
+                            {order.customer_name || order.title || 'Unknown Customer'}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">
+                            {order.shopify_order_number ? `Order #${order.shopify_order_number}` : order.customer_email}
+                          </p>
+                        </div>
+                        <SLAIndicator
+                          state={sla}
+                          label={
+                            sla === 'overdue' ? `OVERDUE ${Math.floor((Date.now() - new Date(order.created_at).getTime()) / (1000 * 60 * 60))}h` :
+                            sla === 'new' ? 'NEW' :
+                            sla === 'expiring' ? `${Math.floor((Date.now() - new Date(order.created_at).getTime()) / (1000 * 60 * 60))}h ago` :
+                            'ON TRACK'
+                          }
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Quantity:</span>{' '}
+                          <span className="font-medium">{order.quantity || '-'} fans</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Status:</span>{' '}
+                          {order.status === 'needs_customer_fix' ? (
+                            <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-200">
+                              <XCircle className="mr-1 h-3 w-3" /> Awaiting Fix
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                              <Clock className="mr-1 h-3 w-3" /> Needs Review
+                            </Badge>
+                          )}
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Submitted:</span>{' '}
+                          <span className="font-medium">
+                            {formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  )}
 
-                  {/* Order Details */}
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Quantity:</span>{' '}
-                      <span className="font-medium">{order.quantity} fans</span>
+                    {/* Quick Actions */}
+                    <div className="flex-shrink-0 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+                      {order.design_download_url && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => window.open(order.design_download_url!, '_blank')}
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          View Full
+                        </Button>
+                      )}
                     </div>
-                    {order.shopify_order_number && (
-                      <div>
-                        <span className="text-muted-foreground">Order:</span>{' '}
-                        <span className="font-medium">#{order.shopify_order_number}</span>
-                      </div>
-                    )}
-                    {order.event_date && (
-                      <div>
-                        <span className="text-muted-foreground">Event:</span>{' '}
-                        <span className="font-medium">
-                          {new Date(order.event_date).toLocaleDateString()}
-                        </span>
-                      </div>
-                    )}
-                    {order.deadline && (
-                      <div>
-                        <span className="text-muted-foreground">Deadline:</span>{' '}
-                        <span className="font-medium">
-                          {new Date(order.deadline).toLocaleDateString()}
-                        </span>
-                      </div>
-                    )}
                   </div>
-
-                  <div className="text-xs text-muted-foreground">
-                    Created {formatDistanceToNow(new Date(order.created_at), { addSuffix: true })}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
-      </div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
 
       {/* Review Panel */}
       {selectedOrder && selectedOrderData && (
         <Card className="border-2 border-pink-500">
           <CardHeader>
-            <CardTitle>Review Order: {selectedOrderData.title}</CardTitle>
-            <CardDescription>
-              Complete the review checklist before approving
-            </CardDescription>
+            <CardTitle>Review: {selectedOrderData.title || selectedOrderData.customer_name}</CardTitle>
+            <CardDescription>Complete the checklist, then approve or request a fix</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Manual Review Checklist */}
+            {/* Review Checklist */}
             <div className="space-y-3">
-              <Label className="text-base font-semibold">Manual Review Checklist</Label>
+              <Label className="text-base font-semibold">Review Checklist</Label>
               <div className="space-y-3 pl-1">
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -353,10 +304,7 @@ export default function CustomifyOrdersPage() {
                       setReviewChecklist({ ...reviewChecklist, bleed_ok: !!checked })
                     }
                   />
-                  <label
-                    htmlFor="bleed"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
+                  <label htmlFor="bleed" className="text-sm font-medium leading-none">
                     No bleed issues (design extends to edges properly)
                   </label>
                 </div>
@@ -368,10 +316,7 @@ export default function CustomifyOrdersPage() {
                       setReviewChecklist({ ...reviewChecklist, resolution_ok: !!checked })
                     }
                   />
-                  <label
-                    htmlFor="resolution"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
+                  <label htmlFor="resolution" className="text-sm font-medium leading-none">
                     Resolution is acceptable (at least 300 DPI)
                   </label>
                 </div>
@@ -383,10 +328,7 @@ export default function CustomifyOrdersPage() {
                       setReviewChecklist({ ...reviewChecklist, design_quality_ok: !!checked })
                     }
                   />
-                  <label
-                    htmlFor="quality"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
+                  <label htmlFor="quality" className="text-sm font-medium leading-none">
                     Design quality is acceptable (no major issues)
                   </label>
                 </div>
@@ -395,10 +337,10 @@ export default function CustomifyOrdersPage() {
 
             {/* Notes */}
             <div className="space-y-2">
-              <Label htmlFor="notes">Notes (optional)</Label>
+              <Label htmlFor="notes">Notes</Label>
               <Textarea
                 id="notes"
-                placeholder="Add any internal notes about this order..."
+                placeholder="Add notes (required for fix requests)..."
                 value={reviewNotes}
                 onChange={(e) => setReviewNotes(e.target.value)}
                 rows={3}
@@ -412,7 +354,7 @@ export default function CustomifyOrdersPage() {
                 disabled={!allChecksPass || approveMutation.isPending}
                 onClick={() => {
                   if (!selectedOrderData?.files?.length) {
-                    toast.error('Cannot approve: no design files attached to this order')
+                    toast.error('Cannot approve: no design files attached')
                     return
                   }
                   approveMutation.mutate({ orderId: selectedOrder, fileId: selectedOrderData.files[0].id })
@@ -424,17 +366,17 @@ export default function CustomifyOrdersPage() {
               <Button
                 variant="destructive"
                 className="flex-1 h-11 sm:h-10"
-                disabled={flagIssueMutation.isPending}
+                disabled={updateStatus.isPending}
                 onClick={() => {
-                  if (!reviewNotes) {
+                  if (!reviewNotes.trim()) {
                     toast.error('Please add notes describing the issue')
                     return
                   }
-                  flagIssueMutation.mutate({ orderId: selectedOrder, notes: reviewNotes })
+                  setShowFixDialog(true)
                 }}
               >
                 <FileWarning className="mr-2 h-4 w-4" />
-                {flagIssueMutation.isPending ? 'Flagging...' : 'Flag Issue & Request Resubmit'}
+                Request Fix
               </Button>
             </div>
 
@@ -442,13 +384,40 @@ export default function CustomifyOrdersPage() {
               <div className="flex items-start gap-2 p-3 rounded-lg bg-yellow-50 border border-yellow-200">
                 <AlertCircle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
                 <p className="text-sm text-yellow-800">
-                  Complete all checklist items before approving. If there are issues, use "Flag Issue" instead.
+                  Complete all checklist items before approving. If there are issues, use &quot;Request Fix&quot; instead.
                 </p>
               </div>
             )}
           </CardContent>
         </Card>
       )}
+
+      {/* Confirm Fix Request Dialog */}
+      <Dialog open={showFixDialog} onOpenChange={setShowFixDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Fix Request?</DialogTitle>
+            <DialogDescription>
+              This will email the customer asking them to resubmit their design.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-muted p-3 rounded-md">
+              <p className="text-sm">{reviewNotes}</p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowFixDialog(false)}>Cancel</Button>
+              <Button
+                onClick={handleRequestFix}
+                disabled={updateStatus.isPending}
+                className="bg-[#FF9800] hover:bg-[#F57C00]"
+              >
+                Send Fix Request
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
