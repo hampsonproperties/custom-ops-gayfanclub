@@ -77,7 +77,7 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
           Use Template
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[80vh]">
+      <DialogContent className="max-w-3xl max-h-[80vh]" data-bottom-sheet>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -105,7 +105,7 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
         </div>
 
         {/* Templates List */}
-        <ScrollArea className="h-[400px] pr-4">
+        <ScrollArea className="h-[50vh] sm:h-[400px] pr-4">
           {isLoading ? (
             <div className="flex justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

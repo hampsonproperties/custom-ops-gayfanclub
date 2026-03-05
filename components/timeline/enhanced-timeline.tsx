@@ -325,14 +325,14 @@ export function EnhancedTimeline({
             >
               <CardContent className="p-4">
                 {/* Header */}
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <Icon className="h-5 w-5 shrink-0 text-muted-foreground" />
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1 mb-2">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <Icon className="h-5 w-5 shrink-0 text-muted-foreground mt-0.5" />
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
                       <span className="font-medium text-sm">{event.title}</span>
                       {event.user && (
                         <>
-                          <span className="text-muted-foreground">by</span>
+                          <span className="text-muted-foreground text-sm">by</span>
                           <div className="flex items-center gap-1.5">
                             <Avatar className="h-5 w-5">
                               <AvatarFallback className="text-xs bg-blue-100 text-blue-700">
@@ -348,7 +348,7 @@ export function EnhancedTimeline({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 ml-8 sm:ml-0 shrink-0">
                     <span className="text-xs text-muted-foreground">
                       {format(new Date(event.timestamp), 'EEEE, MMMM d, yyyy h:mm a')}
                     </span>

@@ -281,7 +281,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
       {/* Main Content - Timeline First */}
       <div className="flex-1 p-4 sm:p-6">
         <Tabs defaultValue="timeline" className="space-y-4">
-          <TabsList>
+          <TabsList className="flex w-full overflow-x-auto">
             <TabsTrigger value="timeline" className="gap-2">
               <Activity className="h-4 w-4" />
               Activity
