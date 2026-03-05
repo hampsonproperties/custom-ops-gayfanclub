@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Mail, FolderKanban, Menu } from 'lucide-react'
+import { LayoutDashboard, Mail, FolderKanban, Bell, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -12,9 +12,11 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 import { SidebarNavigation } from './sidebar-navigation'
+import { useUnreadNotificationCount } from '@/lib/hooks/use-notifications'
 
 export function MobileBottomNav() {
   const pathname = usePathname()
+  const { data: unreadCount = 0 } = useUnreadNotificationCount()
 
   const isActive = (path: string) => {
     return pathname === path || pathname.startsWith(path + '/')
@@ -58,6 +60,23 @@ export function MobileBottomNav() {
             >
               <FolderKanban className="h-5 w-5" />
               <span className="text-xs">Projects</span>
+            </Button>
+          </Link>
+
+          {/* Alerts */}
+          <Link href="/inbox/my-inbox" className="flex-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full flex flex-col items-center gap-1 h-14 relative"
+            >
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1 right-1/4 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+              <span className="text-xs">Alerts</span>
             </Button>
           </Link>
 

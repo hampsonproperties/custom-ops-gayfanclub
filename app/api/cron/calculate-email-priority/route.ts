@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { unauthorized, serverError } from '@/lib/api/errors'
 import { logger } from '@/lib/logger'
+import { sendNotificationEmail } from '@/lib/utils/send-notification-email'
 
 const log = logger('cron-email-priority')
 
@@ -151,10 +152,86 @@ export async function GET(request: Request) {
       log.error('Error finding emails needing attention', { error: error5 })
     }
 
-    // TODO: Send notifications to email owners for high priority emails
-    // This could be implemented as in-app notifications or email alerts
+    // ========================================================================
+    // RULE 6: Create in-app notifications + send email alerts to owners
+    // ========================================================================
+    let notificationsSent = 0
+    let emailAlertsSent = 0
 
-    log.info('Priority calculation complete', { totalUpdated, needsAttentionCount: needsAttention?.length || 0 })
+    if (needsAttention && needsAttention.length > 0) {
+      // Group emails by owner
+      const byOwner = new Map<string, typeof needsAttention>()
+      for (const email of needsAttention) {
+        const ownerId = email.owner_user_id!
+        if (!byOwner.has(ownerId)) byOwner.set(ownerId, [])
+        byOwner.get(ownerId)!.push(email)
+      }
+
+      for (const [ownerId, ownerEmails] of byOwner) {
+        // Insert in-app notifications (ON CONFLICT = skip duplicates)
+        const notifications = ownerEmails.map(email => ({
+          user_id: ownerId,
+          type: 'high_priority_email',
+          title: `"${email.subject || '(no subject)'}" needs your reply`,
+          message: `From ${email.from_email} — waiting over 24 hours`,
+          link: '/inbox/my-inbox',
+          communication_id: email.id,
+        }))
+
+        const { data: inserted } = await supabase
+          .from('notifications')
+          .upsert(notifications, { onConflict: 'communication_id,user_id', ignoreDuplicates: true })
+          .select('id')
+
+        const newCount = inserted?.length || 0
+        notificationsSent += newCount
+
+        // Send email alert only for NEW notifications (not already sent)
+        if (newCount > 0) {
+          try {
+            const { data: owner } = await supabase
+              .from('users')
+              .select('email, full_name')
+              .eq('id', ownerId)
+              .single()
+
+            if (owner?.email) {
+              await sendNotificationEmail({
+                toEmail: owner.email,
+                toName: owner.full_name,
+                emails: ownerEmails.slice(0, newCount).map(e => ({
+                  subject: e.subject || '(no subject)',
+                  from_email: e.from_email,
+                  received_at: e.received_at,
+                })),
+              })
+
+              // Mark notifications as email_sent
+              const newIds = inserted!.map(n => n.id)
+              await supabase
+                .from('notifications')
+                .update({ email_sent: true })
+                .in('id', newIds)
+
+              emailAlertsSent++
+            }
+          } catch (emailError) {
+            log.error('Failed to send notification email to owner', { error: emailError, ownerId })
+          }
+        }
+      }
+
+      if (notificationsSent > 0) {
+        log.info('Notifications created', { notificationsSent, emailAlertsSent, owners: byOwner.size })
+      }
+    }
+
+    log.info('Priority calculation complete', {
+      totalUpdated,
+      needsAttentionCount: needsAttention?.length || 0,
+      notificationsSent,
+      emailAlertsSent,
+    })
 
     return NextResponse.json({
       success: true,
@@ -165,6 +242,8 @@ export async function GET(request: Request) {
         mediumPriorityCount: mediumPriorityOutbound?.length || 0,
         lowPriorityCount: lowPriorityRecent?.length || 0,
         needsAttentionCount: needsAttention?.length || 0,
+        notificationsSent,
+        emailAlertsSent,
       },
       needsAttention: needsAttention || [],
     })

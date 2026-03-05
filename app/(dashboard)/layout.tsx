@@ -8,6 +8,7 @@ import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav'
 import { FloatingActionButton } from '@/components/layout/floating-action-button'
 import { Button } from '@/components/ui/button'
 import { LogOut } from 'lucide-react'
+import { NotificationBell } from '@/components/notifications/notification-bell'
 
 export default async function DashboardLayout({
   children,
@@ -47,10 +48,11 @@ export default async function DashboardLayout({
       <div className="flex flex-1 overflow-hidden">
         {/* Desktop Sidebar Navigation - Hidden on mobile */}
         <aside className="hidden md:flex w-64 border-r bg-card flex-col flex-shrink-0 overflow-y-auto">
-          {/* Logo */}
+          {/* Logo + Notification Bell */}
           <div className="h-16 flex items-center gap-2 px-6 border-b flex-shrink-0">
             <span className="text-2xl">🌈</span>
             <h1 className="text-xl font-bold">Gay Fan Club</h1>
+            <NotificationBell />
           </div>
 
           {/* Navigation Links */}
