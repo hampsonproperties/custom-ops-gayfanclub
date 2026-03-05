@@ -145,6 +145,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
               <Button
                 variant="outline"
                 size="sm"
+                className="hidden sm:inline-flex"
               >
                 <Mail className="h-4 w-4 mr-2" />
                 Email

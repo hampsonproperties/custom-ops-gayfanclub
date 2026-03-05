@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   FileText, Mail, MessageSquare, Phone, Calendar,
   Clock, Star, Upload, Activity, MoreHorizontal,
-  CheckCircle, Eye, Send
+  CheckCircle, Eye, Send, ExternalLink
 } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -372,19 +372,26 @@ export function EnhancedTimeline({
                 </div>
 
                 {/* Content */}
-                <div className="ml-8">
-                  <p className="text-sm text-muted-foreground mb-2">{event.description}</p>
+                <div className="ml-8 overflow-hidden">
+                  <p className="text-sm text-muted-foreground mb-2 break-words">{event.description}</p>
 
                   {event.content && (
-                    <div className="mt-2 p-3 bg-white/50 rounded-md">
+                    <div className="mt-2 p-3 bg-white/50 rounded-md overflow-hidden">
                       <div
                         className={cn(
-                          'text-sm',
+                          'text-sm break-words overflow-hidden',
                           !isExpanded && hasExpandableContent && 'line-clamp-3'
                         )}
-                      >
-                        {event.content}
-                      </div>
+                        dangerouslySetInnerHTML={{
+                          __html: DOMPurify.sanitize(event.content, {
+                            ALLOWED_TAGS: [
+                              'p', 'br', 'strong', 'em', 'u', 'a', 'ul', 'ol', 'li',
+                              'div', 'span', 'blockquote',
+                            ],
+                            ALLOWED_ATTR: ['href', 'target'],
+                          }),
+                        }}
+                      />
 
                       {hasExpandableContent && (
                         <Button
@@ -397,6 +404,19 @@ export function EnhancedTimeline({
                         </Button>
                       )}
                     </div>
+                  )}
+
+                  {/* File view link */}
+                  {event.type === 'file_upload' && event.metadata?.fileId && (
+                    <a
+                      href={`/api/files/${event.metadata.fileId}/download`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 mt-2 text-sm text-primary hover:underline"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      View File
+                    </a>
                   )}
 
                   {/* Email metadata */}

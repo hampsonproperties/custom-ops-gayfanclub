@@ -3,13 +3,13 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
 import { FileText, Sparkles, Loader2 } from 'lucide-react'
 import { useQuickReplyTemplates, type QuickReplyTemplate } from '@/lib/hooks/use-templates'
@@ -70,26 +70,29 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2">
           <Sparkles className="h-4 w-4" />
           Use Template
         </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-3xl max-h-[80vh]" data-bottom-sheet>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+      </SheetTrigger>
+      <SheetContent side="bottom" className="max-h-[85vh] rounded-t-2xl">
+        {/* Drag handle indicator */}
+        <div className="mx-auto w-10 h-1 bg-muted-foreground/30 rounded-full mb-4 -mt-1" />
+
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
             Email Templates
-          </DialogTitle>
-          <DialogDescription>
+          </SheetTitle>
+          <SheetDescription>
             Choose a pre-written template to save time. You can customize it after selecting.
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
         {/* Category Filters */}
-        <div className="flex flex-wrap gap-2 pb-4 border-b">
+        <div className="flex flex-wrap gap-2 pb-4 border-b mt-4">
           {CATEGORIES.map((cat) => (
             <Badge
               key={cat.id}
@@ -105,7 +108,7 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
         </div>
 
         {/* Templates List */}
-        <ScrollArea className="h-[50vh] sm:h-[400px] pr-4">
+        <ScrollArea className="h-[50vh] sm:h-[400px] pr-4 mt-4">
           {isLoading ? (
             <div className="flex justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -158,11 +161,11 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
           )}
         </ScrollArea>
 
-        <div className="text-xs text-muted-foreground border-t pt-3">
+        <div className="text-xs text-muted-foreground border-t pt-3 mt-4">
           Tip: Templates may contain placeholders like [INVOICE_LINK] or [DATE] that you'll need
           to replace with actual values. Manage templates in Settings.
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   )
 }

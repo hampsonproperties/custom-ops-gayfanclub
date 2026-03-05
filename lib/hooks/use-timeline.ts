@@ -103,6 +103,8 @@ export function useTimeline(workItemId: string) {
           kind,
           original_filename,
           note,
+          storage_bucket,
+          storage_path,
           uploaded_by_user_id,
           users:uploaded_by_user_id (full_name, email)
         `)
@@ -120,7 +122,7 @@ export function useTimeline(workItemId: string) {
             timestamp: file.created_at,
             title: 'File Uploaded',
             description: `${file.kind} file: ${file.original_filename}${displayNote ? ` - ${displayNote}` : ''}`,
-            metadata: { kind: file.kind, filename: file.original_filename },
+            metadata: { kind: file.kind, filename: file.original_filename, fileId: file.id, storageBucket: file.storage_bucket, storagePath: file.storage_path },
             user: file.users?.full_name || 'Customer',
             userEmail: file.users?.email,
           })
