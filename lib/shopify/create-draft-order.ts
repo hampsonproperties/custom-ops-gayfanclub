@@ -4,6 +4,7 @@
  */
 
 import { getShopifyCredentials } from './get-credentials'
+import { SHOPIFY_API_VERSION } from '@/lib/config'
 import { logger } from '@/lib/logger'
 
 const log = logger('shopify-draft-order')
@@ -50,7 +51,7 @@ async function findOrCreateCustomer(
   try {
     // First, search for existing customer
     const searchResponse = await fetch(
-      `https://${shop}/admin/api/2026-01/customers/search.json?query=email:${encodeURIComponent(email)}`,
+      `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/customers/search.json?query=email:${encodeURIComponent(email)}`,
       {
         headers: {
           'X-Shopify-Access-Token': accessToken,
@@ -71,7 +72,7 @@ async function findOrCreateCustomer(
     const lastName = lastNameParts.join(' ') || ''
 
     const createResponse = await fetch(
-      `https://${shop}/admin/api/2026-01/customers.json`,
+      `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/customers.json`,
       {
         method: 'POST',
         headers: {
@@ -142,7 +143,7 @@ export async function createDraftOrder(
     }
 
     const draftOrderResponse = await fetch(
-      `https://${shop}/admin/api/2026-01/draft_orders.json`,
+      `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/draft_orders.json`,
       {
         method: 'POST',
         headers: {

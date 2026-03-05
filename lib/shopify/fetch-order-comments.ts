@@ -5,6 +5,7 @@
  */
 
 import { getShopifyCredentials } from './get-credentials'
+import { SHOPIFY_API_VERSION } from '@/lib/config'
 import { logger } from '@/lib/logger'
 
 const log = logger('shopify-order-comments')
@@ -32,7 +33,7 @@ export async function fetchOrderComments(shopifyOrderId: string): Promise<OrderC
     const { shop, accessToken } = await getShopifyCredentials()
 
     const response = await fetch(
-      `https://${shop}/admin/api/2024-10/orders/${shopifyOrderId}/events.json`,
+      `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/orders/${shopifyOrderId}/events.json`,
       {
         headers: {
           'X-Shopify-Access-Token': accessToken,

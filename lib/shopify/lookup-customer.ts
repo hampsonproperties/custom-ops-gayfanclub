@@ -4,6 +4,7 @@
  */
 
 import { getShopifyCredentials } from './get-credentials'
+import { SHOPIFY_API_VERSION } from '@/lib/config'
 import { logger } from '@/lib/logger'
 
 const log = logger('shopify-lookup-customer')
@@ -40,7 +41,7 @@ export async function lookupShopifyCustomer(email: string): Promise<ShopifyCusto
     const { shop, accessToken } = await getShopifyCredentials()
 
     const response = await fetch(
-      `https://${shop}/admin/api/2026-01/customers/search.json?query=email:${encodeURIComponent(email)}`,
+      `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/customers/search.json?query=email:${encodeURIComponent(email)}`,
       {
         headers: {
           'X-Shopify-Access-Token': accessToken,
@@ -69,7 +70,7 @@ export async function lookupShopifyCustomer(email: string): Promise<ShopifyCusto
     let orders: ShopifyOrder[] = []
     try {
       const ordersResponse = await fetch(
-        `https://${shop}/admin/api/2026-01/customers/${customerId}/orders.json?status=any&limit=20`,
+        `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/customers/${customerId}/orders.json?status=any&limit=20`,
         {
           headers: {
             'X-Shopify-Access-Token': accessToken,

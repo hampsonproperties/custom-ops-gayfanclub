@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getShopifyCredentials } from '@/lib/shopify/get-credentials'
+import { SHOPIFY_API_VERSION } from '@/lib/config'
 import { logger } from '@/lib/logger'
 import { badRequest } from '@/lib/api/errors'
 
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
     for (const orderId of orderIds) {
       try {
         const response = await fetch(
-          `https://${shop}/admin/api/2026-01/orders/${orderId}.json`,
+          `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/orders/${orderId}.json`,
           {
             headers: {
               'X-Shopify-Access-Token': accessToken,
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
       // Use customer ID - most reliable
       try {
         const ordersResponse = await fetch(
-          `https://${shop}/admin/api/2026-01/customers/${customerId}/orders.json`,
+          `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/customers/${customerId}/orders.json`,
           {
             headers: {
               'X-Shopify-Access-Token': accessToken,
@@ -69,7 +70,7 @@ export async function GET(request: NextRequest) {
       try {
         // Search for customer by email
         const customerResponse = await fetch(
-          `https://${shop}/admin/api/2026-01/customers/search.json?query=email:${encodeURIComponent(email)}`,
+          `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/customers/search.json?query=email:${encodeURIComponent(email)}`,
           {
             headers: {
               'X-Shopify-Access-Token': accessToken,
@@ -85,7 +86,7 @@ export async function GET(request: NextRequest) {
 
             // Fetch all orders for this customer
             const ordersResponse = await fetch(
-              `https://${shop}/admin/api/2026-01/customers/${customer.id}/orders.json`,
+              `https://${shop}/admin/api/${SHOPIFY_API_VERSION}/customers/${customer.id}/orders.json`,
               {
                 headers: {
                   'X-Shopify-Access-Token': accessToken,

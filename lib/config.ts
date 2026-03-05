@@ -8,7 +8,7 @@
 // ── Shopify ──
 
 /** Shopify REST Admin API version used for manual fetch() calls */
-export const SHOPIFY_API_VERSION = '2024-01'
+export const SHOPIFY_API_VERSION = '2026-01'
 
 // ── Email lookback windows ──
 
