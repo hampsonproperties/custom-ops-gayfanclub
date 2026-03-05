@@ -1,5 +1,6 @@
 'use client'
 
+import * as Sentry from '@sentry/nextjs'
 import { useEffect } from 'react'
 import { logger } from '@/lib/logger'
 
@@ -13,6 +14,7 @@ export default function RootError({
   reset: () => void
 }) {
   useEffect(() => {
+    Sentry.captureException(error)
     log.error('Root error', { error })
   }, [error])
 

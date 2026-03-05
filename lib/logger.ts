@@ -10,12 +10,17 @@
  * In production (Vercel): outputs JSON for automatic parsing and filtering.
  * In development: outputs human-readable format with color.
  *
+ * Sentry integration: all error() calls automatically report to Sentry
+ * when NEXT_PUBLIC_SENTRY_DSN is configured. No changes needed in calling code.
+ *
  * Usage:
  *   import { logger } from '@/lib/logger'
  *   const log = logger('shopify-webhook')
  *   log.info('Processing order', { orderNumber: '#1234', orderType: 'customify' })
  *   log.error('Failed to import', { error, workItemId: '...' })
  */
+
+import * as Sentry from '@sentry/nextjs'
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
@@ -57,8 +62,41 @@ function processContext(context?: LogContext): LogContext | undefined {
   return processed
 }
 
+function reportToSentry(module: string, message: string, context?: LogContext) {
+  try {
+    // Extract the original error if one was passed, otherwise create one from the message
+    const error = context?.error instanceof Error
+      ? context.error
+      : context?.err instanceof Error
+        ? context.err
+        : new Error(message)
+
+    // Strip error from extra context since it's already the main exception
+    const extra: Record<string, unknown> = {}
+    if (context) {
+      for (const [key, value] of Object.entries(context)) {
+        if (key !== 'error' && key !== 'err') {
+          extra[key] = value
+        }
+      }
+    }
+
+    Sentry.captureException(error, {
+      tags: { module },
+      extra: { ...extra, logMessage: message },
+    })
+  } catch {
+    // Never let Sentry reporting break the app
+  }
+}
+
 function logStructured(level: LogLevel, module: string, message: string, context?: LogContext) {
   const processedContext = processContext(context)
+
+  // Report errors to Sentry (production only, when DSN is configured)
+  if (level === 'error' && IS_PRODUCTION) {
+    reportToSentry(module, message, context)
+  }
 
   if (IS_PRODUCTION) {
     // JSON output for Vercel log parsing
