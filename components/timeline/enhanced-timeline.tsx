@@ -17,6 +17,26 @@ import { cn } from '@/lib/utils'
 import { TaskForm } from '@/components/tasks/task-form'
 import { TaskList } from '@/components/tasks/task-list'
 import DOMPurify from 'dompurify'
+import { type ReactNode } from 'react'
+
+function getTimelineFileUrl(metadata: any): string | null {
+  if (metadata?.externalUrl) return metadata.externalUrl
+  if (metadata?.storageBucket && metadata?.storagePath) {
+    if (metadata.storageBucket === 'customify' || metadata.storageBucket === 'external') {
+      return metadata.storagePath
+    }
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    return `${supabaseUrl}/storage/v1/object/public/${metadata.storageBucket}/${metadata.storagePath}`
+  }
+  return null
+}
+
+function isImageFile(metadata: any): boolean {
+  if (metadata?.mimeType?.startsWith('image/')) return true
+  if (metadata?.kind === 'image') return true
+  if (metadata?.filename && /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(metadata.filename)) return true
+  return false
+}
 
 type TimelineEventType = 'note' | 'email' | 'call' | 'text' | 'task' | 'appointment' | 'status_change' | 'file_upload' | 'work_item_created'
 
@@ -40,6 +60,7 @@ interface EnhancedTimelineProps {
   onCreateTask?: (details: any) => Promise<void>
   workItemId?: string
   customerId?: string
+  emailComposer?: ReactNode
 }
 
 const EVENT_ICONS: Record<TimelineEventType, any> = {
@@ -73,6 +94,7 @@ export function EnhancedTimeline({
   onCreateTask,
   workItemId,
   customerId,
+  emailComposer,
 }: EnhancedTimelineProps) {
   const [filter, setFilter] = useState<'all' | 'starred' | TimelineEventType>('all')
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set())
@@ -266,9 +288,11 @@ export function EnhancedTimeline({
             </TabsContent>
 
             <TabsContent value="email" className="p-4">
-              <p className="text-sm text-muted-foreground text-center py-8">
-                Email composer appears above in the Activity tab
-              </p>
+              {emailComposer || (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No email composer available
+                </p>
+              )}
             </TabsContent>
 
             <TabsContent value="task" className="p-4 space-y-4">
@@ -385,18 +409,33 @@ export function EnhancedTimeline({
                     </div>
                   )}
 
-                  {/* File view link */}
-                  {event.type === 'file_upload' && event.metadata?.fileId && (
-                    <a
-                      href={`/api/files/${event.metadata.fileId}/download`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 mt-2 text-sm text-primary hover:underline"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      View File
-                    </a>
-                  )}
+                  {/* File preview */}
+                  {event.type === 'file_upload' && (() => {
+                    const fileUrl = getTimelineFileUrl(event.metadata)
+                    if (!fileUrl) return null
+                    if (isImageFile(event.metadata)) {
+                      return (
+                        <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="block mt-2">
+                          <img
+                            src={fileUrl}
+                            alt={event.metadata?.filename || 'Uploaded file'}
+                            className="max-w-[200px] max-h-[200px] rounded-md border object-cover"
+                          />
+                        </a>
+                      )
+                    }
+                    return (
+                      <a
+                        href={fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 mt-2 text-sm text-primary hover:underline"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        View File
+                      </a>
+                    )
+                  })()}
 
                   {/* Email metadata */}
                   {event.type === 'email' && event.metadata && (

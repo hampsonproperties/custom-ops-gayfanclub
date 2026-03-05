@@ -303,21 +303,17 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
 
           {/* Timeline Tab - Default View */}
           <TabsContent value="timeline" className="space-y-4">
-            {/* Email Composer at Top */}
-            <Card>
-              <CardContent className="pt-6">
+            {/* Enhanced Timeline with Filtering */}
+            <EnhancedTimeline
+              events={timeline || []}
+              workItemId={id}
+              emailComposer={
                 <InlineEmailComposer
                   workItemId={id}
                   workItem={workItem}
                   onSendSuccess={() => {}}
                 />
-              </CardContent>
-            </Card>
-
-            {/* Enhanced Timeline with Filtering */}
-            <EnhancedTimeline
-              events={timeline || []}
-              workItemId={id}
+              }
               onAddNote={async (content: string) => {
                 await createNote.mutateAsync({
                   workItemId: id,
@@ -423,33 +419,51 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
             </div>
 
             {files && files.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {files.map((file) => (
-                  <Card key={file.id}>
-                    <CardContent className="pt-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <FileIcon className="h-8 w-8 text-muted-foreground" />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteFile(file.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <p className="text-sm font-medium truncate">{file.original_filename}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{file.kind}</p>
-                      <div className="flex gap-2 mt-3">
-                        <Button variant="outline" size="sm" className="flex-1" asChild>
-                          <a href={getFileUrl(file)} target="_blank" rel="noopener noreferrer">
-                            <Download className="h-3 w-3 mr-1" />
-                            Download
-                          </a>
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                {files.map((file) => {
+                  const url = getFileUrl(file)
+                  const isImage = file.mime_type?.startsWith('image/') ||
+                    file.kind === 'image' ||
+                    /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.original_filename)
+
+                  return (
+                    <Card key={file.id} className="group relative overflow-hidden">
+                      {/* Thumbnail or icon */}
+                      <a href={url} target="_blank" rel="noopener noreferrer" className="block">
+                        {isImage ? (
+                          <div className="aspect-square relative bg-muted">
+                            <img
+                              src={url}
+                              alt={file.original_filename}
+                              className="absolute inset-0 w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                              <ExternalLink className="h-6 w-6 text-white" />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="aspect-square bg-muted flex items-center justify-center">
+                            <FileIcon className="h-10 w-10 text-muted-foreground" />
+                          </div>
+                        )}
+                      </a>
+                      <CardContent className="p-3">
+                        <p className="text-xs font-medium truncate">{file.original_filename}</p>
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-xs text-muted-foreground capitalize">{file.kind}</p>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => handleDeleteFile(file.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
               </div>
             ) : (
               <Card>
