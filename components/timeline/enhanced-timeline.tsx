@@ -14,6 +14,8 @@ import {
 } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { cn } from '@/lib/utils'
+import { TaskForm } from '@/components/tasks/task-form'
+import { TaskList } from '@/components/tasks/task-list'
 
 type TimelineEventType = 'note' | 'email' | 'call' | 'text' | 'task' | 'appointment' | 'status_change' | 'file_upload' | 'work_item_created'
 
@@ -36,6 +38,8 @@ interface EnhancedTimelineProps {
   onToggleStar?: (eventId: string) => void
   onLogCall?: (details: any) => Promise<void>
   onCreateTask?: (details: any) => Promise<void>
+  workItemId?: string
+  customerId?: string
 }
 
 const EVENT_ICONS: Record<TimelineEventType, any> = {
@@ -68,6 +72,8 @@ export function EnhancedTimeline({
   onToggleStar,
   onLogCall,
   onCreateTask,
+  workItemId,
+  customerId,
 }: EnhancedTimelineProps) {
   const [filter, setFilter] = useState<'all' | 'starred' | TimelineEventType>('all')
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set())
@@ -280,10 +286,17 @@ export function EnhancedTimeline({
               </p>
             </TabsContent>
 
-            <TabsContent value="task" className="p-4">
-              <p className="text-sm text-muted-foreground text-center py-8">
-                Task creation coming soon
-              </p>
+            <TabsContent value="task" className="p-4 space-y-4">
+              {workItemId || customerId ? (
+                <>
+                  <TaskForm workItemId={workItemId} customerId={customerId} />
+                  <TaskList workItemId={workItemId} customerId={customerId} />
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No context available for tasks
+                </p>
+              )}
             </TabsContent>
 
             <TabsContent value="appointment" className="p-4">

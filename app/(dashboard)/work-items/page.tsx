@@ -11,7 +11,7 @@ import { useWorkItems, useUpdateWorkItemStatus, type PaginatedResult } from '@/l
 import { PaginationControls } from '@/components/ui/pagination-controls'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { KanbanBoard } from '@/components/work-items/kanban-board'
-import { Search, Filter, LayoutList, LayoutGrid, Mail, Phone, MoreHorizontal, Building2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, User, Users, Plus, Palette, Loader2, UserPlus, XCircle } from 'lucide-react'
+import { Search, Filter, LayoutList, LayoutGrid, Mail, Phone, MoreHorizontal, Building2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, User, Users, Plus, Palette, Loader2, UserPlus, XCircle, Download } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -48,6 +48,7 @@ import { getValidStatusesForWorkItem, getStatusLabel } from '@/lib/utils/status-
 import { useCloseWorkItem } from '@/lib/hooks/use-work-items'
 import type { WorkItemType, WorkItemStatus } from '@/types/database'
 import { logger } from '@/lib/logger'
+import { generateCSV, downloadCSV, exportFilename, type CSVColumn } from '@/lib/utils/csv-export'
 
 const log = logger('work-items')
 
@@ -196,6 +197,64 @@ export default function WorkItemsPage() {
     return [...common].filter(
       s => !SYSTEM_ONLY.includes(s) && !CLOSING.includes(s)
     ) as WorkItemStatus[]
+  }
+
+  // ── Export CSV ──
+  const [isExporting, setIsExporting] = useState(false)
+
+  const handleExport = async () => {
+    setIsExporting(true)
+    try {
+      const supabase = createClient()
+      let query = supabase
+        .from('work_items')
+        .select('*, customer:customers(display_name, email), assigned_to:users!assigned_to_user_id(full_name, email)')
+        .is('closed_at', null)
+        .order('created_at', { ascending: false })
+
+      if (filterMode === 'my-projects') {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) query = query.eq('assigned_to_user_id', user.id)
+      } else if (filterMode === 'need-design') {
+        query = query.in('status', ['new_inquiry', 'awaiting_approval'])
+      }
+
+      if (debouncedSearch) {
+        const s = debouncedSearch.toLowerCase()
+        query = query.or(
+          `customer_name.ilike.%${s}%,customer_email.ilike.%${s}%,shopify_order_number.ilike.%${s}%,design_fee_order_number.ilike.%${s}%,shopify_order_id.ilike.%${s}%,design_fee_order_id.ilike.%${s}%,title.ilike.%${s}%`
+        )
+      }
+
+      if (sortColumn) {
+        const sortMap: Record<string, string> = { name: 'customer_name', status: 'status', value: 'estimated_value', event_date: 'event_date', created: 'created_at' }
+        query = query.order(sortMap[sortColumn] || 'created_at', { ascending: sortDirection === 'asc' })
+      }
+
+      const { data, error } = await query
+      if (error) throw error
+
+      const columns: CSVColumn<any>[] = [
+        { header: 'Title', value: (r) => r.title || `Project for ${r.customer_name || r.customer_email || 'Unknown'}` },
+        { header: 'Customer', value: (r) => r.customer_name },
+        { header: 'Email', value: (r) => r.customer_email },
+        { header: 'Status', value: (r) => getStatusLabel(r.status) },
+        { header: 'Type', value: (r) => r.type?.replace(/_/g, ' ') },
+        { header: 'Designer', value: (r) => r.assigned_to?.full_name || r.assigned_to?.email },
+        { header: 'Est. Value', value: (r) => r.estimated_value },
+        { header: 'Event Date', value: (r) => r.event_date ? new Date(r.event_date).toLocaleDateString() : '' },
+        { header: 'Shopify Order #', value: (r) => r.shopify_order_number },
+        { header: 'Created', value: (r) => r.created_at ? new Date(r.created_at).toLocaleDateString() : '' },
+      ]
+
+      const csv = generateCSV(data || [], columns)
+      downloadCSV(csv, exportFilename('work-items'))
+      toast.success(`Exported ${data?.length || 0} projects`)
+    } catch (err) {
+      toast.error('Failed to export projects')
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   // ── Bulk action handlers ──
@@ -431,9 +490,9 @@ export default function WorkItemsPage() {
                 />
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" className="gap-2 flex-1 sm:flex-none h-11 sm:h-9">
-                  <Filter className="h-4 w-4" />
-                  <span className="sm:inline">Filters</span>
+                <Button variant="outline" className="gap-2 flex-1 sm:flex-none h-11 sm:h-9" onClick={handleExport} disabled={isExporting}>
+                  {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  <span className="sm:inline">Export CSV</span>
                 </Button>
                 <div className="hidden sm:flex border rounded-md">
                   <Button

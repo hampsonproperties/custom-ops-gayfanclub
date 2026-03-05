@@ -28,6 +28,8 @@ import { formatDistanceToNow, format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { cleanEmailContent, getEmailPreview } from '@/lib/utils/email-content-cleaner'
+import { TaskForm } from '@/components/tasks/task-form'
+import { TaskList } from '@/components/tasks/task-list'
 import { logger } from '@/lib/logger'
 
 const log = logger('project-activity-feed')
@@ -118,7 +120,7 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
         log.warn('Failed to fetch emails', { error })
       }
 
-      // Fetch tasks (if table exists)
+      // Fetch tasks
       let tasks: any[] = []
       try {
         const { data: tasksData } = await supabase
@@ -129,16 +131,15 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
             description,
             created_at,
             due_date,
-            completed,
-            created_by_user:users!created_by_user_id(id, full_name, email),
-            assigned_to:users!assigned_to_user_id(full_name, email)
+            completed_at,
+            created_by_user:users!tasks_created_by_user_id_fkey(id, full_name, email),
+            assigned_to:users!tasks_assigned_to_user_id_fkey(full_name, email)
           `)
-          .eq('project_id', projectId)
+          .eq('work_item_id', projectId)
           .order('created_at', { ascending: false })
 
         tasks = tasksData || []
       } catch (error) {
-        // Tasks table might not exist yet, that's okay
         tasks = []
       }
 
@@ -176,7 +177,7 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
           content: task.description || task.title,
           created_at: task.created_at,
           due_date: task.due_date,
-          completed: task.completed,
+          completed: !!task.completed_at,
           user: getUserObject(task.created_by_user),
           assigned_to: getUserObject(task.assigned_to),
         })),
@@ -590,8 +591,9 @@ export function ProjectActivityFeed({ projectId, customerId, customerEmail }: Pr
           )}
 
           {activeTab === 'task' && (
-            <div className="text-center py-8 text-muted-foreground">
-              Task creation coming soon
+            <div className="space-y-4">
+              <TaskForm workItemId={projectId} />
+              <TaskList workItemId={projectId} />
             </div>
           )}
         </div>

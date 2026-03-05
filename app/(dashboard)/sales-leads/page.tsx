@@ -13,11 +13,16 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { PaginationControls } from '@/components/ui/pagination-controls'
-import { Plus, Search, TrendingUp, DollarSign, Target, Award, Mail, ExternalLink } from 'lucide-react'
+import { Plus, Search, TrendingUp, DollarSign, Target, Award, Mail, ExternalLink, Download, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { useLeads, useLeadStats, type LeadsFilters } from '@/lib/hooks/use-leads'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { formatDistanceToNow } from 'date-fns'
+import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
+import { generateCSV, downloadCSV, exportFilename, type CSVColumn } from '@/lib/utils/csv-export'
+import { getStatusLabel } from '@/lib/utils/status-transitions'
+import type { WorkItemStatus } from '@/types/database'
 
 export default function SalesLeadsPage() {
   const [filters, setFilters] = useState<LeadsFilters>({
@@ -32,6 +37,67 @@ export default function SalesLeadsPage() {
   const leads = result?.items
   const totalCount = result?.totalCount ?? 0
   const { data: stats } = useLeadStats()
+  const [isExporting, setIsExporting] = useState(false)
+
+  const handleExport = async () => {
+    setIsExporting(true)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+
+      let query = supabase
+        .from('work_items')
+        .select('*')
+        .eq('type', 'assisted_project')
+        .in('status', [
+          'new_inquiry', 'info_sent', 'future_event_monitoring',
+          'design_fee_sent', 'design_fee_paid',
+          'closed_won', 'closed_lost', 'closed_event_cancelled',
+        ])
+        .order('created_at', { ascending: false })
+
+      if (filters.assignedTo === 'me' && user) {
+        query = query.eq('assigned_to_user_id', user.id)
+      } else if (filters.assignedTo === 'unassigned') {
+        query = query.is('assigned_to_user_id', null)
+      } else if (filters.assignedTo && filters.assignedTo !== 'all') {
+        query = query.eq('assigned_to_user_id', filters.assignedTo)
+      }
+
+      if (filters.status && filters.status !== 'all') {
+        query = query.eq('status', filters.status)
+      }
+
+      if (filters.search) {
+        query = query.or(
+          `customer_name.ilike.%${filters.search}%,customer_email.ilike.%${filters.search}%,company_name.ilike.%${filters.search}%`
+        )
+      }
+
+      const { data, error } = await query
+      if (error) throw error
+
+      const columns: CSVColumn<any>[] = [
+        { header: 'Name', value: (r) => r.customer_name },
+        { header: 'Email', value: (r) => r.customer_email },
+        { header: 'Company', value: (r) => r.company_name },
+        { header: 'Phone', value: (r) => r.phone_number },
+        { header: 'Status', value: (r) => getStatusLabel(r.status as WorkItemStatus) },
+        { header: 'Est. Value', value: (r) => r.estimated_value },
+        { header: 'Event Date', value: (r) => r.event_date ? new Date(r.event_date).toLocaleDateString() : '' },
+        { header: 'Lead Source', value: (r) => r.lead_source },
+        { header: 'Created', value: (r) => r.created_at ? new Date(r.created_at).toLocaleDateString() : '' },
+      ]
+
+      const csv = generateCSV(data || [], columns)
+      downloadCSV(csv, exportFilename('sales-leads'))
+      toast.success(`Exported ${data?.length || 0} leads`)
+    } catch (err) {
+      toast.error('Failed to export leads')
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   const handleFilterChange = (key: keyof LeadsFilters, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }))
@@ -174,6 +240,10 @@ export default function SalesLeadsPage() {
                 </SelectContent>
               </Select>
 
+              <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting} className="h-9 gap-2">
+                {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                Export CSV
+              </Button>
             </div>
           </div>
         </CardContent>

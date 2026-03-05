@@ -15,11 +15,16 @@ import {
   Package,
   Users,
   Mail,
-  MapPin
+  MapPin,
+  Download,
+  Loader2,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRetailAccounts } from '@/lib/hooks/use-retail-accounts'
 import { formatDistanceToNow } from 'date-fns'
+import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
+import { generateCSV, downloadCSV, exportFilename, type CSVColumn } from '@/lib/utils/csv-export'
 
 export default function RetailAccountsPage() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -29,6 +34,53 @@ export default function RetailAccountsPage() {
     search: searchQuery,
     status: statusFilter === 'all' ? undefined : statusFilter,
   })
+  const [isExporting, setIsExporting] = useState(false)
+
+  const handleExport = async () => {
+    setIsExporting(true)
+    try {
+      const supabase = createClient()
+      let query = supabase
+        .from('retail_accounts')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (statusFilter !== 'all') {
+        query = query.eq('status', statusFilter)
+      }
+
+      if (searchQuery) {
+        query = query.or(
+          `account_name.ilike.%${searchQuery}%,primary_contact_email.ilike.%${searchQuery}%,primary_contact_name.ilike.%${searchQuery}%`
+        )
+      }
+
+      const { data, error } = await query
+      if (error) throw error
+
+      const columns: CSVColumn<any>[] = [
+        { header: 'Account Name', value: (r) => r.account_name },
+        { header: 'Type', value: (r) => r.account_type },
+        { header: 'Status', value: (r) => r.status?.replace(/_/g, ' ') },
+        { header: 'Contact', value: (r) => r.primary_contact_name },
+        { header: 'Email', value: (r) => r.primary_contact_email },
+        { header: 'Phone', value: (r) => r.primary_contact_phone },
+        { header: 'City', value: (r) => r.city },
+        { header: 'State', value: (r) => r.state },
+        { header: 'Revenue', value: (r) => r.total_revenue },
+        { header: 'Orders', value: (r) => r.total_orders },
+        { header: 'Created', value: (r) => r.created_at ? new Date(r.created_at).toLocaleDateString() : '' },
+      ]
+
+      const csv = generateCSV(data || [], columns)
+      downloadCSV(csv, exportFilename('retail-accounts'))
+      toast.success(`Exported ${data?.length || 0} accounts`)
+    } catch (err) {
+      toast.error('Failed to export accounts')
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -145,6 +197,11 @@ export default function RetailAccountsPage() {
             <TabsTrigger value="inactive">Inactive</TabsTrigger>
           </TabsList>
         </Tabs>
+
+        <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting} className="h-9 gap-2">
+          {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          Export CSV
+        </Button>
       </div>
 
       {/* Accounts List */}

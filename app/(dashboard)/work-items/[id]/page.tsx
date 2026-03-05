@@ -317,6 +317,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
             {/* Enhanced Timeline with Filtering */}
             <EnhancedTimeline
               events={timeline || []}
+              workItemId={id}
               onAddNote={async (content: string) => {
                 await createNote.mutateAsync({
                   workItemId: id,

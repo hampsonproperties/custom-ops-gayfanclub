@@ -24,6 +24,8 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { cleanEmailContent, getEmailPreview } from '@/lib/utils/email-content-cleaner'
 import { logger } from '@/lib/logger'
+import { TaskForm } from '@/components/tasks/task-form'
+import { TaskList } from '@/components/tasks/task-list'
 
 const log = logger('customer-activity-feed')
 
@@ -97,6 +99,29 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
         .eq('customer_id', customerId)
         .order('received_at', { ascending: false })
 
+      // Fetch tasks
+      let tasks: any[] = []
+      try {
+        const { data: tasksData } = await supabase
+          .from('tasks')
+          .select(`
+            id,
+            title,
+            description,
+            created_at,
+            due_date,
+            completed_at,
+            created_by_user:users!tasks_created_by_user_id_fkey(id, full_name, email),
+            assigned_to:users!tasks_assigned_to_user_id_fkey(full_name, email)
+          `)
+          .eq('customer_id', customerId)
+          .order('created_at', { ascending: false })
+
+        tasks = tasksData || []
+      } catch (error) {
+        tasks = []
+      }
+
       // Helper to extract user object
       const getUserObject = (user: any) => {
         if (!user) return { id: '', full_name: 'System', email: '' }
@@ -124,6 +149,16 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
             full_name: email.from_name || 'Unknown',
             email: email.from_email || ''
           },
+        })),
+        ...(tasks || []).map(task => ({
+          id: task.id,
+          type: 'task' as ActivityType,
+          content: task.description || task.title,
+          created_at: task.created_at,
+          due_date: task.due_date,
+          completed: !!task.completed_at,
+          user: getUserObject(task.created_by_user),
+          assigned_to: getUserObject(task.assigned_to),
         })),
       ]
 
@@ -515,8 +550,9 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
 
           {/* Task Composer */}
           {activeTab === 'task' && (
-            <div className="text-center py-4 text-sm text-muted-foreground">
-              Task management coming soon
+            <div className="space-y-4">
+              <TaskForm customerId={customerId} />
+              <TaskList customerId={customerId} />
             </div>
           )}
         </div>

@@ -37,6 +37,8 @@ import {
   List as ListIcon,
   Building2,
   DollarSign,
+  Download,
+  Loader2,
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow, format } from 'date-fns'
@@ -46,6 +48,7 @@ import { toast } from 'sonner'
 import { CustomerKanban } from '@/components/customers/customer-kanban'
 import { CreateCustomerDialog } from '@/components/customers/create-customer-dialog'
 import { PaginationControls } from '@/components/ui/pagination-controls'
+import { generateCSV, downloadCSV, exportFilename, type CSVColumn } from '@/lib/utils/csv-export'
 
 interface Customer {
   id: string
@@ -155,6 +158,59 @@ export default function CustomersPage() {
 
   const customers = customersData?.customers || []
   const totalCount = customersData?.totalCount ?? 0
+  const [isExporting, setIsExporting] = useState(false)
+
+  const handleExport = async () => {
+    setIsExporting(true)
+    try {
+      const supabase = createClient()
+      const joinType = filterStatus === 'with_projects' ? '!inner' : ''
+      let query = supabase
+        .from('customers')
+        .select(`
+          *,
+          work_items${joinType} (id),
+          assigned_to_user:users!assigned_to_user_id (full_name)
+        `)
+        .order('updated_at', { ascending: false })
+
+      if (searchQuery) {
+        query = query.or(`email.ilike.%${searchQuery}%,first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%,display_name.ilike.%${searchQuery}%`)
+      }
+
+      const { data, error } = await query
+      if (error) throw error
+
+      let rows = (data || []).map((c: any) => ({
+        ...c,
+        project_count: c.work_items?.length || 0,
+      }))
+
+      if (filterStatus === 'no_projects') {
+        rows = rows.filter((c: any) => c.project_count === 0)
+      }
+
+      const columns: CSVColumn<any>[] = [
+        { header: 'Name', value: (r) => r.display_name || `${r.first_name || ''} ${r.last_name || ''}`.trim() || '' },
+        { header: 'Email', value: (r) => r.email },
+        { header: 'Phone', value: (r) => r.phone },
+        { header: 'Company', value: (r) => r.organization_name },
+        { header: 'Est. Value', value: (r) => r.estimated_value },
+        { header: 'Total Spent', value: (r) => r.total_spent },
+        { header: 'Projects', value: (r) => r.project_count },
+        { header: 'Assigned To', value: (r) => r.assigned_to_user?.full_name },
+        { header: 'Created', value: (r) => r.created_at ? new Date(r.created_at).toLocaleDateString() : '' },
+      ]
+
+      const csv = generateCSV(rows, columns)
+      downloadCSV(csv, exportFilename('customers'))
+      toast.success(`Exported ${rows.length} customers`)
+    } catch (err) {
+      toast.error('Failed to export customers')
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   // Separate stats query — counts from full database, not current page
   const { data: stats = { total: 0, with_projects: 0, recent_contacts: 0 } } = useQuery({
@@ -261,6 +317,10 @@ export default function CustomersPage() {
                     <SelectItem value="no_projects">No Projects</SelectItem>
                   </SelectContent>
                 </Select>
+                <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting} className="h-9 gap-2">
+                  {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  Export CSV
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
