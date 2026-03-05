@@ -26,7 +26,7 @@ export async function processFulfillment(
       .from('webhook_events')
       .update({
         processing_status: 'failed',
-        processing_error: 'Missing order_id in fulfillment payload',
+        error_message: 'Missing order_id in fulfillment payload',
       })
       .eq('id', webhookEventId)
     return

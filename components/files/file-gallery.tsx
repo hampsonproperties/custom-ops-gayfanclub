@@ -11,10 +11,21 @@ import { cn } from '@/lib/utils'
 interface FileItem {
   id: string
   original_filename: string
-  external_url: string
+  external_url?: string | null
+  storage_bucket?: string | null
+  storage_path?: string | null
   mime_type?: string
   size_bytes?: number
   kind?: string
+}
+
+function getFileUrl(file: FileItem): string | null {
+  if (file.external_url) return file.external_url
+  if (file.storage_bucket && file.storage_path) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    return `${supabaseUrl}/storage/v1/object/public/${file.storage_bucket}/${file.storage_path}`
+  }
+  return null
 }
 
 interface FileGalleryProps {
@@ -26,14 +37,17 @@ export function FileGallery({ files, className }: FileGalleryProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [selectedFileName, setSelectedFileName] = useState<string>('')
 
+  // Only include files with a resolvable URL
+  const resolvedFiles = files.filter(f => getFileUrl(f))
+
   // Separate images from other files
-  const imageFiles = files.filter(f =>
+  const imageFiles = resolvedFiles.filter(f =>
     f.mime_type?.startsWith('image/') ||
     f.kind === 'image' ||
     /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(f.original_filename)
   )
 
-  const otherFiles = files.filter(f =>
+  const otherFiles = resolvedFiles.filter(f =>
     !f.mime_type?.startsWith('image/') &&
     f.kind !== 'image' &&
     !/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(f.original_filename)
@@ -73,10 +87,10 @@ export function FileGallery({ files, className }: FileGalleryProps) {
               <Card
                 key={file.id}
                 className="group relative aspect-square overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
-                onClick={() => handleImageClick(file.external_url, file.original_filename)}
+                onClick={() => handleImageClick(getFileUrl(file)!, file.original_filename)}
               >
                 <Image
-                  src={file.external_url}
+                  src={getFileUrl(file)!}
                   alt={file.original_filename}
                   fill
                   className="object-cover"
@@ -126,7 +140,7 @@ export function FileGallery({ files, className }: FileGalleryProps) {
                     asChild
                   >
                     <a
-                      href={file.external_url}
+                      href={getFileUrl(file)!}
                       download
                       target="_blank"
                       rel="noopener noreferrer"

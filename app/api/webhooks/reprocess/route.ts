@@ -29,12 +29,6 @@ export async function POST(request: NextRequest) {
       return notFound('Webhook event not found')
     }
 
-    // Check retry limit
-    const maxRetries = 3
-    if (webhookEvent.retry_count >= maxRetries) {
-      return badRequest(`Maximum retry limit (${maxRetries}) exceeded`)
-    }
-
     // Check if already completed
     if (webhookEvent.processing_status === 'completed') {
       return badRequest('Webhook already processed successfully')
@@ -45,9 +39,7 @@ export async function POST(request: NextRequest) {
       .from('webhook_events')
       .update({
         processing_status: 'processing',
-        retry_count: webhookEvent.retry_count + 1,
-        last_retry_at: new Date().toISOString(),
-        processing_error: null,
+        error_message: null,
       })
       .eq('id', webhookId)
 
@@ -78,7 +70,7 @@ export async function POST(request: NextRequest) {
         .from('webhook_events')
         .update({
           processing_status: 'failed',
-          processing_error:
+          error_message:
             processingError instanceof Error
               ? processingError.message
               : String(processingError),
@@ -103,7 +95,7 @@ async function processOrder(supabase: any, order: any, webhookEventId: string) {
       .update({
         processing_status: 'completed',
         processed_at: new Date().toISOString(),
-        processing_error: 'Not a custom order - no work item created',
+        error_message: 'Not a custom order - no work item created',
       })
       .eq('id', webhookEventId)
     return
@@ -202,7 +194,7 @@ async function processFulfillment(supabase: any, fulfillment: any, webhookEventI
       .from('webhook_events')
       .update({
         processing_status: 'failed',
-        processing_error: 'Missing order_id in fulfillment payload',
+        error_message: 'Missing order_id in fulfillment payload',
       })
       .eq('id', webhookEventId)
     return

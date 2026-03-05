@@ -280,13 +280,13 @@ export function useDesignReviewQueue() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('work_items')
-        .select('*, customer:customers(*), files(id, external_url, original_filename, kind, mime_type, size_bytes)')
+        .select('*, customer:customers(*), files(id, external_url, storage_bucket, storage_path, original_filename, kind, mime_type, size_bytes)')
         .eq('type', 'customify_order')
         .in('status', ['needs_design_review', 'needs_customer_fix'])
         .order('created_at', { ascending: true })
 
       if (error) throw error
-      return data as (WorkItem & { files: Array<{ id: string; external_url: string; original_filename: string; kind: string; mime_type: string; size_bytes: number }> })[]
+      return data as (WorkItem & { files: Array<{ id: string; external_url: string | null; storage_bucket: string | null; storage_path: string | null; original_filename: string; kind: string; mime_type: string; size_bytes: number }> })[]
     },
   })
 }

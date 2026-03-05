@@ -81,7 +81,7 @@ export async function processCustomer(
       .from('webhook_events')
       .update({
         processing_status: 'failed',
-        processing_error: error.message,
+        error_message: error.message,
       })
       .eq('id', webhookEventId)
     throw error

@@ -62,7 +62,7 @@ export default function DashboardPage() {
 
       {/* Inbox Alert Strip */}
       {untriagedEmails && untriagedEmails.length > 0 && (
-        <Link href="/inbox">
+        <Link href="/inbox" className="block">
           <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 hover:bg-blue-100/80 transition-colors cursor-pointer">
             <div className="text-sm font-medium flex items-center gap-2 text-blue-700">
               <Mail className="h-4 w-4" />
@@ -101,7 +101,7 @@ export default function DashboardPage() {
                   <Link key={lead.id} href={`/work-items/${lead.id}`}>
                     <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors">
                       <div className="flex items-start justify-between">
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <div className="font-medium">{lead.customer_name}</div>
                           <div className="text-sm text-muted-foreground truncate">
                             {lead.title}
@@ -151,7 +151,7 @@ export default function DashboardPage() {
                   <Link key={lead.id} href={`/work-items/${lead.id}`}>
                     <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors">
                       <div className="flex items-start justify-between">
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <div className="font-medium">{lead.customer_name}</div>
                           <div className="text-sm text-muted-foreground truncate">
                             {lead.title}
@@ -202,7 +202,7 @@ export default function DashboardPage() {
                   <Link key={lead.id} href={`/work-items/${lead.id}`}>
                     <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors">
                       <div className="flex items-start justify-between">
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <div className="font-medium">{lead.customer_name}</div>
                           <div className="text-sm text-muted-foreground capitalize">
                             {lead.status.replace(/_/g, ' ')}

@@ -182,12 +182,11 @@ async function updateExistingWorkItem(
     .eq('id', existingWorkItem.id)
 
   // Create status event for the update
-  await supabase.from('status_events').insert({
+  await supabase.from('work_item_status_events').insert({
     work_item_id: existingWorkItem.id,
-    old_status: existingWorkItem.status,
-    new_status: updateData.status || existingWorkItem.status,
-    changed_by: 'shopify-webhook',
-    notes: `Updated via Shopify order ${order.name} (${orderType})`,
+    from_status: existingWorkItem.status,
+    to_status: updateData.status || existingWorkItem.status,
+    note: `Updated via Shopify order ${order.name} (${orderType})`,
   })
 
   // Import Customify files for existing work item

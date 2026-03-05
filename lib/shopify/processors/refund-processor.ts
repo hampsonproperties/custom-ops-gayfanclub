@@ -30,7 +30,7 @@ export async function processRefund(
         .from('webhook_events')
         .update({
           processing_status: 'failed',
-          processing_error: 'Missing order_id in refund payload',
+          error_message: 'Missing order_id in refund payload',
         })
         .eq('id', webhookEventId)
       return
@@ -66,7 +66,7 @@ export async function processRefund(
       .from('webhook_events')
       .update({
         processing_status: 'failed',
-        processing_error: error.message,
+        error_message: error.message,
       })
       .eq('id', webhookEventId)
     throw error

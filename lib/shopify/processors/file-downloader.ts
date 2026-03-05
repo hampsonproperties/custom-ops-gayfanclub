@@ -31,6 +31,7 @@ interface FileRecord {
   normalized_filename: string
   storage_bucket: string
   storage_path: string
+  external_url: string
   mime_type: string
   size_bytes: number | null
   uploaded_by_user_id: null
@@ -213,6 +214,7 @@ export async function importCustomifyFiles(
         normalized_filename: file.filename,
         storage_bucket: 'custom-ops-files',
         storage_path: storedFile.path,
+        external_url: file.url,
         mime_type: 'image/png',
         size_bytes: storedFile.sizeBytes,
         uploaded_by_user_id: null,
@@ -227,6 +229,7 @@ export async function importCustomifyFiles(
         normalized_filename: file.filename,
         storage_bucket: 'customify',
         storage_path: file.url,
+        external_url: file.url,
         mime_type: 'image/png',
         size_bytes: null,
         uploaded_by_user_id: null,

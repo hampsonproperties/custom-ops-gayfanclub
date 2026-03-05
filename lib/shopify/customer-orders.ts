@@ -79,7 +79,9 @@ export async function findOrCreateCustomer(
 
   const email = shopifyCustomer.email?.toLowerCase()
   const shopifyCustomerId = shopifyCustomer.id?.toString()
-  const name = `${shopifyCustomer.first_name || ''} ${shopifyCustomer.last_name || ''}`.trim()
+  const firstName = shopifyCustomer.first_name || null
+  const lastName = shopifyCustomer.last_name || null
+  const displayName = [firstName, lastName].filter(Boolean).join(' ') || null
 
   // Extract tags
   const tags = shopifyCustomer.tags
@@ -127,7 +129,9 @@ export async function findOrCreateCustomer(
       await supabase
         .from('customers')
         .update({
-          name: name || undefined,
+          first_name: firstName,
+          last_name: lastName,
+          display_name: displayName,
           shopify_customer_id: shopifyCustomerId,
           tags,
           metadata,
@@ -142,7 +146,9 @@ export async function findOrCreateCustomer(
         .from('customers')
         .insert({
           email,
-          name,
+          first_name: firstName,
+          last_name: lastName,
+          display_name: displayName,
           shopify_customer_id: shopifyCustomerId,
           tags,
           metadata,
