@@ -129,7 +129,6 @@ async function updateExistingWorkItem(
   webhookEventId: string
 ): Promise<void> {
   const updateData: any = {
-    shopify_customer_id: order.customer?.id?.toString(),
     shopify_financial_status: order.financial_status,
     shopify_fulfillment_status: order.fulfillment_status,
   }
@@ -137,9 +136,6 @@ async function updateExistingWorkItem(
   // Fill in CRM fields that might be empty
   if (customerName && !existingWorkItem.customer_name) updateData.customer_name = customerName
   if (customerEmail && !existingWorkItem.customer_email) updateData.customer_email = customerEmail
-  if (phoneNumber && !existingWorkItem.phone_number) updateData.phone_number = phoneNumber
-  if (companyName && !existingWorkItem.company_name) updateData.company_name = companyName
-  if (address && !existingWorkItem.address) updateData.address = address
 
   // Link this order to the work item
   if (orderType === 'custom_bulk_order') {
@@ -230,15 +226,10 @@ async function createNewWorkItem(
     type: workItemType,
     source: 'shopify',
     status: workItemStatus,
-    shopify_customer_id: order.customer?.id?.toString(),
     shopify_financial_status: order.financial_status,
     shopify_fulfillment_status: order.fulfillment_status,
     customer_name: customerName,
     customer_email: customerEmail,
-    phone_number: phoneNumber,
-    company_name: companyName,
-    address: address,
-    lead_source: 'shopify',
     quantity,
     grip_color: gripColor,
     design_preview_url: designPreviewUrl,
