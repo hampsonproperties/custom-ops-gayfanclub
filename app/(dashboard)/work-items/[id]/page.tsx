@@ -245,7 +245,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
             </div>
 
             {/* Quick Info Pills */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {workItem.design_fee_order_number && (
                 <a
                   href={`https://admin.shopify.com/store/gayfanclub/orders/${workItem.design_fee_order_id}`}
@@ -279,7 +279,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Main Content - Timeline First */}
-      <div className="flex-1 overflow-auto p-6">
+      <div className="flex-1 overflow-auto p-4 sm:p-6">
         <Tabs defaultValue="timeline" className="space-y-4">
           <TabsList>
             <TabsTrigger value="timeline" className="gap-2">
@@ -337,7 +337,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
           <TabsContent value="details" className="space-y-4">
             <Card>
               <CardContent className="pt-6 space-y-6">
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Type</label>
                     <p className="mt-1 capitalize">{workItem.type.replace('_', ' ')}</p>
@@ -379,7 +379,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
 
                 <Separator />
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium text-muted-foreground mb-2 block">Assigned To</label>
                     <AssignmentManager
@@ -422,7 +422,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
             </div>
 
             {files && files.length > 0 ? (
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {files.map((file) => (
                   <Card key={file.id}>
                     <CardContent className="pt-4">

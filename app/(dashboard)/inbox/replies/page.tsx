@@ -57,7 +57,7 @@ export default function InboxRepliesPage() {
   const unactionedReplies = replies || []
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto p-4 sm:p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -99,7 +99,7 @@ export default function InboxRepliesPage() {
 
           return (
             <Card key={reply.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-6">
+              <CardContent className="p-4 sm:p-6">
                 <div className="space-y-4">
                   {/* Header Row */}
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
@@ -191,7 +191,7 @@ export default function InboxRepliesPage() {
                         Show full message
                       </summary>
                       <div
-                        className="mt-3 email-content prose prose-sm max-w-none"
+                        className="mt-3 email-content prose prose-sm max-w-none overflow-x-auto break-words"
                         dangerouslySetInnerHTML={{
                           __html: DOMPurify.sanitize(reply.body_html, {
                             ALLOWED_TAGS: [

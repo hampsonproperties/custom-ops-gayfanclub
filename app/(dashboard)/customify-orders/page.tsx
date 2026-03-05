@@ -132,14 +132,14 @@ export default function CustomifyOrdersPage() {
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Customify Review</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Customify Review</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             Review self-designed orders before sending proofs to customers
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <span className="text-sm text-muted-foreground">Queue:</span>
           {pendingCount === 0 && fixCount === 0 ? (
             <Badge className="bg-[#4CAF50] text-white">All Clear</Badge>

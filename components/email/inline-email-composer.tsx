@@ -75,9 +75,9 @@ export function InlineEmailComposer({
 
   return (
     <div className="border rounded-lg p-4 space-y-4 bg-card">
-      <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <h3 className="font-semibold text-lg">Compose New Email</h3>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div className="space-y-1 min-w-0">
+          <h3 className="font-semibold text-base sm:text-lg">Compose New Email</h3>
           <p className="text-sm text-muted-foreground">
             Send an email to {workItem.customer_name || workItem.customer_email || 'the customer'}
           </p>
@@ -116,7 +116,7 @@ export function InlineEmailComposer({
           <Label htmlFor="compose-body">Message</Label>
           <Textarea
             id="compose-body"
-            rows={8}
+            rows={5}
             placeholder="Type your message here..."
             value={body}
             onChange={(e) => setBody(e.target.value)}

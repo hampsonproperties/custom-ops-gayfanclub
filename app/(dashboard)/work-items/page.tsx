@@ -61,6 +61,7 @@ export default function WorkItemsPage() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [filterMode, setFilterMode] = useState<'my-projects' | 'all-projects' | 'need-design'>('all-projects')
+  const [typeFilter, setTypeFilter] = useState<'all' | 'customify_order' | 'assisted_project'>('all')
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
 
@@ -76,12 +77,13 @@ export default function WorkItemsPage() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1)
-  }, [debouncedSearch, filterMode])
+  }, [debouncedSearch, filterMode, typeFilter])
 
   const { data: result, isLoading } = useWorkItems({
     search: debouncedSearch,
     assignedTo: filterMode === 'my-projects' ? 'me' : undefined,
     status: filterMode === 'need-design' ? 'new_inquiry,awaiting_approval' : undefined,
+    type: typeFilter !== 'all' ? typeFilter : undefined,
     ...(viewMode === 'table' ? { page, pageSize: PAGE_SIZE } : {}),
     sortColumn: sortColumn || undefined,
     sortDirection: sortColumn ? sortDirection : undefined,
@@ -475,6 +477,36 @@ export default function WorkItemsPage() {
               >
                 <Palette className="h-4 w-4" />
                 Needs Design
+              </Button>
+
+              <div className="hidden sm:block h-6 w-px bg-border" />
+
+              {/* Type Filter */}
+              <Button
+                variant={typeFilter === 'all' ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setTypeFilter('all')}
+                className="gap-2 h-9"
+              >
+                All Types
+              </Button>
+              <Button
+                variant={typeFilter === 'customify_order' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTypeFilter('customify_order')}
+                className="gap-2 h-9"
+              >
+                <Filter className="h-4 w-4" />
+                Customify
+              </Button>
+              <Button
+                variant={typeFilter === 'assisted_project' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTypeFilter('assisted_project')}
+                className="gap-2 h-9"
+              >
+                <Filter className="h-4 w-4" />
+                Assisted
               </Button>
             </div>
 

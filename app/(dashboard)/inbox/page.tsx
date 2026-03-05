@@ -717,7 +717,7 @@ export default function EmailIntakePage() {
                     group.hasUnread ? 'border-l-4 border-l-blue-500 bg-blue-50/30' : ''
                   }`}
                 >
-                  <CardContent className="p-5">
+                  <CardContent className="p-3 sm:p-5">
                     <div className="flex items-start gap-3">
                       {/* Selection Checkbox */}
                       <Checkbox
