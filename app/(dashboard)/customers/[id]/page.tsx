@@ -353,7 +353,7 @@ function FilesTab({ customerId }: { customerId: string }) {
         {files.map((file: any) => (
           <Card key={file.id} className="hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm line-clamp-1">{file.filename}</CardTitle>
+              <CardTitle className="text-sm line-clamp-1">{file.original_filename}</CardTitle>
               <CardDescription className="space-y-1">
                 {file.work_item && (
                   <div className="text-xs text-muted-foreground">
@@ -604,7 +604,7 @@ export default function CustomerProfilePage() {
         </Link>
 
         {/* Customer Header */}
-        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 sm:gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-start gap-2 sm:gap-3 mb-2">
               <h1 className="text-2xl sm:text-3xl font-bold truncate flex-1">
@@ -716,7 +716,7 @@ export default function CustomerProfilePage() {
               }
             />
             {customer.shopify_customer_id && (
-              <Button variant="outline" size="sm" className="gap-2" asChild>
+              <Button variant="outline" className="gap-2 h-10" asChild>
                 <a
                   href={`https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/customers/${customer.shopify_customer_id}`}
                   target="_blank"
