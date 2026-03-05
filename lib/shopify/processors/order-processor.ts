@@ -2,7 +2,11 @@
  * Shopify Order Processor
  *
  * Handles orders/create and orders/updated webhook events.
- * Creates or updates work items based on order data.
+ *
+ * Three paths based on order type:
+ * 1. Custom order (Customify / Design Service / Bulk) → create or update work item
+ * 2. Stock order from a retail account → log to customer_orders only (no work item)
+ * 3. Stock order from a regular customer → skip entirely
  *
  * Delegates sub-tasks to focused modules:
  * - data-extractors: Pure data parsing from Shopify payloads
@@ -19,7 +23,7 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import { detectOrderType } from '@/lib/shopify/detect-order-type'
 import { syncCustomerTags } from '@/lib/shopify/sync-customer-tags'
-import { createCustomerOrder } from '@/lib/shopify/customer-orders'
+import { createCustomerOrder, findOrCreateCustomer } from '@/lib/shopify/customer-orders'
 import { extractCustomerData, extractLineItemData, extractPaymentHistory, determineStatus } from './data-extractors'
 import { extractCustomifyFiles, importCustomifyFiles } from './file-downloader'
 import { autoLinkEmails } from './email-auto-linker'
@@ -31,19 +35,26 @@ const log = logger('shopify-order-processor')
 /**
  * Process a Shopify order webhook (orders/create or orders/updated).
  *
- * Two main paths:
- * 1. Existing work item found → update CRM fields + import files
- * 2. New order → create work item + import files + link emails + sync tags/comments
+ * Three paths:
+ * 1. Custom order → create/update work item as normal
+ * 2. Stock order + retail account match → log to customer_orders with retail_account_id
+ * 3. Stock order + no match → skip, mark webhook completed
  */
 export async function processOrder(
   supabase: SupabaseClient,
   order: any,
   webhookEventId: string
 ): Promise<void> {
-  const orderType = detectOrderType(order) || 'customify_order'
+  const orderType = detectOrderType(order)
   const { customerName, customerEmail, phoneNumber, companyName, address } = extractCustomerData(order)
 
-  // Try to find an existing work item for this order
+  // Stock order — no custom products detected
+  if (orderType === null) {
+    await handleStockOrder(supabase, order, customerEmail, webhookEventId)
+    return
+  }
+
+  // Custom order — create or update work item
   const existingWorkItem = await findExistingWorkItem(supabase, order, customerEmail, orderType)
 
   if (existingWorkItem) {
@@ -51,6 +62,202 @@ export async function processOrder(
   } else {
     await createNewWorkItem(supabase, order, orderType, customerName, customerEmail, phoneNumber, companyName, address, webhookEventId)
   }
+}
+
+// ---------------------------------------------------------------------------
+// Handle stock orders (no custom products detected)
+// ---------------------------------------------------------------------------
+
+async function handleStockOrder(
+  supabase: SupabaseClient,
+  order: any,
+  customerEmail: string | null,
+  webhookEventId: string
+): Promise<void> {
+  const shopifyCustomerId = order.customer?.id?.toString()
+  const orderNumber = order.name
+
+  // Check if this stock order already exists in customer_orders (orders/updated webhook)
+  const { data: existingOrder } = await supabase
+    .from('customer_orders')
+    .select('id, retail_account_id')
+    .eq('shopify_order_id', order.id.toString())
+    .maybeSingle()
+
+  if (existingOrder) {
+    // Update existing customer_order record (financial/fulfillment status may have changed)
+    await supabase
+      .from('customer_orders')
+      .update({
+        financial_status: order.financial_status,
+        fulfillment_status: order.fulfillment_status,
+        total_price: order.total_price ? parseFloat(order.total_price) : null,
+        shopify_updated_at: order.updated_at,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', existingOrder.id)
+
+    log.info('Updated existing stock order in customer_orders', { orderNumber, customerOrderId: existingOrder.id })
+    await markWebhookCompleted(supabase, webhookEventId)
+    return
+  }
+
+  // Try to match to a retail account
+  let retailAccountId = await findRetailAccount(supabase, shopifyCustomerId, customerEmail)
+
+  // Faire orders: auto-create retail account if none exists
+  if (!retailAccountId && isFaireOrder(order)) {
+    retailAccountId = await createFaireRetailAccount(supabase, order)
+    if (retailAccountId) {
+      log.info('Auto-created retail account for Faire order', { orderNumber, retailAccountId })
+    }
+  }
+
+  if (retailAccountId) {
+    // Retail account match — log order against the account
+    const customerId = await findOrCreateCustomer(supabase, order.customer)
+
+    const orderTags = order.tags
+      ?.split(',')
+      .map((t: string) => t.trim())
+      .filter(Boolean) || []
+
+    const paymentHistory = extractPaymentHistory(order)
+
+    await supabase.from('customer_orders').insert({
+      customer_id: customerId,
+      retail_account_id: retailAccountId,
+      shopify_order_id: order.id.toString(),
+      shopify_order_number: order.name,
+      shopify_customer_id: shopifyCustomerId,
+      order_type: 'stock_order',
+      total_price: order.total_price ? parseFloat(order.total_price) : null,
+      currency: order.currency || 'USD',
+      financial_status: order.financial_status,
+      fulfillment_status: order.fulfillment_status,
+      payment_history: paymentHistory,
+      tags: orderTags,
+      note: order.note,
+      line_items: order.line_items,
+      shopify_created_at: order.created_at,
+      shopify_updated_at: order.updated_at,
+    })
+
+    log.info('Stock order logged against retail account', {
+      orderNumber,
+      retailAccountId,
+      total: order.total_price,
+    })
+  } else {
+    // No retail account match — skip entirely
+    log.info('Stock order skipped — no custom products, no retail account match', {
+      orderNumber,
+      customerEmail,
+      shopifyCustomerId,
+    })
+  }
+
+  await markWebhookCompleted(supabase, webhookEventId)
+}
+
+/**
+ * Find a retail account by Shopify customer ID (primary) or email (fallback).
+ */
+async function findRetailAccount(
+  supabase: SupabaseClient,
+  shopifyCustomerId: string | null,
+  customerEmail: string | null,
+): Promise<string | null> {
+  // Strategy 1: Match by Shopify customer ID (strongest match)
+  if (shopifyCustomerId) {
+    const { data } = await supabase
+      .from('retail_accounts')
+      .select('id')
+      .eq('shopify_customer_id', shopifyCustomerId)
+      .maybeSingle()
+
+    if (data) return data.id
+  }
+
+  // Strategy 2: Match by email (primary_contact_email or billing_email)
+  if (customerEmail) {
+    const { data } = await supabase
+      .from('retail_accounts')
+      .select('id')
+      .or(`primary_contact_email.ilike.${customerEmail},billing_email.ilike.${customerEmail}`)
+      .limit(1)
+      .maybeSingle()
+
+    if (data) return data.id
+  }
+
+  return null
+}
+
+/**
+ * Check if an order came from Faire marketplace.
+ * Faire orders are always tagged "Faire, Wholesale" by the Shopify integration.
+ */
+function isFaireOrder(order: any): boolean {
+  const tags = order.tags?.toLowerCase() || ''
+  return tags.includes('faire') && tags.includes('wholesale')
+}
+
+/**
+ * Auto-create a retail account from a Faire order's shipping data.
+ *
+ * Uses shopify_customer_id for future matching so repeat orders
+ * from the same Faire buyer hit findRetailAccount() and skip this path.
+ *
+ * Does NOT save relay emails (@relay.faire.com) — primary_contact_email
+ * is left blank intentionally.
+ */
+async function createFaireRetailAccount(
+  supabase: SupabaseClient,
+  order: any,
+): Promise<string | null> {
+  const shipping = order.shipping_address || {}
+  const customer = order.customer || {}
+  const shopifyCustomerId = customer.id?.toString()
+
+  // Company name from shipping address, fall back to customer name
+  const accountName = shipping.company
+    || `${customer.first_name || ''} ${customer.last_name || ''}`.trim()
+    || shipping.name
+    || 'Unknown Faire Account'
+
+  // Contact name from shipping address
+  const contactName = shipping.name
+    || `${customer.first_name || ''} ${customer.last_name || ''}`.trim()
+    || null
+
+  const { data, error } = await supabase
+    .from('retail_accounts')
+    .insert({
+      account_name: accountName,
+      account_type: 'retailer',
+      shopify_customer_id: shopifyCustomerId,
+      primary_contact_name: contactName,
+      primary_contact_phone: shipping.phone || customer.phone || null,
+      business_address: shipping.address1
+        ? `${shipping.address1}${shipping.address2 ? ', ' + shipping.address2 : ''}`
+        : null,
+      city: shipping.city || null,
+      state: shipping.province_code || null,
+      zip_code: shipping.zip || null,
+      country: shipping.country_code || 'US',
+      status: 'active',
+      tags: ['Faire'],
+    })
+    .select('id')
+    .single()
+
+  if (error) {
+    log.error('Failed to auto-create Faire retail account', { error, orderNumber: order.name })
+    return null
+  }
+
+  return data.id
 }
 
 // ---------------------------------------------------------------------------

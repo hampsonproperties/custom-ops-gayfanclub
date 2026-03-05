@@ -107,9 +107,9 @@ export default function RetailAccountDetailPage({ params }: { params: Promise<{ 
     }
   }, [account, editOpen])
 
-  // Order history query
-  const { data: orders, isLoading: ordersLoading } = useQuery({
-    queryKey: ['retail-account-orders', id],
+  // Custom project orders (work items linked to this account)
+  const { data: workItemOrders, isLoading: workItemsLoading } = useQuery({
+    queryKey: ['retail-account-work-items', id],
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
@@ -124,6 +124,27 @@ export default function RetailAccountDetailPage({ params }: { params: Promise<{ 
     },
     enabled: !!id,
   })
+
+  // Stock purchase orders (customer_orders linked to this account)
+  const { data: stockOrders, isLoading: stockOrdersLoading } = useQuery({
+    queryKey: ['retail-account-stock-orders', id],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('customer_orders')
+        .select('id, shopify_order_number, shopify_order_id, order_type, total_price, currency, financial_status, fulfillment_status, line_items, shopify_created_at')
+        .eq('retail_account_id', id)
+        .order('shopify_created_at', { ascending: false })
+        .limit(50)
+
+      if (error) throw error
+      return data
+    },
+    enabled: !!id,
+  })
+
+  const ordersLoading = workItemsLoading || stockOrdersLoading
+  const totalOrderCount = (workItemOrders?.length || 0) + (stockOrders?.length || 0)
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -413,7 +434,7 @@ export default function RetailAccountDetailPage({ params }: { params: Promise<{ 
         <TabsList>
           <TabsTrigger value="info">Account Info</TabsTrigger>
           <TabsTrigger value="orders">
-            Orders{orders && orders.length > 0 ? ` (${orders.length})` : ''}
+            Orders{totalOrderCount > 0 ? ` (${totalOrderCount})` : ''}
           </TabsTrigger>
           <TabsTrigger value="notes">Notes</TabsTrigger>
         </TabsList>
@@ -553,77 +574,156 @@ export default function RetailAccountDetailPage({ params }: { params: Promise<{ 
         </TabsContent>
 
         {/* Order History Tab */}
-        <TabsContent value="orders">
-          <Card>
-            <CardHeader>
-              <CardTitle>Order History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {ordersLoading ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : orders && orders.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b text-left text-muted-foreground">
-                        <th className="pb-2 pr-4 font-medium">Order</th>
-                        <th className="pb-2 pr-4 font-medium">Title</th>
-                        <th className="pb-2 pr-4 font-medium">Customer</th>
-                        <th className="pb-2 pr-4 font-medium">Status</th>
-                        <th className="pb-2 pr-4 font-medium text-right">Total</th>
-                        <th className="pb-2 font-medium">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orders.map((order) => (
-                        <tr key={order.id} className="border-b last:border-0">
-                          <td className="py-3 pr-4">
-                            <Link
-                              href={`/work-items/${order.id}`}
-                              className="text-blue-600 hover:underline font-medium"
-                            >
-                              {order.shopify_order_number ? `#${order.shopify_order_number}` : 'View'}
-                            </Link>
-                          </td>
-                          <td className="py-3 pr-4 max-w-[200px] truncate">
-                            {order.title || '—'}
-                          </td>
-                          <td className="py-3 pr-4 text-muted-foreground">
-                            {order.customer_name || order.customer_email || '—'}
-                          </td>
-                          <td className="py-3 pr-4">
-                            <Badge variant="outline" className="text-xs">
-                              {(order.status || '').replace(/_/g, ' ')}
-                            </Badge>
-                          </td>
-                          <td className="py-3 pr-4 text-right">
-                            {order.order_total
-                              ? `$${Number(order.order_total).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
-                              : '—'}
-                          </td>
-                          <td className="py-3 text-muted-foreground">
-                            {order.created_at
-                              ? format(new Date(order.created_at), 'MMM d, yyyy')
-                              : '—'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
+        <TabsContent value="orders" className="space-y-4">
+          {ordersLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : totalOrderCount === 0 ? (
+            <Card>
+              <CardContent className="pt-6">
                 <div className="text-center py-8 text-muted-foreground">
                   <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
                   <p>No orders linked to this account yet</p>
                   <p className="text-xs mt-1">
-                    Assign work items to this retail account to see them here
+                    Stock orders from Shopify will appear here automatically when matched to this account
                   </p>
                 </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Stock Purchases (from customer_orders) */}
+              {stockOrders && stockOrders.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Stock Purchases ({stockOrders.length})</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b text-left text-muted-foreground">
+                            <th className="pb-2 pr-4 font-medium">Order</th>
+                            <th className="pb-2 pr-4 font-medium">Items</th>
+                            <th className="pb-2 pr-4 font-medium">Payment</th>
+                            <th className="pb-2 pr-4 font-medium">Fulfillment</th>
+                            <th className="pb-2 pr-4 font-medium text-right">Total</th>
+                            <th className="pb-2 font-medium">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {stockOrders.map((order: any) => {
+                            const itemCount = Array.isArray(order.line_items)
+                              ? order.line_items.reduce((sum: number, li: any) => sum + (li.quantity || 1), 0)
+                              : 0
+                            const itemSummary = Array.isArray(order.line_items)
+                              ? order.line_items.map((li: any) => li.title).slice(0, 2).join(', ')
+                              : ''
+                            return (
+                              <tr key={order.id} className="border-b last:border-0">
+                                <td className="py-3 pr-4 font-medium">
+                                  {order.shopify_order_number || '—'}
+                                </td>
+                                <td className="py-3 pr-4 max-w-[250px]">
+                                  <span className="text-muted-foreground">{itemCount} item{itemCount !== 1 ? 's' : ''}</span>
+                                  {itemSummary && (
+                                    <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                      {itemSummary}{Array.isArray(order.line_items) && order.line_items.length > 2 ? ` +${order.line_items.length - 2} more` : ''}
+                                    </p>
+                                  )}
+                                </td>
+                                <td className="py-3 pr-4">
+                                  <Badge variant="outline" className="text-xs">
+                                    {(order.financial_status || 'unknown').replace(/_/g, ' ')}
+                                  </Badge>
+                                </td>
+                                <td className="py-3 pr-4">
+                                  <Badge variant="outline" className="text-xs">
+                                    {order.fulfillment_status ? order.fulfillment_status.replace(/_/g, ' ') : 'unfulfilled'}
+                                  </Badge>
+                                </td>
+                                <td className="py-3 pr-4 text-right font-medium">
+                                  {order.total_price
+                                    ? `$${Number(order.total_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                                    : '—'}
+                                </td>
+                                <td className="py-3 text-muted-foreground">
+                                  {order.shopify_created_at
+                                    ? format(new Date(order.shopify_created_at), 'MMM d, yyyy')
+                                    : '—'}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
               )}
-            </CardContent>
-          </Card>
+
+              {/* Custom Projects (from work_items) */}
+              {workItemOrders && workItemOrders.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Custom Projects ({workItemOrders.length})</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b text-left text-muted-foreground">
+                            <th className="pb-2 pr-4 font-medium">Order</th>
+                            <th className="pb-2 pr-4 font-medium">Title</th>
+                            <th className="pb-2 pr-4 font-medium">Customer</th>
+                            <th className="pb-2 pr-4 font-medium">Status</th>
+                            <th className="pb-2 pr-4 font-medium text-right">Total</th>
+                            <th className="pb-2 font-medium">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {workItemOrders.map((order: any) => (
+                            <tr key={order.id} className="border-b last:border-0">
+                              <td className="py-3 pr-4">
+                                <Link
+                                  href={`/work-items/${order.id}`}
+                                  className="text-blue-600 hover:underline font-medium"
+                                >
+                                  {order.shopify_order_number || 'View'}
+                                </Link>
+                              </td>
+                              <td className="py-3 pr-4 max-w-[200px] truncate">
+                                {order.title || '—'}
+                              </td>
+                              <td className="py-3 pr-4 text-muted-foreground">
+                                {order.customer_name || order.customer_email || '—'}
+                              </td>
+                              <td className="py-3 pr-4">
+                                <Badge variant="outline" className="text-xs">
+                                  {(order.status || '').replace(/_/g, ' ')}
+                                </Badge>
+                              </td>
+                              <td className="py-3 pr-4 text-right">
+                                {order.order_total
+                                  ? `$${Number(order.order_total).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                                  : '—'}
+                              </td>
+                              <td className="py-3 text-muted-foreground">
+                                {order.created_at
+                                  ? format(new Date(order.created_at), 'MMM d, yyyy')
+                                  : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </>
+          )}
         </TabsContent>
 
         {/* Notes Tab */}
