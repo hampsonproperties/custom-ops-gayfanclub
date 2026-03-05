@@ -135,7 +135,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
       <div className="border-b bg-background sticky top-0 z-10">
         <div className="p-4">
           {/* Top Bar - Back + Actions */}
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <Breadcrumbs
               items={[{ label: 'Projects', href: '/work-items' }]}
               current={workItem.customer_name || workItem.customer_email || 'Unknown Customer'}
@@ -163,10 +163,10 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
           <div className="space-y-3">
             <div className="flex items-start justify-between">
               <div>
-                <h1 className="text-3xl font-bold">
+                <h1 className="text-2xl sm:text-3xl font-bold">
                   {workItem.customer_name || workItem.customer_email || 'Unknown Customer'}
                 </h1>
-                <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 sm:gap-4 mt-2 text-sm text-muted-foreground flex-wrap">
                   {workItem.customer_email && (
                     <span className="flex items-center gap-1.5">
                       <Mail className="h-4 w-4" />
@@ -199,7 +199,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
             </div>
 
             {/* Status Bar - Key Info at a Glance */}
-            <div className="flex items-center gap-6 py-2">
+            <div className="flex flex-wrap items-center gap-3 sm:gap-6 py-2">
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Status:</span>
                 <StatusBadge status={workItem.status} />
@@ -207,7 +207,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
 
               {workItem.next_follow_up_at && (
                 <>
-                  <Separator orientation="vertical" className="h-4" />
+                  <Separator orientation="vertical" className="h-4 hidden sm:block" />
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm">
@@ -219,7 +219,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
 
               {workItem.event_date && (
                 <>
-                  <Separator orientation="vertical" className="h-4" />
+                  <Separator orientation="vertical" className="h-4 hidden sm:block" />
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm">
@@ -235,7 +235,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
 
               {workItem.assigned_to_email && (
                 <>
-                  <Separator orientation="vertical" className="h-4" />
+                  <Separator orientation="vertical" className="h-4 hidden sm:block" />
                   <div className="flex items-center gap-2">
                     <User className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm">{workItem.assigned_to_email.split('@')[0]}</span>

@@ -102,8 +102,8 @@ export default function InboxRepliesPage() {
               <CardContent className="p-6">
                 <div className="space-y-4">
                   {/* Header Row */}
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                    <div className="flex-1 space-y-2 min-w-0">
                       {/* Subject - Most Prominent */}
                       <div className="flex items-center gap-2">
                         <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -147,7 +147,7 @@ export default function InboxRepliesPage() {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Button
                         size="sm"
                         variant="outline"

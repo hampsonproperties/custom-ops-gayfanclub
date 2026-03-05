@@ -633,46 +633,46 @@ export default function EmailIntakePage() {
 
       {/* Category Tabs */}
       <Tabs value={activeCategory} onValueChange={(v) => { setActiveCategory(v as EmailTab); setPage(1) }}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="primary" className="gap-2">
+        <TabsList className="flex w-full overflow-x-auto sm:grid sm:grid-cols-5">
+          <TabsTrigger value="primary" className="gap-1 sm:gap-2 whitespace-nowrap flex-1 sm:flex-none">
             {getCategoryIcon('primary')}
-            Primary
+            <span className="hidden sm:inline">Primary</span>
             {(categoryCounts?.primary || 0) > 0 && (
               <Badge variant="secondary" className="ml-1">
                 {categoryCounts?.primary || 0}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="support" className="gap-2">
+          <TabsTrigger value="support" className="gap-1 sm:gap-2 whitespace-nowrap flex-1 sm:flex-none">
             <Flag className="h-4 w-4" />
-            Support
+            <span className="hidden sm:inline">Support</span>
             {(supportResult?.totalCount ?? 0) > 0 && (
               <Badge variant="secondary" className="ml-1">
                 {supportResult?.totalCount ?? 0}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="promotional" className="gap-2">
+          <TabsTrigger value="promotional" className="gap-1 sm:gap-2 whitespace-nowrap flex-1 sm:flex-none">
             {getCategoryIcon('promotional')}
-            Promotional
+            <span className="hidden sm:inline">Promotional</span>
             {(categoryCounts?.promotional || 0) > 0 && (
               <Badge variant="secondary" className="ml-1">
                 {categoryCounts?.promotional || 0}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="spam" className="gap-2">
+          <TabsTrigger value="spam" className="gap-1 sm:gap-2 whitespace-nowrap flex-1 sm:flex-none">
             {getCategoryIcon('spam')}
-            Spam
+            <span className="hidden sm:inline">Spam</span>
             {(categoryCounts?.spam || 0) > 0 && (
               <Badge variant="secondary" className="ml-1">
                 {categoryCounts?.spam || 0}
               </Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="notifications" className="gap-2">
+          <TabsTrigger value="notifications" className="gap-1 sm:gap-2 whitespace-nowrap flex-1 sm:flex-none">
             {getCategoryIcon('notifications')}
-            Notifications
+            <span className="hidden sm:inline">Notifications</span>
             {(categoryCounts?.notifications || 0) > 0 && (
               <Badge variant="secondary" className="ml-1">
                 {categoryCounts?.notifications || 0}
@@ -857,7 +857,7 @@ export default function EmailIntakePage() {
                         )}
 
                         {/* Actions */}
-                        <div className="flex gap-2 mt-4 pt-3 border-t">
+                        <div className="flex flex-wrap gap-2 mt-4 pt-3 border-t">
                           <Button size="sm" className="gap-1" onClick={() => openCreateLeadDialog(group.latestEmail)}>
                             <User className="h-3 w-3" />
                             Create Lead

@@ -125,12 +125,12 @@ export default function SalesLeadsPage() {
   )
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold">Sales Leads</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl sm:text-3xl font-bold">Sales Leads</h1>
+          <p className="text-muted-foreground text-sm sm:text-base">
             Manage your sales pipeline and convert inquiries into customers
           </p>
         </div>
@@ -144,7 +144,7 @@ export default function SalesLeadsPage() {
 
       {/* Stats */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
           <Card className="border-muted/40">
             <CardContent className="pt-6 pb-5">
               <div className="flex items-center justify-between mb-3">
@@ -207,12 +207,12 @@ export default function SalesLeadsPage() {
             </div>
 
             {/* Filters */}
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Select
                 value={filters.assignedTo || 'all'}
                 onValueChange={(value) => handleFilterChange('assignedTo', value)}
               >
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue placeholder="Assignment" />
                 </SelectTrigger>
                 <SelectContent>
@@ -226,7 +226,7 @@ export default function SalesLeadsPage() {
                 value={filters.status || 'all'}
                 onValueChange={(value) => handleFilterChange('status', value)}
               >
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -252,7 +252,8 @@ export default function SalesLeadsPage() {
       {/* Table View */}
       <Card className="border-muted/40">
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full">
                 <thead className="border-b">
                   <tr className="bg-muted/5">
@@ -362,6 +363,65 @@ export default function SalesLeadsPage() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden p-3 space-y-3">
+              {isLoading ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  Loading leads...
+                </div>
+              ) : activeLeads.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground">
+                  No active leads found
+                </div>
+              ) : (
+                activeLeads.map((lead) => {
+                  const extendedLead = lead as any
+                  return (
+                    <Link key={lead.id} href={`/work-items/${lead.id}`}>
+                      <Card className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-3">
+                            <Avatar className="h-12 w-12 shrink-0">
+                              <AvatarFallback className="text-sm bg-gradient-to-br from-pink-500 to-purple-600 text-white">
+                                {getInitials(lead.customer_name, lead.customer_email)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-base mb-1">
+                                {lead.customer_name || lead.customer_email || 'Unknown'}
+                              </div>
+                              <div className="mb-2">
+                                <StatusBadge status={lead.status} />
+                              </div>
+                              <div className="space-y-1.5 text-sm text-muted-foreground">
+                                {lead.company_name && (
+                                  <div className="truncate">{lead.company_name}</div>
+                                )}
+                                {lead.customer_email && (
+                                  <div className="truncate">{lead.customer_email}</div>
+                                )}
+                                {extendedLead.estimated_value && (
+                                  <div className="font-medium text-foreground">
+                                    ${extendedLead.estimated_value.toLocaleString()}
+                                  </div>
+                                )}
+                                {extendedLead.next_follow_up_at && (
+                                  <div className="text-xs">
+                                    Follow up {formatDistanceToNow(new Date(extendedLead.next_follow_up_at), { addSuffix: true })}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  )
+                })
+              )}
+            </div>
+
             <PaginationControls
               page={page}
               pageSize={PAGE_SIZE}

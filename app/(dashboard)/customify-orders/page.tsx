@@ -205,14 +205,14 @@ export default function CustomifyOrdersPage() {
                   if (!isSelected) resetReviewForm()
                 }}
               >
-                <CardContent className="p-6">
-                  <div className="flex gap-6">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                     {/* Design Preview / File Gallery */}
-                    <div className="flex-shrink-0 w-32">
+                    <div className="flex-shrink-0 w-full sm:w-32">
                       {order.files && order.files.length > 0 ? (
                         <FileGallery files={order.files} />
                       ) : (
-                        <div className="h-32 w-32 rounded-lg border bg-muted flex items-center justify-center">
+                        <div className="h-32 w-full sm:w-32 rounded-lg border bg-muted flex items-center justify-center">
                           <ImageIcon className="h-8 w-8 text-muted-foreground opacity-50" />
                         </div>
                       )}
@@ -240,7 +240,7 @@ export default function CustomifyOrdersPage() {
                         />
                       </div>
 
-                      <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 text-sm">
                         <div>
                           <span className="text-muted-foreground">Quantity:</span>{' '}
                           <span className="font-medium">{order.quantity || '-'} fans</span>

@@ -192,16 +192,16 @@ export default function LeadsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-[1600px] mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Follow-up Queue</h1>
-          <p className="text-muted-foreground mt-1">
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Follow-up Queue</h1>
+          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
             Daily action list — overdue, today, this week, rush, and waiting-on-customer
           </p>
         </div>
-        <Badge variant="secondary" className="text-lg px-4 py-2">
+        <Badge variant="secondary" className="text-sm sm:text-lg px-3 sm:px-4 py-1.5 sm:py-2 self-start sm:self-auto">
           {allLeads.length} total leads
         </Badge>
       </div>
@@ -250,6 +250,8 @@ export default function LeadsPage() {
             <CardTitle>All Leads</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
+            {/* Desktop Table */}
+            <div className="hidden md:block overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -363,6 +365,69 @@ export default function LeadsPage() {
                 })}
               </TableBody>
             </Table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="md:hidden p-3 space-y-3">
+              {paginatedLeads.map((item) => {
+                const pipelineStage = getPipelineStage(item)
+                const eventInfo = getEventDisplay(item)
+                const priorityBadge = getPriorityBadge(item)
+                const lastActivity = getLastActivity(item)
+
+                return (
+                  <div key={item.id} className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <Link
+                          href={`/work-items/${item.id}`}
+                          className="font-medium text-base hover:underline"
+                        >
+                          {item.customer_name || 'Unnamed Customer'}
+                        </Link>
+                        <div className="text-sm text-muted-foreground truncate mt-0.5">
+                          {item.customer_email}
+                        </div>
+                      </div>
+                      {priorityBadge}
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge className={`text-xs text-white ${pipelineStage.color}`}>
+                        {pipelineStage.label}
+                      </Badge>
+                      {eventInfo && (
+                        <Badge variant="outline" className={`text-xs ${eventInfo.isRush ? 'border-orange-300 text-orange-600' : ''}`}>
+                          {eventInfo.text} ({eventInfo.daysUntil}d)
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="text-sm text-muted-foreground">{lastActivity}</div>
+                    <div className="text-sm">{getActionNeeded(item)}</div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleMarkFollowedUp(item.id)}
+                        disabled={markFollowedUp.isPending}
+                        className="h-9 flex-1"
+                      >
+                        <Check className="h-4 w-4 mr-1.5" />
+                        Done
+                      </Button>
+                      <Link href={`/work-items/${item.id}`} className="flex-1">
+                        <Button size="sm" className="h-9 w-full">
+                          View
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
             <PaginationControls
               page={page}
               pageSize={PAGE_SIZE}
