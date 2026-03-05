@@ -10,10 +10,10 @@ import { cn } from '@/lib/utils'
 
 interface FileItem {
   id: string
-  filename: string
+  original_filename: string
   external_url: string
   mime_type?: string
-  file_size_bytes?: number
+  size_bytes?: number
   kind?: string
 }
 
@@ -30,13 +30,13 @@ export function FileGallery({ files, className }: FileGalleryProps) {
   const imageFiles = files.filter(f =>
     f.mime_type?.startsWith('image/') ||
     f.kind === 'image' ||
-    /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(f.filename)
+    /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(f.original_filename)
   )
 
   const otherFiles = files.filter(f =>
     !f.mime_type?.startsWith('image/') &&
     f.kind !== 'image' &&
-    !/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(f.filename)
+    !/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(f.original_filename)
   )
 
   const handleImageClick = (url: string, filename: string) => {
@@ -73,11 +73,11 @@ export function FileGallery({ files, className }: FileGalleryProps) {
               <Card
                 key={file.id}
                 className="group relative aspect-square overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary transition-all"
-                onClick={() => handleImageClick(file.external_url, file.filename)}
+                onClick={() => handleImageClick(file.external_url, file.original_filename)}
               >
                 <Image
                   src={file.external_url}
-                  alt={file.filename}
+                  alt={file.original_filename}
                   fill
                   className="object-cover"
                   sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
@@ -88,7 +88,7 @@ export function FileGallery({ files, className }: FileGalleryProps) {
                 </div>
                 {/* Filename overlay */}
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <p className="text-white text-xs truncate">{file.filename}</p>
+                  <p className="text-white text-xs truncate">{file.original_filename}</p>
                 </div>
               </Card>
             ))}
@@ -111,11 +111,11 @@ export function FileGallery({ files, className }: FileGalleryProps) {
                       <File className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{file.filename}</p>
+                      <p className="text-sm font-medium truncate">{file.original_filename}</p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         {file.mime_type && <span>{file.mime_type}</span>}
-                        {file.mime_type && file.file_size_bytes && <span>•</span>}
-                        {file.file_size_bytes && <span>{formatBytes(file.file_size_bytes)}</span>}
+                        {file.mime_type && file.size_bytes && <span>•</span>}
+                        {file.size_bytes && <span>{formatBytes(file.size_bytes)}</span>}
                       </div>
                     </div>
                   </div>

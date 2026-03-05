@@ -274,7 +274,7 @@ export function ProjectDetailView({ projectId, customerId, customerName }: Proje
                       <div className="flex items-center gap-3">
                         <FileText className="h-5 w-5 text-muted-foreground" />
                         <div>
-                          <div className="font-medium text-sm">{file.filename}</div>
+                          <div className="font-medium text-sm">{file.original_filename}</div>
                           <div className="text-xs text-muted-foreground">
                             Uploaded {formatDistanceToNow(new Date(file.created_at), { addSuffix: true })}
                           </div>

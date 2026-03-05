@@ -53,32 +53,30 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-5">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold">Command Center</h1>
         <p className="text-muted-foreground">Sales & Production at a glance</p>
       </div>
 
-      {/* Inbox Badge (if there are untriaged emails) */}
+      {/* Inbox Alert Strip */}
       {untriagedEmails && untriagedEmails.length > 0 && (
         <Link href="/inbox">
-          <Card className="border-l-4 border-l-blue-500 hover:shadow-md transition-shadow cursor-pointer">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Mail className="h-4 w-4" />
-                {untriagedEmails.length} New Email{untriagedEmails.length > 1 ? 's' : ''} Need Triage
-              </CardTitle>
-              <Button variant="outline" size="sm">View Inbox</Button>
-            </CardHeader>
-          </Card>
+          <div className="flex items-center justify-between rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 hover:bg-blue-100/80 transition-colors cursor-pointer">
+            <div className="text-sm font-medium flex items-center gap-2 text-blue-700">
+              <Mail className="h-4 w-4" />
+              {untriagedEmails.length} New Email{untriagedEmails.length > 1 ? 's' : ''} Need Triage
+            </div>
+            <span className="text-sm font-medium text-blue-600">View Inbox &rarr;</span>
+          </div>
         </Link>
       )}
 
       {/* Split View: Sales + Production */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* SALES PIPELINE */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold flex items-center gap-2">
               <DollarSign className="h-5 w-5" />
@@ -91,17 +89,17 @@ export default function DashboardPage() {
 
           {/* Overdue */}
           {sales?.overdue && sales.overdue.length > 0 && (
-            <Card className="border-l-4 border-l-red-500">
-              <CardHeader>
-                <CardTitle className="text-sm font-medium flex items-center gap-2 text-red-600">
+            <Card className="border-l-2 border-l-red-400">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-red-600">
                   <AlertCircle className="h-4 w-4" />
                   Overdue ({sales.overdue.length})
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="px-4 pb-3 space-y-1">
                 {sales.overdue.slice(0, 3).map((lead) => (
                   <Link key={lead.id} href={`/work-items/${lead.id}`}>
-                    <div className="p-3 rounded-lg hover:bg-muted cursor-pointer transition-colors">
+                    <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="font-medium">{lead.customer_name}</div>
@@ -130,8 +128,8 @@ export default function DashboardPage() {
                 ))}
                 {sales.overdue.length > 3 && (
                   <Link href="/follow-ups">
-                    <div className="text-sm text-center text-muted-foreground hover:text-foreground py-2">
-                      +{sales.overdue.length - 3} more overdue
+                    <div className="text-sm text-center font-medium text-red-600/70 hover:text-red-600 py-2 hover:underline">
+                      +{sales.overdue.length - 3} more overdue &rarr;
                     </div>
                   </Link>
                 )}
@@ -142,16 +140,16 @@ export default function DashboardPage() {
           {/* New Inquiries */}
           {sales?.newInquiries && sales.newInquiries.length > 0 && (
             <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <MessageSquare className="h-4 w-4" />
                   New Inquiries ({sales.newInquiries.length})
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="px-4 pb-3 space-y-1">
                 {sales.newInquiries.slice(0, 5).map((lead) => (
                   <Link key={lead.id} href={`/work-items/${lead.id}`}>
-                    <div className="p-3 rounded-lg hover:bg-muted cursor-pointer transition-colors">
+                    <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="font-medium">{lead.customer_name}</div>
@@ -181,8 +179,8 @@ export default function DashboardPage() {
                 ))}
                 {sales.newInquiries.length > 5 && (
                   <Link href="/follow-ups">
-                    <div className="text-sm text-center text-muted-foreground hover:text-foreground py-2">
-                      +{sales.newInquiries.length - 5} more inquiries
+                    <div className="text-sm text-center font-medium text-muted-foreground hover:text-foreground py-2 hover:underline">
+                      +{sales.newInquiries.length - 5} more inquiries &rarr;
                     </div>
                   </Link>
                 )}
@@ -193,16 +191,16 @@ export default function DashboardPage() {
           {/* High Value */}
           {sales?.highValue && sales.highValue.length > 0 && (
             <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <DollarSign className="h-4 w-4 text-green-600" />
                   High Value ({sales.highValue.length})
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="px-4 pb-3 space-y-1">
                 {sales.highValue.slice(0, 3).map((lead) => (
                   <Link key={lead.id} href={`/work-items/${lead.id}`}>
-                    <div className="p-3 rounded-lg hover:bg-muted cursor-pointer transition-colors">
+                    <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="font-medium">{lead.customer_name}</div>
@@ -242,7 +240,7 @@ export default function DashboardPage() {
         </div>
 
         {/* PRODUCTION PIPELINE */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold flex items-center gap-2">
               <Package className="h-5 w-5" />
@@ -256,16 +254,16 @@ export default function DashboardPage() {
           {/* Needs Design Review */}
           {production?.needsReview && production.needsReview.length > 0 && (
             <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Palette className="h-4 w-4" />
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Palette className="h-4 w-4 text-amber-600" />
                   Needs Design Review ({production.needsReview.length})
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="px-4 pb-3 space-y-1">
                 {production.needsReview.slice(0, 4).map((project) => (
                   <Link key={project.id} href={`/work-items/${project.id}`}>
-                    <div className="p-3 rounded-lg hover:bg-muted cursor-pointer transition-colors">
+                    <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors">
                       <div className="font-medium">{project.customer_name}</div>
                       <div className="text-sm text-muted-foreground truncate">
                         {project.title}
@@ -280,18 +278,23 @@ export default function DashboardPage() {
           {/* Ready for Batch */}
           {production?.readyForBatch && production.readyForBatch.length > 0 && (
             <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Package className="h-4 w-4" />
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Package className="h-4 w-4 text-blue-600" />
                   Ready for Batch ({production.readyForBatch.length})
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <Link href="/batches">
-                  <Button variant="outline" className="w-full" size="sm">
-                    Create New Batch
-                  </Button>
-                </Link>
+              <CardContent className="px-4 pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    {production.readyForBatch.length} item{production.readyForBatch.length !== 1 ? 's' : ''} awaiting batch
+                  </div>
+                  <Link href="/batches">
+                    <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 h-8 px-3">
+                      Create Batch &rarr;
+                    </Button>
+                  </Link>
+                </div>
               </CardContent>
             </Card>
           )}
@@ -299,15 +302,15 @@ export default function DashboardPage() {
           {/* In Progress */}
           {production?.inProgress && production.inProgress.length > 0 && (
             <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
-                  <Package className="h-4 w-4" />
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Package className="h-4 w-4 text-purple-600" />
                   In Production ({production.inProgress.length})
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-4 pb-3">
                 <div className="text-sm text-muted-foreground">
-                  {production.inProgress.length} projects currently being produced
+                  {production.inProgress.length} project{production.inProgress.length !== 1 ? 's' : ''} currently being produced
                 </div>
               </CardContent>
             </Card>
@@ -316,16 +319,16 @@ export default function DashboardPage() {
           {/* Recently Shipped */}
           {production?.recentlyShipped && production.recentlyShipped.length > 0 && (
             <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
                   <Truck className="h-4 w-4 text-green-600" />
-                  Recently Shipped
+                  Recently Shipped ({production.recentlyShipped.length})
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="px-4 pb-3 space-y-1">
                 {production.recentlyShipped.map((project) => (
                   <Link key={project.id} href={`/work-items/${project.id}`}>
-                    <div className="p-3 rounded-lg hover:bg-muted cursor-pointer transition-colors">
+                    <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors">
                       <div className="font-medium">{project.customer_name}</div>
                       <div className="text-sm text-green-600">✓ Shipped</div>
                     </div>

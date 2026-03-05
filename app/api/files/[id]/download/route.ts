@@ -33,7 +33,7 @@ export async function GET(
     // Generate signed URL (valid for 1 hour)
     const { data: signedData, error: signError } = await supabase.storage
       .from('files')
-      .createSignedUrl(file.file_path, 3600)
+      .createSignedUrl(file.storage_path, 3600)
 
     if (signError || !signedData) {
       log.error('Error generating signed URL', { error: signError })
@@ -42,7 +42,7 @@ export async function GET(
 
     return NextResponse.json({
       url: signedData.signedUrl,
-      filename: file.filename
+      filename: file.original_filename
     })
 
   } catch (error: any) {

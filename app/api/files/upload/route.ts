@@ -86,21 +86,17 @@ export async function POST(request: NextRequest) {
       .from('files')
       .getPublicUrl(filePath)
 
-    // Create file record in database (write all columns for consistency with hook upload path)
+    // Create file record in database
     const { data: fileRecord, error: dbError } = await supabase
       .from('files')
       .insert({
         work_item_id: projectId,
-        customer_id: customerId,
-        filename: safeOriginalName,
         original_filename: file.name,
         normalized_filename: safeOriginalName,
-        file_path: filePath,
         external_url: publicUrl,
         storage_bucket: 'files',
         storage_path: filePath,
         mime_type: file.type,
-        file_size_bytes: file.size,
         size_bytes: file.size,
         kind: 'design_file',
         uploaded_by_user_id: user.id
