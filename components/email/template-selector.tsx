@@ -64,11 +64,6 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
     setOpen(false)
   }
 
-  const getCategoryColor = (category: string | null) => {
-    const cat = CATEGORIES.find((c) => c.id === category)
-    return cat?.color || 'bg-gray-100 text-gray-800'
-  }
-
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
@@ -77,7 +72,7 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
           Use Template
         </Button>
       </SheetTrigger>
-      <SheetContent side="bottom" className="max-h-[85vh] rounded-t-2xl">
+      <SheetContent side="bottom" className="max-h-[90vh] h-[85vh] rounded-t-2xl flex flex-col">
         {/* Drag handle indicator */}
         <div className="mx-auto w-10 h-1 bg-muted-foreground/30 rounded-full mb-4 -mt-1" />
 
@@ -108,7 +103,7 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
         </div>
 
         {/* Templates List */}
-        <ScrollArea className="h-[50vh] sm:h-[400px] pr-4 mt-4">
+        <ScrollArea className="flex-1 pr-4 mt-4">
           {isLoading ? (
             <div className="flex justify-center py-12">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -121,18 +116,13 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
                   className="border rounded-lg p-4 hover:bg-muted/50 cursor-pointer transition-colors"
                   onClick={() => handleSelectTemplate(template)}
                 >
-                  <div className="flex items-start justify-between gap-4 mb-2">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-sm mb-1">{template.name}</h4>
-                      {template.description && (
-                        <p className="text-xs text-muted-foreground mb-2">
-                          {template.description}
-                        </p>
-                      )}
-                    </div>
-                    <Badge className={getCategoryColor(template.category)} variant="secondary">
-                      {template.category || 'general'}
-                    </Badge>
+                  <div className="mb-2">
+                    <h4 className="font-semibold text-sm mb-1">{template.name}</h4>
+                    {template.description && (
+                      <p className="text-xs text-muted-foreground">
+                        {template.description}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-1 text-xs">
@@ -144,7 +134,7 @@ export function TemplateSelector({ onSelectTemplate }: TemplateSelectorProps) {
                     )}
                     <div className="mt-2 p-2 bg-muted/30 rounded text-muted-foreground border">
                       <p className="line-clamp-3 whitespace-pre-line font-mono text-[10px]">
-                        {template.body_html_template}
+                        {template.body_html_template.replace(/<[^>]*>/g, '')}
                       </p>
                     </div>
                   </div>
