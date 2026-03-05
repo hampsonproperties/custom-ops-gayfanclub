@@ -5,6 +5,7 @@ import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import 'isomorphic-fetch'
 import { importEmail, isJunkEmail } from '@/lib/utils/email-import'
+import { generateWebhookClientState } from '@/lib/email/webhook-secret'
 import { logger } from '@/lib/logger'
 import { serverError, unauthorized } from '@/lib/api/errors'
 
@@ -87,7 +88,7 @@ export async function POST() {
       notificationUrl: notificationUrl,
       resource: `/users/${mailboxEmail}/messages`,
       expirationDateTime: new Date(Date.now() + 4230 * 60 * 1000).toISOString(), // Max 4230 minutes (~3 days)
-      clientState: 'customOpsEmailSubscription',
+      clientState: generateWebhookClientState(),
     })
 
     log.info('New email subscription created', { subscriptionId: subscription.id })

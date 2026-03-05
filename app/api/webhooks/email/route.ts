@@ -5,6 +5,7 @@ import 'isomorphic-fetch'
 import { importEmail } from '@/lib/utils/email-import'
 import { createClient } from '@supabase/supabase-js'
 import { serverError } from '@/lib/api/errors'
+import { verifyWebhookClientState } from '@/lib/email/webhook-secret'
 import { logger } from '@/lib/logger'
 
 const log = logger('email-webhook')
@@ -50,10 +51,9 @@ export async function POST(request: NextRequest) {
 
     log.info('Notification received', { itemCount: notification.value?.length || 0 })
 
-    // Process each notification — validate clientState to confirm it came from our subscription
-    const expectedClientState = 'customOpsEmailSubscription'
+    // Process each notification — validate HMAC-signed clientState to confirm it came from our subscription
     for (const item of notification.value || []) {
-      if (item.clientState !== expectedClientState) {
+      if (!verifyWebhookClientState(item.clientState)) {
         log.error('Rejected: invalid or missing clientState', { clientState: item.clientState })
         continue
       }

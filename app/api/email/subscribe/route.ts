@@ -4,6 +4,7 @@ import { ClientSecretCredential } from '@azure/identity'
 import { validateBody } from '@/lib/api/validate'
 import { subscribeEmailBody, unsubscribeEmailBody } from '@/lib/api/schemas'
 import 'isomorphic-fetch'
+import { generateWebhookClientState } from '@/lib/email/webhook-secret'
 import { logger } from '@/lib/logger'
 import { serverError } from '@/lib/api/errors'
 
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
       notificationUrl: notificationUrl,
       resource: `/users/${mailboxEmail}/messages`,
       expirationDateTime: new Date(Date.now() + 4230 * 60 * 1000).toISOString(), // Max 4230 minutes (~3 days)
-      clientState: 'customOpsEmailSubscription', // Secret for validation
+      clientState: generateWebhookClientState(),
     })
 
     log.info('Email subscription created', { subscriptionId: subscription.id })
