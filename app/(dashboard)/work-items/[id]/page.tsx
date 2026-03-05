@@ -130,7 +130,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
   }
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col min-h-0">
       {/* Fixed Header - Clean & Professional */}
       <div className="border-b bg-background sticky top-0 z-10">
         <div className="p-4">
@@ -279,7 +279,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Main Content - Timeline First */}
-      <div className="flex-1 overflow-auto p-4 sm:p-6">
+      <div className="flex-1 p-4 sm:p-6">
         <Tabs defaultValue="timeline" className="space-y-4">
           <TabsList>
             <TabsTrigger value="timeline" className="gap-2">
