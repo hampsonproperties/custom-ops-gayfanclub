@@ -16,6 +16,7 @@ import { formatDistanceToNow, format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { TaskForm } from '@/components/tasks/task-form'
 import { TaskList } from '@/components/tasks/task-list'
+import DOMPurify from 'dompurify'
 
 type TimelineEventType = 'note' | 'email' | 'call' | 'text' | 'task' | 'appointment' | 'status_change' | 'file_upload' | 'work_item_created'
 
@@ -414,6 +415,28 @@ export function EnhancedTimeline({
                         </div>
                       )}
                     </div>
+                  )}
+
+                  {/* Expandable email body */}
+                  {event.type === 'email' && event.metadata?.html && (
+                    <details className="group mt-3">
+                      <summary className="cursor-pointer text-sm text-primary hover:underline">
+                        Show full message
+                      </summary>
+                      <div
+                        className="mt-3 email-content prose prose-sm max-w-none overflow-x-auto break-words"
+                        dangerouslySetInnerHTML={{
+                          __html: DOMPurify.sanitize(event.metadata.html, {
+                            ALLOWED_TAGS: [
+                              'p', 'br', 'strong', 'em', 'u', 'a', 'ul', 'ol', 'li',
+                              'h1', 'h2', 'h3', 'h4', 'div', 'span', 'table', 'tr',
+                              'td', 'th', 'tbody', 'thead', 'img', 'blockquote',
+                            ],
+                            ALLOWED_ATTR: ['href', 'target', 'src', 'alt', 'width', 'height'],
+                          }),
+                        }}
+                      />
+                    </details>
                   )}
                 </div>
               </CardContent>

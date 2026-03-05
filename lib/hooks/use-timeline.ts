@@ -71,7 +71,7 @@ export function useTimeline(workItemId: string) {
       // Get email communications
       const { data: communications } = await supabase
         .from('communications')
-        .select('id, direction, subject, body_preview, received_at, from_email, to_emails')
+        .select('id, direction, subject, body_preview, body_html, received_at, from_email, to_emails')
         .eq('work_item_id', workItemId)
         .order('received_at', { ascending: false })
 
@@ -88,6 +88,7 @@ export function useTimeline(workItemId: string) {
               from: comm.from_email,
               to: comm.to_emails,
               preview: comm.body_preview,
+              html: comm.body_html,
             },
           })
         })
