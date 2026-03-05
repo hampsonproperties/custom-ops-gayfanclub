@@ -37,7 +37,6 @@ interface EnhancedTimelineProps {
   events: TimelineEvent[]
   onAddNote?: (content: string) => Promise<void>
   onToggleStar?: (eventId: string) => void
-  onLogCall?: (details: any) => Promise<void>
   onCreateTask?: (details: any) => Promise<void>
   workItemId?: string
   customerId?: string
@@ -71,14 +70,13 @@ export function EnhancedTimeline({
   events,
   onAddNote,
   onToggleStar,
-  onLogCall,
   onCreateTask,
   workItemId,
   customerId,
 }: EnhancedTimelineProps) {
   const [filter, setFilter] = useState<'all' | 'starred' | TimelineEventType>('all')
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set())
-  const [activeTab, setActiveTab] = useState<'note' | 'email' | 'call' | 'task' | 'appointment'>('note')
+  const [activeTab, setActiveTab] = useState<'note' | 'email' | 'task'>('note')
   const [noteContent, setNoteContent] = useState('')
   const [emailThisNote, setEmailThisNote] = useState(false)
 
@@ -222,26 +220,18 @@ export function EnhancedTimeline({
       <Card>
         <CardContent className="p-0">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-            <TabsList className="w-full justify-start rounded-none border-b h-auto p-0 bg-transparent">
-              <TabsTrigger value="note" className="gap-2 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
+            <TabsList className="w-full justify-start rounded-none border-b h-auto p-0 bg-transparent overflow-x-auto flex-nowrap">
+              <TabsTrigger value="note" className="gap-2 rounded-none whitespace-nowrap data-[state=active]:border-b-2 data-[state=active]:border-primary">
                 <FileText className="h-4 w-4" />
                 Note
               </TabsTrigger>
-              <TabsTrigger value="email" className="gap-2 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
+              <TabsTrigger value="email" className="gap-2 rounded-none whitespace-nowrap data-[state=active]:border-b-2 data-[state=active]:border-primary">
                 <Mail className="h-4 w-4" />
                 Email
               </TabsTrigger>
-              <TabsTrigger value="call" className="gap-2 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                <Phone className="h-4 w-4" />
-                Log Call
-              </TabsTrigger>
-              <TabsTrigger value="task" className="gap-2 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
+              <TabsTrigger value="task" className="gap-2 rounded-none whitespace-nowrap data-[state=active]:border-b-2 data-[state=active]:border-primary">
                 <Clock className="h-4 w-4" />
                 Task
-              </TabsTrigger>
-              <TabsTrigger value="appointment" className="gap-2 rounded-none data-[state=active]:border-b-2 data-[state=active]:border-primary">
-                <Calendar className="h-4 w-4" />
-                Appointment
               </TabsTrigger>
             </TabsList>
 
@@ -281,12 +271,6 @@ export function EnhancedTimeline({
               </p>
             </TabsContent>
 
-            <TabsContent value="call" className="p-4">
-              <p className="text-sm text-muted-foreground text-center py-8">
-                Call logging coming soon
-              </p>
-            </TabsContent>
-
             <TabsContent value="task" className="p-4 space-y-4">
               {workItemId || customerId ? (
                 <>
@@ -300,11 +284,6 @@ export function EnhancedTimeline({
               )}
             </TabsContent>
 
-            <TabsContent value="appointment" className="p-4">
-              <p className="text-sm text-muted-foreground text-center py-8">
-                Appointment scheduling coming soon
-              </p>
-            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
