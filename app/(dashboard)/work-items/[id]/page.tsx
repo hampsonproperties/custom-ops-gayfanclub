@@ -31,6 +31,7 @@ import { CustomerDetailsEditor } from '@/components/work-items/customer-details-
 import { ShopifyInfo } from '@/components/work-items/shopify-info'
 import { InvoiceManager } from '@/components/work-items/invoice-manager'
 import { EnhancedTimeline } from '@/components/timeline/enhanced-timeline'
+import { Breadcrumbs } from '@/components/ui/breadcrumbs'
 
 type FileRecord = Database['public']['Tables']['files']['Row']
 import { formatDistanceToNow } from 'date-fns'
@@ -135,12 +136,10 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
         <div className="p-4">
           {/* Top Bar - Back + Actions */}
           <div className="flex items-center justify-between mb-4">
-            <Link href="/work-items">
-              <Button variant="ghost" size="sm" className="gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Back to Projects
-              </Button>
-            </Link>
+            <Breadcrumbs
+              items={[{ label: 'Projects', href: '/work-items' }]}
+              current={workItem.customer_name || workItem.customer_email || 'Unknown Customer'}
+            />
 
             <div className="flex items-center gap-2">
               <Button

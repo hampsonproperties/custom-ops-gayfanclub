@@ -44,6 +44,7 @@ import {
   FileText,
 } from 'lucide-react'
 import Link from 'next/link'
+import { Breadcrumbs } from '@/components/ui/breadcrumbs'
 import { useRetailAccount, useUpdateRetailAccount, useDeleteRetailAccount } from '@/lib/hooks/use-retail-accounts'
 import { formatDistanceToNow, format } from 'date-fns'
 import { toast } from 'sonner'
@@ -237,14 +238,11 @@ export default function RetailAccountDetailPage({ params }: { params: Promise<{ 
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="space-y-4">
+        <Breadcrumbs
+          items={[{ label: 'Retail Accounts', href: '/retail-accounts' }]}
+          current={account.account_name}
+        />
         <div className="flex items-start gap-4">
-          <Link href="/retail-accounts">
-            <Button variant="ghost" size="sm" className="gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-          </Link>
-
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
               <div className="p-3 rounded-lg bg-blue-100 dark:bg-blue-900/30">

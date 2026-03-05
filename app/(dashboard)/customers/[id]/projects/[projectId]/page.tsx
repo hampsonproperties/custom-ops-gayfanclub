@@ -1,9 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { ArrowLeft, User } from 'lucide-react'
+import { User } from 'lucide-react'
 import { ProjectDetailView } from '@/components/customers/project-detail-view'
+import { Breadcrumbs } from '@/components/ui/breadcrumbs'
 
 export default async function ProjectPage({
   params,
@@ -43,23 +42,13 @@ export default async function ProjectPage({
       {/* Customer Context Header */}
       <div className="bg-background border-b">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center gap-3">
-            <Link href="/customers">
-              <Button variant="ghost" size="sm" className="gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Customers
-              </Button>
-            </Link>
-            <span className="text-muted-foreground">/</span>
-            <Link href={`/customers/${customerId}`}>
-              <Button variant="ghost" size="sm" className="gap-2">
-                <User className="h-4 w-4" />
-                {customerName}
-              </Button>
-            </Link>
-            <span className="text-muted-foreground">/</span>
-            <span className="text-sm font-medium">{projectTitle}</span>
-          </div>
+          <Breadcrumbs
+            items={[
+              { label: 'Customers', href: '/customers' },
+              { label: customerName, href: `/customers/${customerId}`, icon: User },
+            ]}
+            current={projectTitle}
+          />
         </div>
       </div>
 

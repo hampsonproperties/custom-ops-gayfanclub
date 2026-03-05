@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, CheckCircle, Info, Loader2, DollarSign, Calendar, User, Mail, Phone, Building2, Tag } from 'lucide-react'
 import Link from 'next/link'
+import { Breadcrumbs } from '@/components/ui/breadcrumbs'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { formatDistanceToNow } from 'date-fns'
@@ -176,18 +177,13 @@ export default function NewLeadPage() {
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link href="/sales-leads">
-          <Button variant="ghost" size="sm" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Sales Leads
-          </Button>
-        </Link>
-
-        <div>
-          <h1 className="text-3xl font-bold">Create New Lead</h1>
-          <p className="text-muted-foreground">Add a new sales inquiry to your pipeline</p>
-        </div>
+      <Breadcrumbs
+        items={[{ label: 'Sales Leads', href: '/sales-leads' }]}
+        current="New Lead"
+      />
+      <div>
+        <h1 className="text-3xl font-bold">Create New Lead</h1>
+        <p className="text-muted-foreground">Add a new sales inquiry to your pipeline</p>
       </div>
 
       {/* Form */}

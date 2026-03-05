@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select'
 import { ArrowLeft, Building2, Save, Loader2 } from 'lucide-react'
 import Link from 'next/link'
+import { Breadcrumbs } from '@/components/ui/breadcrumbs'
 import { useRouter } from 'next/navigation'
 import { useCreateRetailAccount } from '@/lib/hooks/use-retail-accounts'
 import { toast } from 'sonner'
@@ -92,17 +93,13 @@ export default function NewRetailAccountPage() {
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link href="/retail-accounts">
-          <Button variant="ghost" size="sm" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-        </Link>
-        <div>
-          <h1 className="text-3xl font-bold">New Retail Account</h1>
-          <p className="text-muted-foreground">Create a new B2B wholesale customer account</p>
-        </div>
+      <Breadcrumbs
+        items={[{ label: 'Retail Accounts', href: '/retail-accounts' }]}
+        current="New Account"
+      />
+      <div>
+        <h1 className="text-3xl font-bold">New Retail Account</h1>
+        <p className="text-muted-foreground">Create a new B2B wholesale customer account</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

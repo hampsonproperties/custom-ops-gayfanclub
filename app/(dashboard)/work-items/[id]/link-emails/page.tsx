@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, Link as LinkIcon, Mail } from 'lucide-react'
+import { Breadcrumbs } from '@/components/ui/breadcrumbs'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -73,13 +74,14 @@ export default function LinkEmailsPage({ params }: { params: Promise<{ id: strin
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href={`/work-items/${id}`}>
-          <Button variant="ghost" size="sm" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-        </Link>
+      <div className="space-y-4">
+        <Breadcrumbs
+          items={[
+            { label: 'Projects', href: '/work-items' },
+            { label: workItem?.customer_name || 'Project', href: `/work-items/${id}` },
+          ]}
+          current="Link Emails"
+        />
 
         <div className="flex-1">
           <h1 className="text-3xl font-bold">Find & Link Email</h1>

@@ -42,6 +42,7 @@ import { toast } from 'sonner'
 import DOMPurify from 'dompurify'
 import { EmailComposer } from '@/components/email/email-composer'
 import { StatusBadge } from '@/components/custom/status-badge'
+import { Breadcrumbs } from '@/components/ui/breadcrumbs'
 import { AlternativeContactsManager } from '@/components/customers/alternative-contacts-manager'
 import { CustomerActivityFeed } from '@/components/activity/customer-activity-feed'
 import { CreateProjectDialog } from '@/components/projects/create-project-dialog'
@@ -595,13 +596,14 @@ export default function CustomerProfilePage() {
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header - PDR v3 Spec */}
       <div className="space-y-3 sm:space-y-4">
-        {/* Back Button */}
-        <Link href="/customers">
-          <Button variant="ghost" size="sm" className="gap-2 h-10">
-            <ArrowLeft className="h-4 w-4" />
-            <span>Back to Customers</span>
-          </Button>
-        </Link>
+        {/* Breadcrumb */}
+        <Breadcrumbs
+          items={[{ label: 'Customers', href: '/customers' }]}
+          current={customer.display_name ||
+            (customer.first_name && customer.last_name
+              ? `${customer.first_name} ${customer.last_name}`
+              : customer.first_name || customer.last_name || customer.email)}
+        />
 
         {/* Customer Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4">

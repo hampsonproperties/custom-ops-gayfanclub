@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useBatch, useConfirmBatch, useExportBatch, useUpdateBatchTracking } from '@/lib/hooks/use-batches'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { BatchEmailStatus } from '@/components/batch-email-status'
+import { Breadcrumbs } from '@/components/ui/breadcrumbs'
 import { toast } from 'sonner'
 import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
@@ -97,14 +98,11 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
+      <Breadcrumbs
+        items={[{ label: 'Batches', href: '/batches' }]}
+        current={batch.name}
+      />
       <div className="flex items-center gap-4">
-        <Link href="/batches">
-          <Button variant="ghost" size="sm" className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-        </Link>
-
         <div className="flex-1">
           <h1 className="text-3xl font-bold">{batch.name}</h1>
           <p className="text-muted-foreground">
