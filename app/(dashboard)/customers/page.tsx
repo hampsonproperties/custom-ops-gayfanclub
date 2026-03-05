@@ -86,8 +86,9 @@ export default function CustomersPage() {
     setPage(1)
   }
 
-  // Paginate only in list view
-  const isPaginated = view === 'list'
+  // Paginate in list view, but not when "no_projects" filter is active
+  // (no_projects requires client-side filtering after join, so server pagination breaks it)
+  const isPaginated = view === 'list' && filterStatus !== 'no_projects'
 
   // Fetch customers with stats
   const { data: customersData, isLoading, refetch } = useQuery({
@@ -148,23 +149,33 @@ export default function CustomersPage() {
         filtered = processed.filter((c: Customer) => (c.project_count || 0) === 0)
       }
 
-      // Calculate stats from current page
-      const stats: CustomerStats = {
-        total: count ?? processed.length,
-        with_projects: processed.filter((c: Customer) => (c.project_count || 0) > 0).length,
-        recent_contacts: processed.filter((c: Customer) => {
-          const daysSince = (Date.now() - new Date(c.last_contact || c.created_at).getTime()) / (1000 * 60 * 60 * 24)
-          return daysSince <= 7
-        }).length,
-      }
-
-      return { customers: filtered as Customer[], stats, totalCount: count ?? filtered.length }
+      return { customers: filtered as Customer[], totalCount: count ?? filtered.length }
     },
   })
 
   const customers = customersData?.customers || []
-  const stats = customersData?.stats || { total: 0, with_projects: 0, recent_contacts: 0 }
   const totalCount = customersData?.totalCount ?? 0
+
+  // Separate stats query — counts from full database, not current page
+  const { data: stats = { total: 0, with_projects: 0, recent_contacts: 0 } } = useQuery({
+    queryKey: ['customers', 'stats'],
+    queryFn: async () => {
+      const supabase = createClient()
+
+      const [totalResult, withProjectsResult, recentResult] = await Promise.all([
+        supabase.from('customers').select('id', { count: 'exact', head: true }),
+        supabase.from('customers').select('id, work_items!inner(id)', { count: 'exact', head: true }),
+        supabase.from('customers').select('id', { count: 'exact', head: true })
+          .gte('updated_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+      ])
+
+      return {
+        total: totalResult.count ?? 0,
+        with_projects: withProjectsResult.count ?? 0,
+        recent_contacts: recentResult.count ?? 0,
+      }
+    },
+  })
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">

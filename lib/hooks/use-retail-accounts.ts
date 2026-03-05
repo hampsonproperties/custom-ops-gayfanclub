@@ -60,6 +60,7 @@ export function useRetailAccounts(filters: RetailAccountsFilters = {}) {
         .from('retail_accounts')
         .select('*')
         .order('created_at', { ascending: false })
+        .limit(100)
 
       // Apply filters
       if (filters.status) {

@@ -18,6 +18,8 @@ interface WorkItemFilters {
   includeClosed?: boolean // Default false - only show open items
   page?: number
   pageSize?: number
+  sortColumn?: string
+  sortDirection?: 'asc' | 'desc'
 }
 
 export interface PaginatedResult<T> {
@@ -33,13 +35,24 @@ export function useWorkItems(filters?: WorkItemFilters) {
   return useQuery({
     queryKey: ['work-items', filters],
     queryFn: async (): Promise<PaginatedResult<WorkItem>> => {
+      // Map UI sort columns to database columns
+      const sortColumnMap: Record<string, string> = {
+        name: 'customer_name',
+        status: 'status',
+        value: 'estimated_value',
+        event_date: 'event_date',
+        created: 'created_at',
+      }
+      const dbSortColumn = filters?.sortColumn ? (sortColumnMap[filters.sortColumn] || 'created_at') : 'created_at'
+      const ascending = filters?.sortDirection === 'asc'
+
       let query = supabase
         .from('work_items')
         .select(
           '*, customer:customers(*), assigned_to:users!assigned_to_user_id(id, full_name, email)',
           isPaginated ? { count: 'exact' } : {}
         )
-        .order('created_at', { ascending: false })
+        .order(dbSortColumn, { ascending })
 
       // By default, only show open items (not closed)
       if (!filters?.includeClosed) {
@@ -120,7 +133,7 @@ export function useWorkItem(id: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('work_items')
-        .select('*, customer:customers(*)')
+        .select('*, customer:customers(*), assigned_to:users!assigned_to_user_id(id, full_name, email)')
         .eq('id', id)
         .single()
 
@@ -177,7 +190,6 @@ export function useUpdateWorkItem() {
 
 export function useUpdateWorkItemStatus() {
   const queryClient = useQueryClient()
-  const supabase = createClient()
 
   return useMutation({
     mutationFn: async ({
@@ -189,51 +201,25 @@ export function useUpdateWorkItemStatus() {
       status: string
       note?: string
     }) => {
-      const { data: { user } } = await supabase.auth.getUser()
-
-      // Get current status
-      const { data: workItem } = await supabase
-        .from('work_items')
-        .select('status')
-        .eq('id', id)
-        .single()
-
-      // Update work item status
-      const { data, error } = await supabase
-        .from('work_items')
-        .update({ status })
-        .eq('id', id)
-        .select()
-        .single()
-
-      if (error) throw error
-
-      // Create status event
-      await supabase.from('work_item_status_events').insert({
-        work_item_id: id,
-        from_status: workItem?.status || null,
-        to_status: status,
-        changed_by_user_id: user?.id || null,
-        note,
+      // Route through the API which validates transitions,
+      // uses atomic RPC with row locking, and creates audit trail
+      const response = await fetch(`/api/projects/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, note }),
       })
 
-      // Recalculate next follow-up after status change
-      const { data: nextFollowUp } = await supabase
-        .rpc('calculate_next_follow_up', { work_item_id: id })
-
-      if (nextFollowUp !== undefined) {
-        await supabase
-          .from('work_items')
-          .update({ next_follow_up_at: nextFollowUp })
-          .eq('id', id)
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to update status')
       }
 
-      return data
+      return { id }
     },
-    onSuccess: (data) => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['work-items'] })
-      queryClient.invalidateQueries({ queryKey: ['work-item', data.id] })
-      queryClient.invalidateQueries({ queryKey: ['status-events', data.id] })
+      queryClient.invalidateQueries({ queryKey: ['work-item', variables.id] })
+      queryClient.invalidateQueries({ queryKey: ['status-events', variables.id] })
     },
   })
 }
@@ -247,9 +233,11 @@ export function useFollowUpToday() {
     queryKey: ['work-items', 'follow-up-today'],
     queryFn: async () => {
       // Only show sales pipeline statuses (not active design work)
+      // Only today's follow-ups (not overdue from previous days)
       const { data, error} = await supabase
         .from('work_items')
         .select('*, customer:customers(*)')
+        .gte('next_follow_up_at', `${today}T00:00:00`)
         .lte('next_follow_up_at', `${today}T23:59:59`)
         .in('status', ['new_inquiry', 'quote_sent', 'design_fee_sent', 'invoice_sent', 'awaiting_payment'])
         .is('closed_at', null)
@@ -263,16 +251,17 @@ export function useFollowUpToday() {
 
 export function useOverdueFollowUps() {
   const supabase = createClient()
-  const now = new Date().toISOString()
+  const today = new Date().toISOString().split('T')[0]
 
   return useQuery({
     queryKey: ['work-items', 'overdue'],
     queryFn: async () => {
       // Only show sales pipeline statuses (not active design work)
+      // Only items from before today (today's items are in useFollowUpToday)
       const { data, error } = await supabase
         .from('work_items')
         .select('*, customer:customers(*)')
-        .lt('next_follow_up_at', now)
+        .lt('next_follow_up_at', `${today}T00:00:00`)
         .in('status', ['new_inquiry', 'quote_sent', 'design_fee_sent', 'invoice_sent', 'awaiting_payment'])
         .is('closed_at', null)
         .order('next_follow_up_at', { ascending: true })
@@ -371,7 +360,7 @@ export function useCustomDesignAwaitingApproval() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('work_items')
-        .select('*, customer:customers(*)')
+        .select('*, customer:customers(*), status_events:work_item_status_events(created_at, to_status)')
         .eq('type', 'assisted_project')
         .in('status', ['proof_sent', 'awaiting_approval'])
         .is('closed_at', null)
@@ -391,7 +380,7 @@ export function useCustomDesignAwaitingPayment() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('work_items')
-        .select('*, customer:customers(*)')
+        .select('*, customer:customers(*), status_events:work_item_status_events(created_at, to_status)')
         .eq('type', 'assisted_project')
         .eq('status', 'invoice_sent')
         .is('closed_at', null)
@@ -597,6 +586,15 @@ export function useCloseWorkItem() {
   const queryClient = useQueryClient()
   const supabase = createClient()
 
+  // Map close reasons to valid workflow statuses
+  const reasonToStatus: Record<string, string> = {
+    completed: 'closed_won',
+    not_interested: 'closed_lost',
+    cancelled: 'closed_event_cancelled',
+    spam: 'closed',
+    other: 'closed',
+  }
+
   return useMutation({
     mutationFn: async ({
       workItemId,
@@ -609,7 +607,8 @@ export function useCloseWorkItem() {
         .from('work_items')
         .update({
           closed_at: new Date().toISOString(),
-          status: reason === 'spam' ? 'cancelled' : reason === 'not_interested' ? 'cancelled' : reason
+          close_reason: reason,
+          status: reasonToStatus[reason] || 'closed',
         })
         .eq('id', workItemId)
 

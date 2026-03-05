@@ -38,7 +38,7 @@ export function ValueManager({
   }
 
   const formatCurrency = (val: number | null) => {
-    if (!val) return '-'
+    if (val === null || val === undefined) return '-'
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',

@@ -70,13 +70,19 @@ export function useUploadFile() {
 
       if (uploadError) throw uploadError
 
-      // Create file record
+      // Get public URL for consistent file access
+      const { data: { publicUrl } } = supabase.storage
+        .from('custom-ops-files')
+        .getPublicUrl(filePath)
+
+      // Create file record with external_url for consistent access
       const fileRecord: FileInsert = {
         work_item_id: workItemId,
         kind,
         version,
         original_filename: file.name,
         normalized_filename: `${kind}-v${version}-${file.name}`,
+        external_url: publicUrl,
         storage_bucket: 'custom-ops-files',
         storage_path: filePath,
         mime_type: file.type,

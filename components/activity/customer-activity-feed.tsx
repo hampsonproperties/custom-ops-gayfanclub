@@ -59,7 +59,6 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
   const [noteContent, setNoteContent] = useState('')
   const [emailSubject, setEmailSubject] = useState('')
   const [emailContent, setEmailContent] = useState('')
-  const [taskTitle, setTaskTitle] = useState('')
   const [aiPrompt, setAiPrompt] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
@@ -516,22 +515,9 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
 
           {/* Task Composer */}
           {activeTab === 'task' && (
-            <>
-              <Input
-                placeholder="Task title..."
-                value={taskTitle}
-                onChange={(e) => setTaskTitle(e.target.value)}
-                className="text-base"
-              />
-              <div className="flex justify-end">
-                <Button
-                  className="rounded-full"
-                  disabled={!taskTitle.trim()}
-                >
-                  Add Task
-                </Button>
-              </div>
-            </>
+            <div className="text-center py-4 text-sm text-muted-foreground">
+              Task management coming soon
+            </div>
           )}
         </div>
       </Card>

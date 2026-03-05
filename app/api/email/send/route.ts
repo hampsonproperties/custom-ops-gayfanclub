@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
 
     const bodyResult = validateBody(await request.json(), sendEmailBody)
     if (bodyResult.error) return bodyResult.error
-    const { to, cc, subject, body, customerId, projectId } = bodyResult.data
+    const { to, cc, subject, body, customerId, projectId, replyToMessageId } = bodyResult.data
 
     // Initialize Microsoft Graph client
     const credential = new ClientSecretCredential(
@@ -48,31 +48,46 @@ export async function POST(request: NextRequest) {
       ? cc.map((email: string) => ({ emailAddress: { address: email } }))
       : undefined
 
+    // Build message object
+    const message: any = {
+      subject,
+      body: {
+        contentType: 'Text',
+        content: body,
+      },
+      toRecipients,
+      ccRecipients,
+    }
+
+    // Add threading headers for replies
+    if (replyToMessageId) {
+      message.internetMessageHeaders = [
+        { name: 'In-Reply-To', value: replyToMessageId },
+        { name: 'References', value: replyToMessageId },
+      ]
+    }
+
     // Send email via Microsoft Graph
     await client
       .api(`/users/${mailboxEmail}/sendMail`)
       .post({
-        message: {
-          subject,
-          body: {
-            contentType: 'Text',
-            content: body,
-          },
-          toRecipients,
-          ccRecipients,
-        },
+        message,
         saveToSentItems: true,
       })
 
-    // Fetch the sent message to get metadata
+    // Fetch the sent message to get metadata (filter by subject to avoid race condition)
     let messageThreadId = null
     let internetMessageId = null
 
     try {
+      // Small delay to allow Exchange to index the sent message
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
       const sentItems = await client
         .api(`/users/${mailboxEmail}/mailFolders/SentItems/messages`)
         .top(1)
         .orderby('sentDateTime desc')
+        .filter(`subject eq '${subject.replace(/'/g, "''")}'`)
         .select('conversationId,internetMessageId')
         .get()
 

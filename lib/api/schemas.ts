@@ -95,6 +95,7 @@ export const sendEmailBody = z.object({
   body: z.string().min(1, 'Body is required'),
   customerId: uuid.optional(),
   projectId: uuid.optional(),
+  replyToMessageId: z.string().optional(),
 })
 
 // POST /api/email/generate
@@ -227,11 +228,6 @@ export const subscribeEmailBody = z.object({
 // DELETE /api/email/subscribe
 export const unsubscribeEmailBody = z.object({
   subscriptionId: z.string().min(1).max(200),
-})
-
-// POST /api/email/fix-previews
-export const fixPreviewsBody = z.object({
-  dryRun: z.boolean().optional(),
 })
 
 // GET /api/search

@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Flag, Mail, MessageSquare, Archive, Package } from 'lucide-react'
 import { parseEmailAddress, extractEmailPreview } from '@/lib/utils/email-formatting'
 import { toast } from 'sonner'
+import DOMPurify from 'dompurify'
 
 export default function SupportQueuePage() {
   const { data: supportResult, isLoading } = useFlaggedSupportEmails()
@@ -23,6 +24,7 @@ export default function SupportQueuePage() {
   const [selectedEmail, setSelectedEmail] = useState<any>(null)
   const [showReplyDialog, setShowReplyDialog] = useState(false)
   const [showCreateLeadDialog, setShowCreateLeadDialog] = useState(false)
+  const [expandedEmails, setExpandedEmails] = useState<Set<string>>(new Set())
 
   const [replyForm, setReplyForm] = useState({
     subject: '',
@@ -57,10 +59,15 @@ export default function SupportQueuePage() {
   }
 
   const handleArchive = async (emailId: string) => {
-    await triageEmail.mutateAsync({
-      id: emailId,
-      triageStatus: 'archived',
-    })
+    try {
+      await triageEmail.mutateAsync({
+        id: emailId,
+        triageStatus: 'archived',
+      })
+      toast.success('Email archived')
+    } catch {
+      toast.error('Failed to archive email')
+    }
   }
 
   const handleSendReply = async () => {
@@ -85,43 +92,47 @@ export default function SupportQueuePage() {
       })
 
       toast.success('Reply sent successfully')
+      setShowReplyDialog(false)
+      setSelectedEmail(null)
     } catch {
       toast.error('Failed to send reply')
     }
-
-    setShowReplyDialog(false)
-    setSelectedEmail(null)
   }
 
   const handleCreateLead = async () => {
     if (!selectedEmail) return
 
-    const { data: workItem } = await createWorkItem.mutateAsync({
-      type: 'assisted_project',
-      source: 'email',
-      status: 'new_inquiry',
-      customer_name: leadForm.customerName,
-      customer_email: leadForm.customerEmail,
-      event_date: leadForm.eventDate || null,
-      title: leadForm.notes.substring(0, 100), // Use notes as title
-      last_contact_at: selectedEmail.received_at,
-      next_follow_up_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
-    })
+    try {
+      const { data: workItem } = await createWorkItem.mutateAsync({
+        type: 'assisted_project',
+        source: 'email',
+        status: 'new_inquiry',
+        customer_name: leadForm.customerName,
+        customer_email: leadForm.customerEmail,
+        event_date: leadForm.eventDate || null,
+        title: leadForm.notes.substring(0, 100), // Use notes as title
+        last_contact_at: selectedEmail.received_at,
+        next_follow_up_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
+      })
 
-    await triageEmail.mutateAsync({
-      id: selectedEmail.id,
-      triageStatus: 'created_lead',
-      workItemId: workItem?.id,
-    })
+      await triageEmail.mutateAsync({
+        id: selectedEmail.id,
+        triageStatus: 'created_lead',
+        workItemId: workItem?.id,
+      })
 
-    setShowCreateLeadDialog(false)
-    setSelectedEmail(null)
-    setLeadForm({
-      customerName: '',
-      customerEmail: '',
-      eventDate: '',
-      notes: '',
-    })
+      setShowCreateLeadDialog(false)
+      setSelectedEmail(null)
+      setLeadForm({
+        customerName: '',
+        customerEmail: '',
+        eventDate: '',
+        notes: '',
+      })
+      toast.success('Work item created successfully')
+    } catch {
+      toast.error('Failed to create work item')
+    }
   }
 
   if (isLoading) {
@@ -180,9 +191,29 @@ export default function SupportQueuePage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-muted-foreground mb-4 line-clamp-3 leading-relaxed">
-                  {extractEmailPreview(email.body_html, email.body_preview, 300)}
-                </p>
+                <div className="mb-4">
+                  {expandedEmails.has(email.id) ? (
+                    <div
+                      className="text-sm prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(email.body_html || email.body_preview || '') }}
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                      {extractEmailPreview(email.body_html, email.body_preview, 300)}
+                    </p>
+                  )}
+                  <button
+                    onClick={() => {
+                      const next = new Set(expandedEmails)
+                      if (next.has(email.id)) next.delete(email.id)
+                      else next.add(email.id)
+                      setExpandedEmails(next)
+                    }}
+                    className="text-xs text-primary hover:underline mt-1"
+                  >
+                    {expandedEmails.has(email.id) ? 'Show less' : 'Show more'}
+                  </button>
+                </div>
                 <div className="flex gap-2">
                   <Button
                     onClick={() => handleOpenReply(email)}

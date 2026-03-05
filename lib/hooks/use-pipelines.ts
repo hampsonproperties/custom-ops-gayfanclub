@@ -77,13 +77,13 @@ export function useOrganizedSalesPipeline() {
 
   const organized = {
     overdue: allLeads?.filter(l => l.is_overdue) || [],
-    newInquiries: allLeads?.filter(l => l.status === 'new_inquiry' && !l.is_overdue && !l.is_due_today) || [],
+    newInquiries: allLeads?.filter(l => l.status === 'new_inquiry' && !l.is_overdue) || [],
     highValue: allLeads?.filter(l =>
       l.estimated_value && l.estimated_value >= 5000 &&
-      !l.is_overdue && !l.is_due_today && l.status !== 'new_inquiry'
+      !l.is_overdue && l.status !== 'new_inquiry'
     ) || [],
     active: allLeads?.filter(l =>
-      !l.is_overdue && !l.is_due_today &&
+      !l.is_overdue &&
       l.status !== 'new_inquiry' &&
       (!l.estimated_value || l.estimated_value < 5000)
     ) || [],

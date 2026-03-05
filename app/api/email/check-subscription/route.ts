@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
 import { Client } from '@microsoft/microsoft-graph-client'
 import { ClientSecretCredential } from '@azure/identity'
-import { createClient } from '@supabase/supabase-js'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 import 'isomorphic-fetch'
 import { importEmail, isJunkEmail } from '@/lib/utils/email-import'
 import { logger } from '@/lib/logger'
-import { serverError } from '@/lib/api/errors'
+import { serverError, unauthorized } from '@/lib/api/errors'
 
 const log = logger('email-check-subscription')
 
@@ -31,7 +32,11 @@ function getGraphClient() {
 
 export async function POST() {
   try {
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const authClient = await createClient()
+    const { data: { user } } = await authClient.auth.getUser()
+    if (!user) return unauthorized()
+
+    const supabase = createServiceClient(supabaseUrl, supabaseServiceKey)
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://custom-ops-gayfanclub.vercel.app'
     const notificationUrl = `${baseUrl}/api/webhooks/email`
 

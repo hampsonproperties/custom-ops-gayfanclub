@@ -11,8 +11,8 @@ import { useWorkItems, useUpdateWorkItemStatus, type PaginatedResult } from '@/l
 import { PaginationControls } from '@/components/ui/pagination-controls'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { KanbanBoard } from '@/components/work-items/kanban-board'
-import { Search, Filter, LayoutList, LayoutGrid, Mail, Phone, MoreHorizontal, Building2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, User, Users, Plus, Palette } from 'lucide-react'
-import { formatDistanceToNow, format } from 'date-fns'
+import { Search, Filter, LayoutList, LayoutGrid, Mail, Phone, MoreHorizontal, Building2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, User, Users, Plus, Palette, Loader2, UserPlus, XCircle } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import {
@@ -24,9 +24,29 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu'
 import { CreateProjectDialog } from '@/components/projects/create-project-dialog'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
 import { AssignDesignerDialog } from '@/components/projects/assign-designer-dialog'
 import { EventCountdownCompact } from '@/components/projects/event-countdown'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
+import { getValidStatusesForWorkItem, getStatusLabel } from '@/lib/utils/status-transitions'
+import { useCloseWorkItem } from '@/lib/hooks/use-work-items'
+import type { WorkItemType, WorkItemStatus } from '@/types/database'
 import { logger } from '@/lib/logger'
 
 const log = logger('work-items')
@@ -62,6 +82,8 @@ export default function WorkItemsPage() {
     assignedTo: filterMode === 'my-projects' ? 'me' : undefined,
     status: filterMode === 'need-design' ? 'new_inquiry,awaiting_approval' : undefined,
     ...(viewMode === 'table' ? { page, pageSize: PAGE_SIZE } : {}),
+    sortColumn: sortColumn || undefined,
+    sortDirection: sortColumn ? sortDirection : undefined,
   })
 
   const workItems = result?.items
@@ -85,65 +107,18 @@ export default function WorkItemsPage() {
     }
   }
 
-  // Handler for column sorting
+  // Handler for column sorting (server-side)
   const handleSort = (column: string) => {
     if (sortColumn === column) {
-      // Toggle direction if same column
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
     } else {
-      // New column, default to ascending
       setSortColumn(column)
       setSortDirection('asc')
     }
+    setPage(1)
   }
 
-  // Sort work items based on current sort state
-  const sortedWorkItems = workItems ? [...workItems].sort((a, b) => {
-    if (!sortColumn) return 0
-
-    const aExtended = a as any
-    const bExtended = b as any
-
-    let aValue: any
-    let bValue: any
-
-    switch (sortColumn) {
-      case 'name':
-        aValue = (a.customer_name || a.customer_email || '').toLowerCase()
-        bValue = (b.customer_name || b.customer_email || '').toLowerCase()
-        break
-      case 'assigned':
-        aValue = ((aExtended.assigned_to as any)?.full_name || 'Unassigned').toLowerCase()
-        bValue = ((bExtended.assigned_to as any)?.full_name || 'Unassigned').toLowerCase()
-        break
-      case 'company':
-        aValue = (aExtended.company_name || '').toLowerCase()
-        bValue = (bExtended.company_name || '').toLowerCase()
-        break
-      case 'email':
-        aValue = (a.customer_email || '').toLowerCase()
-        bValue = (b.customer_email || '').toLowerCase()
-        break
-      case 'phone':
-        aValue = (aExtended.phone_number || '').toLowerCase()
-        bValue = (bExtended.phone_number || '').toLowerCase()
-        break
-      case 'value':
-        aValue = aExtended.estimated_value || 0
-        bValue = bExtended.estimated_value || 0
-        break
-      case 'followup':
-        aValue = a.next_follow_up_at ? new Date(a.next_follow_up_at).getTime() : 0
-        bValue = b.next_follow_up_at ? new Date(b.next_follow_up_at).getTime() : 0
-        break
-      default:
-        return 0
-    }
-
-    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
-    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
-    return 0
-  }) : []
+  const sortedWorkItems = workItems || []
 
   // Helper to render sort icon
   const renderSortIcon = (column: string) => {
@@ -178,21 +153,168 @@ export default function WorkItemsPage() {
   const allSelected = sortedWorkItems.length > 0 && selectedItems.size === sortedWorkItems.length
   const someSelected = selectedItems.size > 0 && selectedItems.size < sortedWorkItems.length
 
-  // Stats based on current page items (approximate — reflects current page)
-  const inProductionCount = workItems?.filter(item =>
-    ['in_production', 'approved'].includes(item.status || '')
-  ).length || 0
+  // ── Bulk action state ──
+  const [bulkStatusOpen, setBulkStatusOpen] = useState(false)
+  const [bulkCloseOpen, setBulkCloseOpen] = useState(false)
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false)
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [bulkCloseReason, setBulkCloseReason] = useState<string>('completed')
+  const [bulkAssignDesignerId, setBulkAssignDesignerId] = useState<string>('unassigned')
+  const closeWorkItem = useCloseWorkItem()
 
-  const upcomingEventsCount = workItems?.filter(item => {
-    if (!item.event_date) return false
-    const eventDate = new Date(item.event_date)
-    const daysUntil = (eventDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-    return daysUntil >= 0 && daysUntil <= 7
-  }).length || 0
+  // Fetch team members for bulk assign
+  const { data: teamMembers } = useQuery({
+    queryKey: ['users-for-assignment'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, full_name, email')
+        .order('full_name')
+      if (error) throw error
+      return data
+    },
+  })
 
-  const needingDesignCount = workItems?.filter(item =>
-    ['new_inquiry', 'awaiting_approval'].includes(item.status || '')
-  ).length || 0
+  // Get selected work item objects
+  const selectedWorkItems = sortedWorkItems.filter(item => selectedItems.has(item.id))
+
+  // Compute valid statuses for bulk status change (intersection of all selected types,
+  // excluding system-only and closing statuses)
+  const getValidBulkStatuses = (): WorkItemStatus[] => {
+    if (selectedWorkItems.length === 0) return []
+    const SYSTEM_ONLY: string[] = ['batched', 'shipped']
+    const CLOSING: string[] = ['closed', 'closed_won', 'closed_lost', 'closed_event_cancelled']
+    const types = [...new Set(selectedWorkItems.map(item => item.type))]
+    const statusSets = types.map(type =>
+      new Set(getValidStatusesForWorkItem(type as WorkItemType))
+    )
+    let common = statusSets[0]
+    for (let i = 1; i < statusSets.length; i++) {
+      common = new Set([...common].filter(s => statusSets[i].has(s)))
+    }
+    return [...common].filter(
+      s => !SYSTEM_ONLY.includes(s) && !CLOSING.includes(s)
+    ) as WorkItemStatus[]
+  }
+
+  // ── Bulk action handlers ──
+
+  const handleBulkStatusChange = async (newStatus: string) => {
+    setBulkLoading(true)
+    setBulkStatusOpen(false)
+    const results = await Promise.allSettled(
+      selectedWorkItems.map(item =>
+        updateStatusMutation.mutateAsync({ id: item.id, status: newStatus })
+      )
+    )
+    const succeeded = results.filter(r => r.status === 'fulfilled').length
+    const failed = results.filter(r => r.status === 'rejected') as PromiseRejectedResult[]
+    if (failed.length === 0) {
+      toast.success(`Status updated to "${getStatusLabel(newStatus as WorkItemStatus)}" for all ${succeeded} item${succeeded !== 1 ? 's' : ''}`)
+    } else {
+      const reasons = [...new Set(failed.map(r => r.reason?.message || 'Unknown error'))]
+      toast.error(`${succeeded} succeeded, ${failed.length} failed`, {
+        description: reasons.join('. '),
+        duration: 8000,
+      })
+    }
+    setSelectedItems(new Set())
+    setBulkLoading(false)
+  }
+
+  const handleBulkClose = async () => {
+    setBulkLoading(true)
+    setBulkCloseOpen(false)
+    const reason = bulkCloseReason as 'not_interested' | 'spam' | 'cancelled' | 'completed' | 'other'
+    const results = await Promise.allSettled(
+      selectedWorkItems.map(item =>
+        closeWorkItem.mutateAsync({ workItemId: item.id, reason })
+      )
+    )
+    const succeeded = results.filter(r => r.status === 'fulfilled').length
+    const failed = results.filter(r => r.status === 'rejected') as PromiseRejectedResult[]
+    if (failed.length === 0) {
+      toast.success(`Closed ${succeeded} item${succeeded !== 1 ? 's' : ''}`)
+    } else {
+      const reasons = [...new Set(failed.map(r => r.reason?.message || 'Unknown error'))]
+      toast.error(`${succeeded} closed, ${failed.length} failed`, {
+        description: reasons.join('. '),
+        duration: 8000,
+      })
+    }
+    setSelectedItems(new Set())
+    setBulkLoading(false)
+    setBulkCloseReason('completed')
+    queryClient.invalidateQueries({ queryKey: ['work-items'] })
+  }
+
+  const handleBulkAssign = async () => {
+    setBulkLoading(true)
+    setBulkAssignOpen(false)
+    const designerId = bulkAssignDesignerId === 'unassigned' ? null : bulkAssignDesignerId
+    const supabase = createClient()
+    const results = await Promise.allSettled(
+      selectedWorkItems.map(async (item) => {
+        const { error } = await supabase
+          .from('work_items')
+          .update({ assigned_to_user_id: designerId })
+          .eq('id', item.id)
+        if (error) throw error
+      })
+    )
+    const succeeded = results.filter(r => r.status === 'fulfilled').length
+    const failed = results.filter(r => r.status === 'rejected') as PromiseRejectedResult[]
+    const designer = teamMembers?.find(u => u.id === designerId)
+    const designerName = designer ? (designer.full_name || designer.email) : 'Unassigned'
+    if (failed.length === 0) {
+      toast.success(`Assigned "${designerName}" to ${succeeded} item${succeeded !== 1 ? 's' : ''}`)
+    } else {
+      const reasons = [...new Set(failed.map(r => r.reason?.message || 'Unknown error'))]
+      toast.error(`${succeeded} assigned, ${failed.length} failed`, {
+        description: reasons.join('. '),
+        duration: 8000,
+      })
+    }
+    setSelectedItems(new Set())
+    setBulkLoading(false)
+    setBulkAssignDesignerId('unassigned')
+    queryClient.invalidateQueries({ queryKey: ['work-items'] })
+  }
+
+  // Stats from full database (separate count queries, not current page)
+  const { data: pageStats } = useQuery({
+    queryKey: ['work-items', 'page-stats'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const sevenDaysFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      const today = new Date().toISOString()
+
+      const [prodResult, eventResult, designResult] = await Promise.all([
+        supabase.from('work_items').select('id', { count: 'exact', head: true })
+          .is('closed_at', null)
+          .in('status', ['in_production', 'approved']),
+        supabase.from('work_items').select('id', { count: 'exact', head: true })
+          .is('closed_at', null)
+          .not('event_date', 'is', null)
+          .gte('event_date', today)
+          .lte('event_date', sevenDaysFromNow),
+        supabase.from('work_items').select('id', { count: 'exact', head: true })
+          .is('closed_at', null)
+          .in('status', ['new_inquiry', 'awaiting_approval']),
+      ])
+
+      return {
+        inProduction: prodResult.count ?? 0,
+        upcomingEvents: eventResult.count ?? 0,
+        needingDesign: designResult.count ?? 0,
+      }
+    },
+  })
+
+  const inProductionCount = pageStats?.inProduction ?? 0
+  const upcomingEventsCount = pageStats?.upcomingEvents ?? 0
+  const needingDesignCount = pageStats?.needingDesign ?? 0
 
   // Helper function to get initials
   const getInitials = (name?: string | null, email?: string | null) => {
@@ -357,12 +479,58 @@ export default function WorkItemsPage() {
                 </Button>
               </div>
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                <Button variant="outline" size="sm" className="h-11 sm:h-9">
-                  Bulk Update Status
+                {/* Bulk Status Change */}
+                <DropdownMenu open={bulkStatusOpen} onOpenChange={setBulkStatusOpen}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" disabled={bulkLoading} className="h-9">
+                      Change Status
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Set status to</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {getValidBulkStatuses().length > 0 ? (
+                      getValidBulkStatuses().map(status => (
+                        <DropdownMenuItem
+                          key={status}
+                          onClick={() => handleBulkStatusChange(status)}
+                        >
+                          {getStatusLabel(status)}
+                        </DropdownMenuItem>
+                      ))
+                    ) : (
+                      <DropdownMenuItem disabled>
+                        No common statuses for selected items
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Bulk Close */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={bulkLoading}
+                  onClick={() => setBulkCloseOpen(true)}
+                  className="h-9"
+                >
+                  <XCircle className="h-4 w-4 mr-1" />
+                  Close
                 </Button>
-                <Button variant="outline" size="sm" className="h-11 sm:h-9">
-                  Export Selected
+
+                {/* Bulk Assign Designer */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={bulkLoading}
+                  onClick={() => setBulkAssignOpen(true)}
+                  className="h-9"
+                >
+                  <UserPlus className="h-4 w-4 mr-1" />
+                  Assign
                 </Button>
+
+                {bulkLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
               </div>
             </div>
           )}
@@ -515,7 +683,7 @@ export default function WorkItemsPage() {
                           {/* Last Updated */}
                           <td className="p-3">
                             <span className="text-sm text-muted-foreground">
-                              {formatDistanceToNow(new Date(item.updated_at), { addSuffix: true })}
+                              {formatDistanceToNow(new Date(item.updated_at || ''), { addSuffix: true })}
                             </span>
                           </td>
 
@@ -537,9 +705,6 @@ export default function WorkItemsPage() {
                                       <Link href={`/customers/${item.customer_id}`}>View Customer</Link>
                                     </DropdownMenuItem>
                                   )}
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem>Assign Designer</DropdownMenuItem>
-                                  <DropdownMenuItem>Update Status</DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </div>
@@ -694,6 +859,84 @@ export default function WorkItemsPage() {
           />
         </div>
       )}
+
+      {/* ── Bulk Close Confirmation Dialog ── */}
+      <Dialog open={bulkCloseOpen} onOpenChange={setBulkCloseOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Close {selectedItems.size} Item{selectedItems.size !== 1 ? 's' : ''}</DialogTitle>
+            <DialogDescription>
+              You are about to close <strong>{selectedItems.size}</strong> selected item{selectedItems.size !== 1 ? 's' : ''}.
+              Closed items will no longer appear in the active projects list.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="close-reason">Close Reason</Label>
+              <Select value={bulkCloseReason} onValueChange={setBulkCloseReason}>
+                <SelectTrigger id="close-reason">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="not_interested">Not Interested</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="spam">Spam</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkCloseOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleBulkClose} disabled={bulkLoading}>
+              {bulkLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Close {selectedItems.size} Item{selectedItems.size !== 1 ? 's' : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Bulk Assign Designer Dialog ── */}
+      <Dialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Assign Designer</DialogTitle>
+            <DialogDescription>
+              Assign a designer to {selectedItems.size} selected item{selectedItems.size !== 1 ? 's' : ''}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="bulk-designer">Designer</Label>
+              <Select value={bulkAssignDesignerId} onValueChange={setBulkAssignDesignerId}>
+                <SelectTrigger id="bulk-designer">
+                  <SelectValue placeholder="Select designer" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {teamMembers?.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.full_name || member.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkAssignOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleBulkAssign} disabled={bulkLoading}>
+              {bulkLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Assign to {selectedItems.size} Item{selectedItems.size !== 1 ? 's' : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

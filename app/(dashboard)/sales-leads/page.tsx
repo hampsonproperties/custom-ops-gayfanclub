@@ -13,17 +13,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { PaginationControls } from '@/components/ui/pagination-controls'
-import { Plus, Search, TrendingUp, DollarSign, Target, Award, LayoutList, LayoutGrid, Mail, MoreHorizontal, Building2 } from 'lucide-react'
+import { Plus, Search, TrendingUp, DollarSign, Target, Award, Mail, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { useLeads, useLeadStats, type LeadsFilters } from '@/lib/hooks/use-leads'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { formatDistanceToNow } from 'date-fns'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 
 export default function SalesLeadsPage() {
   const [filters, setFilters] = useState<LeadsFilters>({
@@ -31,7 +25,6 @@ export default function SalesLeadsPage() {
     status: 'all',
     search: '',
   })
-  const [viewMode, setViewMode] = useState<'table' | 'pipeline'>('table')
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
 
@@ -75,7 +68,7 @@ export default function SalesLeadsPage() {
             Manage your sales pipeline and convert inquiries into customers
           </p>
         </div>
-        <Link href="/leads/new">
+        <Link href="/inbox">
           <Button size="lg" className="gap-2">
             <Plus className="h-5 w-5" />
             Create Lead
@@ -181,32 +174,13 @@ export default function SalesLeadsPage() {
                 </SelectContent>
               </Select>
 
-              <div className="flex border rounded-md">
-                <Button
-                  variant={viewMode === 'table' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('table')}
-                  className="rounded-r-none"
-                >
-                  <LayoutList className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === 'pipeline' ? 'secondary' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('pipeline')}
-                  className="rounded-l-none"
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </Button>
-              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Table View */}
-      {viewMode === 'table' && (
-        <Card className="border-muted/40">
+      <Card className="border-muted/40">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -240,7 +214,7 @@ export default function SalesLeadsPage() {
                       return (
                         <tr key={lead.id} className="border-b hover:bg-muted/30 transition-colors">
                           <td className="px-4 py-3">
-                            <Link href={`/sales-leads/${lead.id}`}>
+                            <Link href={`/work-items/${lead.id}`}>
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-9 w-9">
                                   <AvatarFallback className="text-xs bg-muted">
@@ -295,24 +269,20 @@ export default function SalesLeadsPage() {
                                 className="h-8 w-8 p-0"
                                 asChild
                               >
-                                <a href={`mailto:${lead.customer_email}`}>
+                                <Link href={`/work-items/${lead.id}`}>
                                   <Mail className="h-4 w-4" />
-                                </a>
+                                </Link>
                               </Button>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem asChild>
-                                    <Link href={`/sales-leads/${lead.id}`}>View Details</Link>
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem>Change Status</DropdownMenuItem>
-                                  <DropdownMenuItem>Send Email</DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0"
+                                asChild
+                              >
+                                <Link href={`/work-items/${lead.id}`}>
+                                  <ExternalLink className="h-4 w-4" />
+                                </Link>
+                              </Button>
                             </div>
                           </td>
                         </tr>
@@ -330,20 +300,6 @@ export default function SalesLeadsPage() {
             />
           </CardContent>
         </Card>
-      )}
-
-      {/* Pipeline View - Placeholder */}
-      {viewMode === 'pipeline' && (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <LayoutGrid className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="font-semibold mb-2">Pipeline View Coming Soon</h3>
-            <p className="text-sm text-muted-foreground">
-              Kanban board view will be implemented next
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }

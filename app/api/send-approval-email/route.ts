@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Client } from '@microsoft/microsoft-graph-client'
 import { ClientSecretCredential } from '@azure/identity'
-import { createClient } from '@supabase/supabase-js'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 import jwt from 'jsonwebtoken'
 import 'isomorphic-fetch'
 import { getTemplateByKey, renderTemplate } from '@/lib/email/templates'
 import { validateBody } from '@/lib/api/validate'
 import { approvalEmailBody } from '@/lib/api/schemas'
-import { badRequest, notFound, serverError } from '@/lib/api/errors'
+import { badRequest, unauthorized, notFound, serverError } from '@/lib/api/errors'
 import { logger } from '@/lib/logger'
 import { APPROVAL_TOKEN_EXPIRY_SECONDS } from '@/lib/config'
 
@@ -23,11 +24,15 @@ if (!jwtSecret) {
 
 export async function POST(request: NextRequest) {
   try {
+    const authClient = await createClient()
+    const { data: { user } } = await authClient.auth.getUser()
+    if (!user) return unauthorized()
+
     const bodyResult = validateBody(await request.json(), approvalEmailBody)
     if (bodyResult.error) return bodyResult.error
     const { workItemId, fileId } = bodyResult.data
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = createServiceClient(supabaseUrl, supabaseServiceKey)
 
     // Fetch work item details
     const { data: workItem, error: workItemError } = await supabase
@@ -177,10 +182,14 @@ export async function POST(request: NextRequest) {
     let internetMessageId = null
 
     try {
+      // Small delay to allow Exchange to index the sent message
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
       const sentItems = await client
         .api(`/users/${mailboxEmail}/mailFolders/SentItems/messages`)
         .top(1)
         .orderby('sentDateTime desc')
+        .filter(`subject eq '${subject.replace(/'/g, "''")}'`)
         .select('conversationId,internetMessageId')
         .get()
 

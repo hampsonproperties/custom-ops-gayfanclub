@@ -13,7 +13,6 @@ import {
   Mail,
   DollarSign,
   MessageSquare,
-  Clock,
   Package,
   Palette,
   CheckCircle,
@@ -30,7 +29,7 @@ export default function DashboardPage() {
   const untriagedEmails = untriagedResult?.items
 
   const formatCurrency = (value: number | null) => {
-    if (!value) return ''
+    if (value === null || value === undefined) return ''
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -85,7 +84,7 @@ export default function DashboardPage() {
               <DollarSign className="h-5 w-5" />
               Sales Pipeline
             </h2>
-            <Link href="/follow-ups">
+            <Link href="/sales-leads">
               <Button variant="outline" size="sm">View All</Button>
             </Link>
           </div>
@@ -207,7 +206,7 @@ export default function DashboardPage() {
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="font-medium">{lead.customer_name}</div>
-                          <div className="text-sm text-muted-foreground">
+                          <div className="text-sm text-muted-foreground capitalize">
                             {lead.status.replace(/_/g, ' ')}
                           </div>
                           <Badge variant="default" className="text-xs mt-1 bg-green-600">

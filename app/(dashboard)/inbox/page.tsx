@@ -1,6 +1,8 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import type { Database } from '@/types/database'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -54,7 +56,6 @@ import {
   FileText,
   Code,
   Search,
-  MoreVertical,
   Inbox,
   Tag,
   AlertCircle,
@@ -76,25 +77,7 @@ import { PaginationControls } from '@/components/ui/pagination-controls'
 type EmailCategory = 'primary' | 'promotional' | 'spam' | 'notifications'
 type EmailTab = EmailCategory | 'support'  // Support is a tab, not a category
 
-type Email = {
-  id: string
-  from_email: string
-  from_name?: string | null
-  to_emails: string[]
-  subject: string | null
-  body_preview: string | null
-  body_html: string | null
-  received_at: string | null
-  provider_thread_id: string | null
-  provider_message_id: string | null
-  has_attachments: boolean
-  attachments_meta: any // Database returns Json type
-  category: EmailCategory
-  direction: 'inbound' | 'outbound'
-  is_read: boolean
-  triage_status: string
-  work_item_id: string | null
-}
+type Email = Database['public']['Tables']['communications']['Row']
 
 // Component to display email attachments
 function AttachmentList({
@@ -243,11 +226,21 @@ export default function EmailIntakePage() {
   const router = useRouter()
   const [activeCategory, setActiveCategory] = useState<EmailTab>('primary')
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set())
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
   const [viewMode, setViewMode] = useState<'html' | 'text'>('text')
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
+
+  // Debounce search and reset page
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   // UI state
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null)
@@ -265,7 +258,7 @@ export default function EmailIntakePage() {
   const { data: categoryResult, isLoading: categoryLoading, refetch: refetchCategory } = useEmailsByCategory(
     activeCategory === 'support' ? 'primary' : activeCategory,
     'untriaged',
-    { page, pageSize: PAGE_SIZE }
+    { page, pageSize: PAGE_SIZE, search: debouncedSearch }
   )
   const { data: supportResult, isLoading: supportLoading, refetch: refetchSupport } = useFlaggedSupportEmails(
     { page, pageSize: PAGE_SIZE }
@@ -294,19 +287,7 @@ export default function EmailIntakePage() {
     notes: '',
   })
 
-  // Filter emails by search query
-  const filteredEmails = useMemo(() => {
-    if (!emails) return []
-    if (!searchQuery.trim()) return emails
-
-    const query = searchQuery.toLowerCase()
-    return emails.filter(
-      (email) =>
-        email.from_email.toLowerCase().includes(query) ||
-        email.subject?.toLowerCase().includes(query) ||
-        email.body_preview?.toLowerCase().includes(query)
-    )
-  }, [emails, searchQuery])
+  const filteredEmails = emails || []
 
   // Group emails by sender
   const emailGroups = useMemo(() => {
@@ -357,107 +338,145 @@ export default function EmailIntakePage() {
   }
 
   const handleBulkArchive = async () => {
-    const promises = Array.from(selectedEmails).map((id) =>
-      triageEmail.mutateAsync({ id, triageStatus: 'archived' })
-    )
-    await Promise.all(promises)
-    setSelectedEmails(new Set())
-    toast.success(`Archived ${promises.length} email(s)`)
+    try {
+      const promises = Array.from(selectedEmails).map((id) =>
+        triageEmail.mutateAsync({ id, triageStatus: 'archived' })
+      )
+      await Promise.all(promises)
+      setSelectedEmails(new Set())
+      toast.success(`Archived ${promises.length} email(s)`)
+    } catch {
+      toast.error('Failed to archive emails')
+    }
   }
 
   const handleBulkMoveToCategory = async (category: EmailCategory) => {
-    const promises = Array.from(selectedEmails).map((id) => {
-      const email = filteredEmails.find((e) => e.id === id)
-      return moveToCategory.mutateAsync({
-        emailId: id,
-        category,
-        createFilter: true,
-        fromEmail: email?.from_email,
+    try {
+      const promises = Array.from(selectedEmails).map((id) => {
+        const email = filteredEmails.find((e) => e.id === id)
+        return moveToCategory.mutateAsync({
+          emailId: id,
+          category,
+          createFilter: true,
+          fromEmail: email?.from_email,
+        })
       })
-    })
-    await Promise.all(promises)
-    setSelectedEmails(new Set())
-    toast.success(`Moved ${promises.length} email(s) to ${category}`)
+      await Promise.all(promises)
+      setSelectedEmails(new Set())
+      toast.success(`Moved ${promises.length} email(s) to ${category}`)
+    } catch {
+      toast.error(`Failed to move emails to ${category}`)
+    }
   }
 
   // Email actions
   const handleCreateLead = async () => {
     if (!selectedEmail) return
 
-    const { data: workItem } = await createWorkItem.mutateAsync({
-      type: 'assisted_project',
-      source: 'email',
-      status: 'new_inquiry',
-      customer_name: leadForm.customerName,
-      customer_email: leadForm.customerEmail,
-      title: leadForm.title || `Inquiry from ${leadForm.customerName}`,
-      event_date: leadForm.eventDate || null,
-      last_contact_at: selectedEmail.received_at,
-      next_follow_up_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    })
+    try {
+      const { data: workItem } = await createWorkItem.mutateAsync({
+        type: 'assisted_project',
+        source: 'email',
+        status: 'new_inquiry',
+        customer_name: leadForm.customerName,
+        customer_email: leadForm.customerEmail,
+        title: leadForm.title || `Inquiry from ${leadForm.customerName}`,
+        event_date: leadForm.eventDate || null,
+        last_contact_at: selectedEmail.received_at,
+        next_follow_up_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      })
 
-    await triageEmail.mutateAsync({
-      id: selectedEmail.id,
-      triageStatus: 'created_lead',
-      workItemId: workItem?.id,
-    })
+      // Save initial notes if provided
+      if (workItem?.id && leadForm.notes?.trim()) {
+        const supabase = createClient()
+        await supabase.from('work_item_notes').insert({
+          work_item_id: workItem.id,
+          content: leadForm.notes.trim(),
+        })
+      }
 
-    setShowCreateLeadDialog(false)
-    setSelectedEmail(null)
-    setLeadForm({
-      customerName: '',
-      customerEmail: '',
-      title: '',
-      eventDate: '',
-      notes: '',
-    })
-    toast.success('Lead created successfully')
+      await triageEmail.mutateAsync({
+        id: selectedEmail.id,
+        triageStatus: 'created_lead',
+        workItemId: workItem?.id,
+      })
 
-    // Navigate to the work item page
-    if (workItem?.id) {
-      router.push(`/work-items/${workItem.id}`)
+      setShowCreateLeadDialog(false)
+      setSelectedEmail(null)
+      setLeadForm({
+        customerName: '',
+        customerEmail: '',
+        title: '',
+        eventDate: '',
+        notes: '',
+      })
+      toast.success('Lead created successfully')
+
+      // Navigate to the work item page
+      if (workItem?.id) {
+        router.push(`/work-items/${workItem.id}`)
+      }
+    } catch {
+      toast.error('Failed to create lead')
     }
   }
 
   const handleArchive = async (emailId: string) => {
-    await triageEmail.mutateAsync({ id: emailId, triageStatus: 'archived' })
-    toast.success('Email archived')
+    try {
+      await triageEmail.mutateAsync({ id: emailId, triageStatus: 'archived' })
+      toast.success('Email archived')
+    } catch {
+      toast.error('Failed to archive email')
+    }
   }
 
   const handleFlagSupport = async (emailId: string) => {
-    await triageEmail.mutateAsync({ id: emailId, triageStatus: 'flagged_support' })
-    toast.success('Email flagged for support')
+    try {
+      await triageEmail.mutateAsync({ id: emailId, triageStatus: 'flagged_support' })
+      toast.success('Email flagged for support')
+    } catch {
+      toast.error('Failed to flag email for support')
+    }
   }
 
   const handleMoveToCategory = async (emailId: string, category: EmailCategory, createFilter: boolean) => {
-    const email = filteredEmails.find((e) => e.id === emailId)
-    await moveToCategory.mutateAsync({
-      emailId,
-      category,
-      createFilter,
-      fromEmail: email?.from_email,
-    })
-    toast.success(
-      createFilter
-        ? `Moved to ${category} and created filter rule`
-        : `Moved to ${category}`
-    )
+    try {
+      const email = filteredEmails.find((e) => e.id === emailId)
+      await moveToCategory.mutateAsync({
+        emailId,
+        category,
+        createFilter,
+        fromEmail: email?.from_email,
+      })
+      toast.success(
+        createFilter
+          ? `Moved to ${category} and created filter rule`
+          : `Moved to ${category}`
+      )
+    } catch {
+      toast.error(`Failed to move email to ${category}`)
+    }
   }
 
   const handleReply = async () => {
     if (!selectedEmail || !replyText.trim()) return
 
-    await sendEmail.mutateAsync({
-      workItemId: selectedEmail.work_item_id || '',
-      to: selectedEmail.from_email,
-      subject: `Re: ${selectedEmail.subject || ''}`,
-      body: replyText,
-    })
+    try {
+      await sendEmail.mutateAsync({
+        projectId: selectedEmail.work_item_id || undefined,
+        to: selectedEmail.from_email,
+        subject: `Re: ${selectedEmail.subject || ''}`,
+        body: replyText,
+        replyToMessageId: selectedEmail.internet_message_id || undefined,
+      })
 
-    setReplyText('')
-    setShowReplyForm(false)
-    setShowEmailDetailSheet(false)
-    toast.success('Reply sent')
+      setReplyText('')
+      setShowReplyForm(false)
+      setShowEmailDetailSheet(false)
+      toast.success('Reply sent')
+    } catch {
+      toast.error('Failed to send reply')
+    }
   }
 
   const openCreateLeadDialog = (email: Email) => {
@@ -478,9 +497,13 @@ export default function EmailIntakePage() {
     setReplyText('')
     setShowEmailDetailSheet(true)
 
-    // Mark as read
+    // Mark as read (silent catch — not user-initiated)
     if (!email.is_read) {
-      await markAsRead.mutateAsync({ id: email.id, isRead: true })
+      try {
+        await markAsRead.mutateAsync({ id: email.id, isRead: true })
+      } catch {
+        // Silent: mark-as-read is not user-initiated
+      }
     }
   }
 
@@ -860,7 +883,7 @@ export default function EmailIntakePage() {
                           <EmailCategoryMenu
                             emailId={group.latestEmail.id}
                             fromEmail={group.latestEmail.from_email}
-                            currentCategory={group.latestEmail.category}
+                            currentCategory={(group.latestEmail.category as EmailCategory) || 'primary'}
                           />
                         </div>
                       </div>

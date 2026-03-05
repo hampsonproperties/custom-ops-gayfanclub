@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Package, Plus, FileDown, CheckCircle, Clock, ExternalLink, Truck } from 'lucide-react'
+import { Package, Plus, FileDown, CheckCircle, Clock, Truck } from 'lucide-react'
 import { useReadyForBatch } from '@/lib/hooks/use-work-items'
 import { useBatches, useCreateBatch, useConfirmBatch, useExportBatch } from '@/lib/hooks/use-batches'
 import { StatusBadge } from '@/components/custom/status-badge'
@@ -78,8 +78,21 @@ export default function BatchesPage() {
     }
   }
 
-  const handleExportBatch = async (batchId: string) => {
+  const handleExportBatch = async (batchId: string, batchName: string) => {
     try {
+      const response = await fetch(`/api/batches/${batchId}/export`)
+      if (!response.ok) throw new Error('Export failed')
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${batchName || 'batch'}_supplier_package.zip`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
       await exportBatch.mutateAsync(batchId)
       toast.success('Batch exported')
     } catch (error) {
@@ -172,14 +185,11 @@ export default function BatchesPage() {
                 <div key={batch.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                     <div className="space-y-2 flex-1 min-w-0">
-                      <Link
-                        href={`/batches/${batch.id}`}
-                        className="font-medium hover:underline text-lg block"
-                      >
+                      <span className="font-medium text-lg block">
                         {batch.name}
-                      </Link>
+                      </span>
                       <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-sm text-muted-foreground">
-                        <span>Created {formatDistanceToNow(new Date(batch.created_at), { addSuffix: true })}</span>
+                        <span>Created {formatDistanceToNow(new Date(batch.created_at || ''), { addSuffix: true })}</span>
                         {batch.confirmed_at && (
                           <>
                             <span className="hidden sm:inline">•</span>
@@ -203,7 +213,7 @@ export default function BatchesPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                      <StatusBadge status={batch.status} />
+                      <StatusBadge status={batch.status ?? ''} />
                       {batch.status === 'draft' && (
                         <Button
                           variant="outline"
@@ -220,7 +230,7 @@ export default function BatchesPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => handleExportBatch(batch.id)}
+                          onClick={() => handleExportBatch(batch.id, batch.name)}
                           disabled={exportBatch.isPending}
                           className="gap-2 h-11 sm:h-9"
                         >

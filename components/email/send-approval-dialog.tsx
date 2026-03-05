@@ -63,7 +63,7 @@ export function SendApprovalDialog({
     if (a.kind === 'preview' && b.kind !== 'preview') return -1
     if (a.kind !== 'preview' && b.kind === 'preview') return 1
     // Then by version (highest first)
-    return b.version - a.version
+    return (b.version ?? 0) - (a.version ?? 0)
   })
 
   // Auto-select the Customify preview file on load
@@ -237,9 +237,9 @@ export function SendApprovalDialog({
                         )}
                         <div className="text-xs text-muted-foreground">
                           {file.storage_bucket === 'custom-ops-files' ? (
-                            <>Hosted in Supabase • {new Date(file.created_at).toLocaleDateString()}</>
+                            <>Hosted in Supabase • {new Date(file.created_at || 0).toLocaleDateString()}</>
                           ) : (
-                            <>Imported from Shopify order • {new Date(file.created_at).toLocaleDateString()}</>
+                            <>Imported from Shopify order • {new Date(file.created_at || 0).toLocaleDateString()}</>
                           )}
                         </div>
                       </div>

@@ -14,7 +14,6 @@ import { StatusBadge } from '@/components/custom/status-badge'
 import { ChangeStatusDialog } from '@/components/work-items/change-status-dialog'
 import { CloseLeadDialog } from '@/components/work-items/close-lead-dialog'
 import { SendApprovalDialog } from '@/components/email/send-approval-dialog'
-import { ConversationThread } from '@/components/email/conversation-thread'
 import { InlineEmailComposer } from '@/components/email/inline-email-composer'
 import { AlternateEmailsManager } from '@/components/work-items/alternate-emails-manager'
 import { useWorkItem, useUpdateWorkItem } from '@/lib/hooks/use-work-items'
@@ -22,7 +21,7 @@ import { useCommunications } from '@/lib/hooks/use-communications'
 import { useFiles, useUploadFile, useDeleteFile, getFileUrl } from '@/lib/hooks/use-files'
 import { useTimeline, useToggleTimelineStar } from '@/lib/hooks/use-timeline'
 import { useCreateNote } from '@/lib/hooks/use-notes'
-import { ArrowLeft, Mail, FileText, Send, Upload, File as FileIcon, Trash2, Download, Image as ImageIcon, Clock, CheckCircle, Activity, ExternalLink, Phone, Building2, Calendar, DollarSign, User, Tag } from 'lucide-react'
+import { ArrowLeft, Mail, FileText, Upload, File as FileIcon, Trash2, Download, Image as ImageIcon, Clock, CheckCircle, Activity, ExternalLink, Phone, Building2, Calendar, DollarSign, User } from 'lucide-react'
 import type { Database } from '@/types/database'
 import { InternalNotes } from '@/components/work-items/internal-notes'
 import { AssignmentManager } from '@/components/work-items/assignment-manager'
@@ -37,8 +36,6 @@ type FileRecord = Database['public']['Tables']['files']['Row']
 import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import DOMPurify from 'dompurify'
-import { parseEmailAddress, extractEmailPreview } from '@/lib/utils/email-formatting'
 
 // Extended work item type with fields added in migration
 type WorkItemWithExtras = Database['public']['Tables']['work_items']['Row'] & {
@@ -79,7 +76,6 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
   const [showStatusDialog, setShowStatusDialog] = useState(false)
   const [showApprovalDialog, setShowApprovalDialog] = useState(false)
   const [showCloseDialog, setShowCloseDialog] = useState(false)
-  const [showEmailComposer, setShowEmailComposer] = useState(false)
 
 
   const handleUploadFile = async () => {
@@ -142,7 +138,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
             <Link href="/work-items">
               <Button variant="ghost" size="sm" className="gap-2">
                 <ArrowLeft className="h-4 w-4" />
-                Back to Leads
+                Back to Projects
               </Button>
             </Link>
 
@@ -150,7 +146,6 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setShowEmailComposer(true)}
               >
                 <Mail className="h-4 w-4 mr-2" />
                 Email
@@ -162,15 +157,6 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
               >
                 Update Status
               </Button>
-              {workItem.type === 'assisted_project' && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Invoice
-                </Button>
-              )}
             </div>
           </div>
 
@@ -363,7 +349,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
                   <div>
                     <label className="text-sm font-medium text-muted-foreground">Created</label>
                     <p className="mt-1">
-                      {new Date(workItem.created_at).toLocaleDateString('en-US', {
+                      {new Date(workItem.created_at || '').toLocaleDateString('en-US', {
                         month: 'short',
                         day: 'numeric',
                         year: 'numeric',

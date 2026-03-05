@@ -61,12 +61,7 @@ export default function CustomifyOrdersPage() {
   // Approve: update status + send proof email
   const approveMutation = useMutation({
     mutationFn: async ({ orderId, fileId }: { orderId: string; fileId: string }) => {
-      await updateStatus.mutateAsync({
-        id: orderId,
-        status: 'approved',
-        note: 'Design approved — proof sent to customer',
-      })
-
+      // Send proof email first — only update status if email succeeds
       const res = await fetch('/api/send-approval-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -76,6 +71,12 @@ export default function CustomifyOrdersPage() {
         const err = await res.json().catch(() => ({ error: 'Failed to send approval email' }))
         throw new Error(err.error || 'Failed to send approval email')
       }
+
+      await updateStatus.mutateAsync({
+        id: orderId,
+        status: 'approved',
+        note: 'Design approved — proof sent to customer',
+      })
     },
     onSuccess: () => {
       toast.success('Order approved! Proof email sent to customer.')
@@ -199,7 +200,10 @@ export default function CustomifyOrdersPage() {
                   sla === 'expiring' ? 'border-l-4 border-l-[#FFC107]' :
                   sla === 'new' ? 'border-l-4 border-l-[#9C27B0]' : ''
                 }`}
-                onClick={() => setSelectedOrder(isSelected ? null : order.id)}
+                onClick={() => {
+                  setSelectedOrder(isSelected ? null : order.id)
+                  if (!isSelected) resetReviewForm()
+                }}
               >
                 <CardContent className="p-6">
                   <div className="flex gap-6">

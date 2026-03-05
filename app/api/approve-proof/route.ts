@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 import jwt from 'jsonwebtoken'
 import { badRequest, unauthorized, notFound, serverError } from '@/lib/api/errors'
 import { logger } from '@/lib/logger'
@@ -18,6 +19,10 @@ interface TokenPayload {
 
 export async function GET(request: NextRequest) {
   try {
+    const authClient = await createClient()
+    const { data: { user } } = await authClient.auth.getUser()
+    if (!user) return unauthorized()
+
     const searchParams = request.nextUrl.searchParams
     const token = searchParams.get('token')
 
@@ -38,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     const { workItemId, action } = payload
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = createServiceClient(supabaseUrl, supabaseServiceKey)
 
     // Check if token exists in database and hasn't been used
     const { data: tokenRecord, error: tokenError } = await supabase

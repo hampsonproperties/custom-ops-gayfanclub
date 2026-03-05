@@ -94,7 +94,7 @@ export function useCustomerProfile(customerId: string | null) {
       const stats = {
         total_projects: allProjects?.length || 0,
         active_projects: allProjects?.filter((p) => !p.closed_at).length || 0,
-        completed_projects: allProjects?.filter((p) => p.closed_at).length || 0,
+        completed_projects: allProjects?.filter((p) => p.closed_at && p.status === 'closed_won').length || 0,
         total_conversations: conversations?.length || 0,
         unread_conversations: conversations?.filter((c) => c.has_unread).length || 0,
         total_spent: customer.total_spent ?? 0,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 import jwt from 'jsonwebtoken'
 import { validateBody } from '@/lib/api/validate'
 import { requestChangesBody } from '@/lib/api/schemas'
@@ -30,6 +31,10 @@ interface TokenPayload {
 
 export async function POST(request: NextRequest) {
   try {
+    const authClient = await createClient()
+    const { data: { user } } = await authClient.auth.getUser()
+    if (!user) return unauthorized()
+
     const bodyResult = validateBody(await request.json(), requestChangesBody)
     if (bodyResult.error) return bodyResult.error
     const { token, feedback } = bodyResult.data
@@ -52,7 +57,7 @@ export async function POST(request: NextRequest) {
       return badRequest('Invalid token action')
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = createServiceClient(supabaseUrl, supabaseServiceKey)
 
     // Check if token exists in database and hasn't been used
     const { data: tokenRecord, error: tokenError } = await supabase

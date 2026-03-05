@@ -36,7 +36,6 @@ import {
   ExternalLink,
   Check,
   Search,
-  User,
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow, format } from 'date-fns'
@@ -45,7 +44,7 @@ import { toast } from 'sonner'
 type WorkItem = any
 
 const STATUS_OPTIONS = [
-  { value: 'new_inquiry', label: 'Contacted', color: 'bg-blue-600' },
+  { value: 'new_inquiry', label: 'New Inquiry', color: 'bg-blue-600' },
   { value: 'quote_sent', label: 'Quoted', color: 'bg-cyan-600' },
   { value: 'design_fee_sent', label: 'Fee Sent', color: 'bg-yellow-600' },
   { value: 'invoice_sent', label: 'Invoiced', color: 'bg-orange-600' },

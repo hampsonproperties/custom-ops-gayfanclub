@@ -121,8 +121,8 @@ export function ConversationThread({ communications }: ConversationThreadProps) 
 
   // Sort reverse chronologically (newest first)
   const sortedCommunications = [...communications].sort((a, b) => {
-    const dateA = new Date(a.received_at || a.sent_at || a.created_at)
-    const dateB = new Date(b.received_at || b.sent_at || b.created_at)
+    const dateA = new Date(a.received_at || a.sent_at || a.created_at || 0)
+    const dateB = new Date(b.received_at || b.sent_at || b.created_at || 0)
     return dateB.getTime() - dateA.getTime()
   })
 
@@ -141,7 +141,7 @@ export function ConversationThread({ communications }: ConversationThreadProps) 
         const isExpanded = expandedIds.has(comm.id)
         const showQuoted = showQuotedIds.has(comm.id)
         const isInbound = comm.direction === 'inbound'
-        const timestamp = new Date(comm.received_at || comm.sent_at || comm.created_at)
+        const timestamp = new Date(comm.received_at || comm.sent_at || comm.created_at || 0)
 
         // Parse sender and recipients
         const sender = parseEmailAddress(comm.from_email || '')

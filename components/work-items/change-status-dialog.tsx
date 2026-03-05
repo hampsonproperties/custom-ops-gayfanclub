@@ -18,7 +18,7 @@ import {
   getStatusLabel,
 } from '@/lib/utils/status-transitions'
 import type { Database } from '@/types/database'
-import type { WorkItemStatus } from '@/types/database'
+import type { WorkItemStatus, WorkItemType } from '@/types/database'
 import { toast } from 'sonner'
 import { AlertCircle } from 'lucide-react'
 import { logger } from '@/lib/logger'
@@ -42,12 +42,12 @@ export function ChangeStatusDialog({
   const [notes, setNotes] = useState('')
   const updateStatus = useUpdateWorkItemStatus()
 
-  const statusGroups = getStatusGroups(workItem.type, workItem.status)
+  const statusGroups = getStatusGroups(workItem.type as WorkItemType, workItem.status as WorkItemStatus)
 
   // Analyze the transition whenever selected status changes
   const transitionAnalysis =
     selectedStatus && selectedStatus !== workItem.status
-      ? analyzeTransition(workItem.status, selectedStatus, workItem.type)
+      ? analyzeTransition(workItem.status as WorkItemStatus, selectedStatus, workItem.type as WorkItemType)
       : null
 
   // Reset form when dialog closes

@@ -1,10 +1,27 @@
 'use client'
 
-import { use, useState } from 'react'
+import { use, useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   ArrowLeft,
   Building2,
@@ -16,19 +33,23 @@ import {
   Package,
   Calendar,
   User,
-  FileText,
   Edit,
   Trash2,
   ExternalLink,
   TrendingUp,
-  CreditCard
+  CreditCard,
+  Loader2,
+  Save,
+  Lock,
+  FileText,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useRetailAccount, useUpdateRetailAccount, useDeleteRetailAccount } from '@/lib/hooks/use-retail-accounts'
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow, format } from 'date-fns'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
-import { InternalNotes } from '@/components/work-items/internal-notes'
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
 
 export default function RetailAccountDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
@@ -37,7 +58,71 @@ export default function RetailAccountDetailPage({ params }: { params: Promise<{ 
   const updateAccount = useUpdateRetailAccount()
   const deleteAccount = useDeleteRetailAccount()
 
-  const [isEditing, setIsEditing] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [editForm, setEditForm] = useState({
+    account_name: '',
+    account_type: 'retailer',
+    primary_contact_name: '',
+    primary_contact_email: '',
+    primary_contact_phone: '',
+    billing_email: '',
+    business_address: '',
+    city: '',
+    state: '',
+    zip_code: '',
+    website_url: '',
+    tax_id: '',
+    credit_limit: '',
+    payment_terms: '',
+    industry: '',
+    internal_notes: '',
+  })
+
+  // Notes editing state
+  const [isEditingNotes, setIsEditingNotes] = useState(false)
+  const [notesValue, setNotesValue] = useState('')
+
+  // Sync account data into edit form when dialog opens
+  useEffect(() => {
+    if (account && editOpen) {
+      setEditForm({
+        account_name: account.account_name || '',
+        account_type: account.account_type || 'retailer',
+        primary_contact_name: account.primary_contact_name || '',
+        primary_contact_email: account.primary_contact_email || '',
+        primary_contact_phone: account.primary_contact_phone || '',
+        billing_email: account.billing_email || '',
+        business_address: account.business_address || '',
+        city: account.city || '',
+        state: account.state || '',
+        zip_code: account.zip_code || '',
+        website_url: account.website_url || '',
+        tax_id: account.tax_id || '',
+        credit_limit: account.credit_limit ? String(account.credit_limit) : '',
+        payment_terms: account.payment_terms || '',
+        industry: account.industry || '',
+        internal_notes: account.internal_notes || '',
+      })
+    }
+  }, [account, editOpen])
+
+  // Order history query
+  const { data: orders, isLoading: ordersLoading } = useQuery({
+    queryKey: ['retail-account-orders', id],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('work_items')
+        .select('id, title, status, shopify_order_number, customer_name, customer_email, created_at, order_total')
+        .eq('retail_account_id', id)
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      if (error) throw error
+      return data
+    },
+    enabled: !!id,
+  })
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -77,6 +162,58 @@ export default function RetailAccountDetailPage({ params }: { params: Promise<{ 
       toast.success(`Status changed to ${newStatus}`)
     } catch (error) {
       toast.error('Failed to update status')
+    }
+  }
+
+  const handleEditChange = (field: string, value: string) => {
+    setEditForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleEditSave = async () => {
+    if (!editForm.account_name.trim()) {
+      toast.error('Account name is required')
+      return
+    }
+
+    try {
+      await updateAccount.mutateAsync({
+        id,
+        updates: {
+          account_name: editForm.account_name,
+          account_type: editForm.account_type as any,
+          primary_contact_name: editForm.primary_contact_name || null,
+          primary_contact_email: editForm.primary_contact_email || null,
+          primary_contact_phone: editForm.primary_contact_phone || null,
+          billing_email: editForm.billing_email || null,
+          business_address: editForm.business_address || null,
+          city: editForm.city || null,
+          state: editForm.state || null,
+          zip_code: editForm.zip_code || null,
+          website_url: editForm.website_url || null,
+          tax_id: editForm.tax_id || null,
+          credit_limit: editForm.credit_limit ? Number(editForm.credit_limit) : null,
+          payment_terms: editForm.payment_terms || null,
+          industry: editForm.industry || null,
+          internal_notes: editForm.internal_notes || null,
+        },
+      })
+      toast.success('Account updated')
+      setEditOpen(false)
+    } catch (error) {
+      toast.error('Failed to update account')
+    }
+  }
+
+  const handleSaveNotes = async () => {
+    try {
+      await updateAccount.mutateAsync({
+        id,
+        updates: { internal_notes: notesValue || null },
+      })
+      toast.success('Notes saved')
+      setIsEditingNotes(false)
+    } catch (error) {
+      toast.error('Failed to save notes')
     }
   }
 
@@ -143,7 +280,7 @@ export default function RetailAccountDetailPage({ params }: { params: Promise<{ 
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="gap-2">
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => setEditOpen(true)}>
               <Edit className="h-4 w-4" />
               Edit
             </Button>
@@ -277,7 +414,9 @@ export default function RetailAccountDetailPage({ params }: { params: Promise<{ 
       <Tabs defaultValue="info" className="space-y-4">
         <TabsList>
           <TabsTrigger value="info">Account Info</TabsTrigger>
-          <TabsTrigger value="orders">Orders</TabsTrigger>
+          <TabsTrigger value="orders">
+            Orders{orders && orders.length > 0 ? ` (${orders.length})` : ''}
+          </TabsTrigger>
           <TabsTrigger value="notes">Notes</TabsTrigger>
         </TabsList>
 
@@ -415,25 +554,327 @@ export default function RetailAccountDetailPage({ params }: { params: Promise<{ 
           </Card>
         </TabsContent>
 
+        {/* Order History Tab */}
         <TabsContent value="orders">
           <Card>
             <CardHeader>
               <CardTitle>Order History</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                <p>Order history will be displayed here</p>
-                <p className="text-xs">Link work items to this account to see order history</p>
-              </div>
+              {ordersLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : orders && orders.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left text-muted-foreground">
+                        <th className="pb-2 pr-4 font-medium">Order</th>
+                        <th className="pb-2 pr-4 font-medium">Title</th>
+                        <th className="pb-2 pr-4 font-medium">Customer</th>
+                        <th className="pb-2 pr-4 font-medium">Status</th>
+                        <th className="pb-2 pr-4 font-medium text-right">Total</th>
+                        <th className="pb-2 font-medium">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orders.map((order) => (
+                        <tr key={order.id} className="border-b last:border-0">
+                          <td className="py-3 pr-4">
+                            <Link
+                              href={`/work-items/${order.id}`}
+                              className="text-blue-600 hover:underline font-medium"
+                            >
+                              {order.shopify_order_number ? `#${order.shopify_order_number}` : 'View'}
+                            </Link>
+                          </td>
+                          <td className="py-3 pr-4 max-w-[200px] truncate">
+                            {order.title || '—'}
+                          </td>
+                          <td className="py-3 pr-4 text-muted-foreground">
+                            {order.customer_name || order.customer_email || '—'}
+                          </td>
+                          <td className="py-3 pr-4">
+                            <Badge variant="outline" className="text-xs">
+                              {(order.status || '').replace(/_/g, ' ')}
+                            </Badge>
+                          </td>
+                          <td className="py-3 pr-4 text-right">
+                            {order.order_total
+                              ? `$${Number(order.order_total).toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                              : '—'}
+                          </td>
+                          <td className="py-3 text-muted-foreground">
+                            {order.created_at
+                              ? format(new Date(order.created_at), 'MMM d, yyyy')
+                              : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Package className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>No orders linked to this account yet</p>
+                  <p className="text-xs mt-1">
+                    Assign work items to this retail account to see them here
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* Notes Tab */}
         <TabsContent value="notes">
-          <InternalNotes workItemId={id} />
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Lock className="h-4 w-4" />
+                  Internal Notes
+                  <span className="text-sm text-muted-foreground font-normal">(Team only)</span>
+                </CardTitle>
+                {!isEditingNotes && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => {
+                      setNotesValue(account.internal_notes || '')
+                      setIsEditingNotes(true)
+                    }}
+                  >
+                    <Edit className="h-4 w-4" />
+                    {account.internal_notes ? 'Edit' : 'Add Notes'}
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isEditingNotes ? (
+                <div className="space-y-3">
+                  <Textarea
+                    value={notesValue}
+                    onChange={(e) => setNotesValue(e.target.value)}
+                    rows={6}
+                    placeholder="Private notes about this account (not visible to customers)..."
+                    className="bg-background"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleSaveNotes}
+                      disabled={updateAccount.isPending}
+                      className="gap-2"
+                    >
+                      {updateAccount.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4" />
+                      )}
+                      Save
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setIsEditingNotes(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : account.internal_notes ? (
+                <div className="whitespace-pre-wrap text-sm">{account.internal_notes}</div>
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Lock className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p>No internal notes yet</p>
+                  <p className="text-xs">Add private notes for team collaboration</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Account Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Account</DialogTitle>
+            <DialogDescription>Update the details for {account.account_name}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 pt-2">
+            {/* Basic Info */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">Basic Information</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Account Name <span className="text-red-500">*</span></Label>
+                  <Input
+                    value={editForm.account_name}
+                    onChange={(e) => handleEditChange('account_name', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Account Type</Label>
+                  <Select value={editForm.account_type} onValueChange={(v) => handleEditChange('account_type', v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="retailer">Retailer</SelectItem>
+                      <SelectItem value="corporate">Corporate</SelectItem>
+                      <SelectItem value="venue">Venue</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Industry</Label>
+                  <Input
+                    value={editForm.industry}
+                    onChange={(e) => handleEditChange('industry', e.target.value)}
+                    placeholder="Retail, Events, etc."
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Contact */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">Contact Information</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Contact Name</Label>
+                  <Input
+                    value={editForm.primary_contact_name}
+                    onChange={(e) => handleEditChange('primary_contact_name', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Contact Email</Label>
+                  <Input
+                    type="email"
+                    value={editForm.primary_contact_email}
+                    onChange={(e) => handleEditChange('primary_contact_email', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Contact Phone</Label>
+                  <Input
+                    type="tel"
+                    value={editForm.primary_contact_phone}
+                    onChange={(e) => handleEditChange('primary_contact_phone', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Billing Email</Label>
+                  <Input
+                    type="email"
+                    value={editForm.billing_email}
+                    onChange={(e) => handleEditChange('billing_email', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <Label>Website</Label>
+                  <Input
+                    type="url"
+                    value={editForm.website_url}
+                    onChange={(e) => handleEditChange('website_url', e.target.value)}
+                    placeholder="https://..."
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Address */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">Address</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2 col-span-2">
+                  <Label>Street Address</Label>
+                  <Input
+                    value={editForm.business_address}
+                    onChange={(e) => handleEditChange('business_address', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>City</Label>
+                  <Input value={editForm.city} onChange={(e) => handleEditChange('city', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>State</Label>
+                  <Input value={editForm.state} onChange={(e) => handleEditChange('state', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Zip Code</Label>
+                  <Input value={editForm.zip_code} onChange={(e) => handleEditChange('zip_code', e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tax ID</Label>
+                  <Input value={editForm.tax_id} onChange={(e) => handleEditChange('tax_id', e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            {/* Payment */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">Payment</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Credit Limit ($)</Label>
+                  <Input
+                    type="number"
+                    value={editForm.credit_limit}
+                    onChange={(e) => handleEditChange('credit_limit', e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Payment Terms</Label>
+                  <Select value={editForm.payment_terms} onValueChange={(v) => handleEditChange('payment_terms', v)}>
+                    <SelectTrigger><SelectValue placeholder="Select terms" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Due on Receipt">Due on Receipt</SelectItem>
+                      <SelectItem value="Net 15">Net 15</SelectItem>
+                      <SelectItem value="Net 30">Net 30</SelectItem>
+                      <SelectItem value="Net 60">Net 60</SelectItem>
+                      <SelectItem value="Net 90">Net 90</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">Internal Notes</h4>
+              <Textarea
+                value={editForm.internal_notes}
+                onChange={(e) => handleEditChange('internal_notes', e.target.value)}
+                rows={3}
+                placeholder="Private notes about this account..."
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pt-2 border-t">
+              <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+              <Button onClick={handleEditSave} disabled={updateAccount.isPending} className="gap-2">
+                {updateAccount.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Save Changes
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

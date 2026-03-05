@@ -21,10 +21,12 @@ import {
 } from '@/components/ui/dialog'
 import { useMyInbox, useReassignEmail, useUpdateEmailPriority } from '@/lib/hooks/use-communications'
 import { useActiveUsers } from '@/lib/hooks/use-users'
-import { Mail, Inbox, Search, Clock, AlertCircle, CheckCircle2, User } from 'lucide-react'
+import { Mail, Inbox, Search, Clock, AlertCircle, CheckCircle2, User, Reply } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import DOMPurify from 'dompurify'
+import { EmailComposer } from '@/components/email/email-composer'
 
 type PriorityLevel = 'high' | 'medium' | 'low'
 type EmailStatus = 'needs_reply' | 'waiting_on_customer' | 'closed'
@@ -55,11 +57,11 @@ export default function MyInboxPage() {
     )
   }, [emails, searchQuery])
 
-  // Group emails by priority
+  // Group emails by priority (null/unset priority goes into medium)
   const groupedEmails = useMemo(() => {
     const groups = {
       high: filteredEmails.filter((e) => e.priority === 'high'),
-      medium: filteredEmails.filter((e) => e.priority === 'medium'),
+      medium: filteredEmails.filter((e) => e.priority === 'medium' || !e.priority || !['high', 'medium', 'low'].includes(e.priority)),
       low: filteredEmails.filter((e) => e.priority === 'low'),
     }
     return groups
@@ -371,6 +373,8 @@ function EmailCard({
   getStatusBadge: (status: string) => React.ReactElement
   getTimeSinceColor: (receivedAt: string | null) => string
 }) {
+  const [expanded, setExpanded] = useState(false)
+
   return (
     <div className="space-y-4">
       {/* Email Header */}
@@ -395,9 +399,24 @@ function EmailCard({
         </div>
       </div>
 
-      {/* Email Preview */}
-      <div className="text-sm text-muted-foreground line-clamp-2">
-        {email.body_preview}
+      {/* Email Preview / Full Body */}
+      <div>
+        <div className={`text-sm text-muted-foreground ${expanded ? '' : 'line-clamp-2'}`}>
+          {expanded ? (email.body_html ? (
+            <div
+              className="prose prose-sm max-w-none"
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(email.body_html) }}
+            />
+          ) : email.body_preview) : email.body_preview}
+        </div>
+        {(email.body_html || (email.body_preview && email.body_preview.length > 100)) && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="text-xs text-primary hover:underline mt-1"
+          >
+            {expanded ? 'Show less' : 'Show more'}
+          </button>
+        )}
       </div>
 
       {/* Linked Work Item */}
@@ -410,10 +429,22 @@ function EmailCard({
       )}
 
       {/* Actions */}
-      <div className="flex gap-2 pt-2 border-t">
+      <div className="flex flex-wrap gap-2 pt-2 border-t">
+        <EmailComposer
+          trigger={
+            <Button variant="default" size="sm" className="gap-1">
+              <Reply className="h-4 w-4" />
+              Reply
+            </Button>
+          }
+          recipientEmail={email.from_email}
+          recipientName={email.work_items?.customer_name || undefined}
+          projectId={email.work_items?.id}
+          subject={`Re: ${email.subject || ''}`}
+        />
         {email.work_items && (
           <Link href={`/work-items/${email.work_items.id}`}>
-            <Button variant="default" size="sm">
+            <Button variant="outline" size="sm">
               View Work Item
             </Button>
           </Link>
@@ -422,7 +453,7 @@ function EmailCard({
           variant="secondary"
           size="sm"
           onClick={() => onReassign(email)}
-          className="gap-2"
+          className="gap-1"
         >
           <User className="h-4 w-4" />
           Reassign

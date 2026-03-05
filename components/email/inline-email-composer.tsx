@@ -5,14 +5,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/checkbox'
-import { FileAttachmentPicker } from './file-attachment-picker'
 import { TemplateSelector } from './template-selector'
 import { useSendEmail } from '@/lib/hooks/use-communications'
 import { Send } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Database } from '@/types/database'
-import type { EmailTemplate } from '@/lib/email-templates'
+import type { SelectedTemplate } from './template-selector'
 import { logger } from '@/lib/logger'
 
 const log = logger('inline-email-composer')
@@ -37,12 +35,10 @@ export function InlineEmailComposer({
   const [to, setTo] = useState(defaultTo || workItem.customer_email || '')
   const [subject, setSubject] = useState(defaultSubject)
   const [body, setBody] = useState('')
-  const [selectedFileIds, setSelectedFileIds] = useState<string[]>([])
-  const [includeApprovalLink, setIncludeApprovalLink] = useState(false)
 
   const sendEmail = useSendEmail()
 
-  const handleSelectTemplate = (template: EmailTemplate) => {
+  const handleSelectTemplate = (template: SelectedTemplate) => {
     setSubject(template.subject)
     setBody(template.body)
     toast.success(`Template "${template.name}" applied`, {
@@ -58,12 +54,10 @@ export function InlineEmailComposer({
 
     try {
       await sendEmail.mutateAsync({
-        workItemId,
+        projectId: workItemId,
         to,
         subject,
         body,
-        attachments: selectedFileIds,
-        includeApprovalLink,
       })
 
       toast.success('Email sent successfully!')
@@ -71,8 +65,6 @@ export function InlineEmailComposer({
       // Reset form
       setSubject('')
       setBody('')
-      setSelectedFileIds([])
-      setIncludeApprovalLink(false)
 
       onSendSuccess?.()
     } catch (error) {
@@ -87,7 +79,7 @@ export function InlineEmailComposer({
         <div className="space-y-1">
           <h3 className="font-semibold text-lg">Compose New Email</h3>
           <p className="text-sm text-muted-foreground">
-            Send an email with optional file attachments and approval links
+            Send an email to {workItem.customer_name || workItem.customer_email || 'the customer'}
           </p>
         </div>
         <TemplateSelector onSelectTemplate={handleSelectTemplate} />
@@ -131,44 +123,6 @@ export function InlineEmailComposer({
             disabled={sendEmail.isPending}
           />
         </div>
-
-        {/* File Attachments */}
-        <div className="space-y-2">
-          <Label>Attachments</Label>
-          <FileAttachmentPicker
-            workItemId={workItemId}
-            selectedFileIds={selectedFileIds}
-            onSelectionChange={setSelectedFileIds}
-          />
-        </div>
-
-        {/* Include Approval Link Checkbox */}
-        {(workItem.type === 'assisted_project' ||
-          workItem.type === 'customify_order') && (
-          <div className="flex items-start space-x-2 p-3 bg-muted/50 rounded-lg">
-            <Checkbox
-              id="include-approval"
-              checked={includeApprovalLink}
-              onCheckedChange={(checked) =>
-                setIncludeApprovalLink(checked === true)
-              }
-              disabled={sendEmail.isPending || selectedFileIds.length === 0}
-            />
-            <div className="grid gap-1.5 leading-none">
-              <label
-                htmlFor="include-approval"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-              >
-                Include proof approval links
-              </label>
-              <p className="text-xs text-muted-foreground">
-                {selectedFileIds.length === 0
-                  ? 'Attach a proof file to enable this option'
-                  : 'Automatically generate approve/reject links for the first attached proof'}
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Send Button */}
         <div className="flex justify-end pt-2 border-t">

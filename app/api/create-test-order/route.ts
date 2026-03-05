@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 import { validateBody } from '@/lib/api/validate'
 import { createTestOrderBody } from '@/lib/api/schemas'
-import { serverError } from '@/lib/api/errors'
+import { serverError, unauthorized } from '@/lib/api/errors'
 import { logger } from '@/lib/logger'
 
 const log = logger('api-create-test-order')
@@ -12,11 +13,15 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export async function POST(request: NextRequest) {
   try {
+    const authClient = await createClient()
+    const { data: { user } } = await authClient.auth.getUser()
+    if (!user) return unauthorized()
+
     const bodyResult = validateBody(await request.json(), createTestOrderBody)
     if (bodyResult.error) return bodyResult.error
     const { email } = bodyResult.data
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    const supabase = createServiceClient(supabaseUrl, supabaseServiceKey)
 
     // Create test work item
     const { data: workItem, error: workItemError } = await supabase
@@ -27,7 +32,7 @@ export async function POST(request: NextRequest) {
         title: '🧪 TEST ORDER - Safe to Delete',
         customer_name: 'Test Customer',
         customer_email: email,
-        status: 'in_progress',
+        status: 'needs_design_review',
         priority: 'normal',
         shopify_order_number: 'TEST-' + Date.now(),
         quantity: 100,
@@ -91,16 +96,6 @@ export async function POST(request: NextRequest) {
       log.error('Failed to create test files', { error: filesError })
       // Don't fail the whole request, just log it
     }
-
-    // Create a timeline event
-    await supabase.from('timeline_events').insert({
-      work_item_id: workItem.id,
-      type: 'work_item_created',
-      title: 'Test Order Created',
-      description: `Test Customify order created for testing approval email feature`,
-      user: 'System',
-      timestamp: new Date().toISOString(),
-    })
 
     return NextResponse.json({
       success: true,

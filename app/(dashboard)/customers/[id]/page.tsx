@@ -27,7 +27,6 @@ import {
   Plus,
   FileText,
   StickyNote,
-  MoreVertical,
   Building2,
   UserCircle,
   Tag,
@@ -40,12 +39,6 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import DOMPurify from 'dompurify'
 import { EmailComposer } from '@/components/email/email-composer'
 import { StatusBadge } from '@/components/custom/status-badge'
@@ -53,6 +46,7 @@ import { AlternativeContactsManager } from '@/components/customers/alternative-c
 import { CustomerActivityFeed } from '@/components/activity/customer-activity-feed'
 import { CreateProjectDialog } from '@/components/projects/create-project-dialog'
 import { ShopifyOrdersTab } from '@/components/shopify/shopify-orders-tab'
+import { useAllUsers } from '@/lib/hooks/use-users'
 
 const log = logger('customer-detail')
 
@@ -92,7 +86,7 @@ function ProjectCard({ project, customerId }: { project: any; customerId: string
   })
 
   return (
-    <Link href={`/customers/${customerId}/projects/${project.id}`}>
+    <Link href={`/work-items/${project.id}`}>
       <Card className="hover:shadow-md transition-all duration-150 cursor-pointer border-muted/40">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-3">
@@ -542,6 +536,7 @@ export default function CustomerProfilePage() {
   const customerId = params.id as string
   const queryClient = useQueryClient()
   const { data: profileData, isLoading } = useCustomerProfile(customerId)
+  const { data: allUsers } = useAllUsers()
 
   // Fetch alternative contacts
   const { data: alternativeContacts } = useQuery({
@@ -654,7 +649,9 @@ export default function CustomerProfilePage() {
               <div className="flex items-center gap-2 mt-2 text-sm">
                 <UserCircle className="h-4 w-4 text-muted-foreground" />
                 <span className="text-muted-foreground">Assigned to:</span>
-                <span className="font-medium">Team Member</span>
+                <span className="font-medium">
+                  {allUsers?.find((u) => u.id === (customer as any).assigned_to_user_id)?.full_name || 'Unassigned'}
+                </span>
               </div>
             )}
 
@@ -718,27 +715,18 @@ export default function CustomerProfilePage() {
                 </Button>
               }
             />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon" className="h-10 w-10">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {customer.shopify_customer_id && (
-                  <DropdownMenuItem asChild>
-                    <a
-                      href={`https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/customers/${customer.shopify_customer_id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      View in Shopify
-                    </a>
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {customer.shopify_customer_id && (
+              <Button variant="outline" size="sm" className="gap-2" asChild>
+                <a
+                  href={`https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/customers/${customer.shopify_customer_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Shopify
+                </a>
+              </Button>
+            )}
           </div>
         </div>
       </div>

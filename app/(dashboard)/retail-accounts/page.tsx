@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Building2,
   Plus,
@@ -14,9 +14,7 @@ import {
   DollarSign,
   Package,
   Users,
-  ExternalLink,
   Mail,
-  Phone,
   MapPin
 } from 'lucide-react'
 import Link from 'next/link'
@@ -173,7 +171,7 @@ export default function RetailAccountsPage() {
                       </div>
                     </div>
                     <Badge className={getStatusColor(account.status)} variant="secondary">
-                      {account.status}
+                      {account.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                     </Badge>
                   </div>
                 </CardHeader>
