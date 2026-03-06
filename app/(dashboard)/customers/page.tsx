@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -73,6 +74,9 @@ interface CustomerStats {
 }
 
 export default function CustomersPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const shouldOpenNew = searchParams.get('new') === 'true'
   const [view, setView] = useState<'pipeline' | 'list'>('pipeline')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'with_projects' | 'no_projects'>('all')
@@ -244,7 +248,10 @@ export default function CustomersPage() {
           </p>
         </div>
         <CreateCustomerDialog
+          defaultOpen={shouldOpenNew}
           onCustomerCreated={(customerId) => {
+            // Clear the ?new=true param
+            if (shouldOpenNew) router.replace('/customers')
             refetch()
           }}
         />

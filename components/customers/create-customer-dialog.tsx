@@ -31,15 +31,17 @@ const log = logger('create-customer-dialog')
 
 interface CreateCustomerDialogProps {
   trigger?: React.ReactNode
+  defaultOpen?: boolean
   onCustomerCreated?: (customerId: string) => void
 }
 
 export function CreateCustomerDialog({
   trigger,
+  defaultOpen = false,
   onCustomerCreated
 }: CreateCustomerDialogProps) {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen)
   const [isCreating, setIsCreating] = useState(false)
 
   const [formData, setFormData] = useState({

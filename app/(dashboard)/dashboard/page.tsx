@@ -8,6 +8,7 @@ import {
   useOrganizedProductionPipeline,
 } from '@/lib/hooks/use-pipelines'
 import { useUntriagedEmails } from '@/lib/hooks/use-communications'
+import { useMyTasks, useToggleTask, type Task } from '@/lib/hooks/use-tasks'
 import {
   AlertCircle,
   Mail,
@@ -18,6 +19,8 @@ import {
   CheckCircle,
   Truck,
   Calendar,
+  ListTodo,
+  Circle,
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
@@ -27,6 +30,8 @@ export default function DashboardPage() {
   const { data: production, isLoading: productionLoading } = useOrganizedProductionPipeline()
   const { data: untriagedResult } = useUntriagedEmails()
   const untriagedEmails = untriagedResult?.items
+  const { data: myTasks } = useMyTasks()
+  const toggleTask = useToggleTask()
 
   const formatCurrency = (value: number | null) => {
     if (value === null || value === undefined) return ''
@@ -71,6 +76,54 @@ export default function DashboardPage() {
             <span className="text-sm font-medium text-blue-600">View Inbox &rarr;</span>
           </div>
         </Link>
+      )}
+
+      {/* My Tasks */}
+      {myTasks && myTasks.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <ListTodo className="h-4 w-4" />
+                My Tasks ({myTasks.length})
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent className="px-4 pb-3 space-y-1">
+            {myTasks.map((task) => {
+              const isOverdue = task.due_date && new Date(task.due_date) < new Date()
+              return (
+                <div key={task.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => toggleTask.mutate({ taskId: task.id, completed: true })}
+                    className="shrink-0 text-muted-foreground hover:text-primary"
+                  >
+                    <Circle className="h-4 w-4" />
+                  </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{task.title}</div>
+                    {task.due_date && (
+                      <div className={`text-xs ${isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
+                        Due {formatDate(task.due_date)}
+                      </div>
+                    )}
+                  </div>
+                  {task.work_item_id && (
+                    <Link href={`/work-items/${task.work_item_id}`} className="text-xs text-primary hover:underline shrink-0">
+                      View
+                    </Link>
+                  )}
+                  {!task.work_item_id && task.customer_id && (
+                    <Link href={`/customers/${task.customer_id}`} className="text-xs text-primary hover:underline shrink-0">
+                      View
+                    </Link>
+                  )}
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
       )}
 
       {/* Split View: Sales + Production */}

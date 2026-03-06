@@ -48,10 +48,16 @@ import {
   useUpdateSystemTemplate,
   type SystemTemplate,
 } from '@/lib/hooks/use-system-templates'
+import {
+  useMyEmailSignature,
+  useSaveEmailSignature,
+  useUploadSignatureLogo,
+  buildSignatureHtml,
+} from '@/lib/hooks/use-email-signature'
 import { toast } from 'sonner'
 import {
   Loader2, Check, Clock, Pause, CalendarDays,
-  Plus, Pencil, Trash2, FileText, Mail, Upload, BookOpen, Megaphone, Settings,
+  Plus, Pencil, Trash2, FileText, Mail, Upload, BookOpen, Megaphone, Settings, PenLine, Image,
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1400,6 +1406,195 @@ function BrandVoiceSection() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// Email Signature Section
+// ═══════════════════════════════════════════════════════════════════
+
+function EmailSignatureSection() {
+  const { data: signature, isLoading } = useMyEmailSignature()
+  const saveSig = useSaveEmailSignature()
+  const uploadLogo = useUploadSignatureLogo()
+
+  const [name, setName] = useState('')
+  const [title, setTitle] = useState('')
+  const [logoUrl, setLogoUrl] = useState('')
+  const [hasEdited, setHasEdited] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
+
+  // Sync from DB when loaded
+  const displayName = hasEdited ? name : (signature?.signature_name ?? '')
+  const displayTitle = hasEdited ? title : (signature?.signature_title ?? '')
+  const displayLogoUrl = hasEdited ? logoUrl : (signature?.signature_logo_url ?? '')
+
+  const previewHtml = buildSignatureHtml({
+    name: displayName,
+    title: displayTitle,
+    logoUrl: displayLogoUrl,
+  })
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Logo must be under 2MB')
+      return
+    }
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('File must be an image')
+      return
+    }
+
+    setIsUploading(true)
+    try {
+      const url = await uploadLogo.mutateAsync(file)
+      setLogoUrl(url)
+      setHasEdited(true)
+      toast.success('Logo uploaded')
+    } catch {
+      toast.error('Failed to upload logo')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleSave = () => {
+    const html = buildSignatureHtml({
+      name: displayName,
+      title: displayTitle,
+      logoUrl: displayLogoUrl,
+    })
+
+    saveSig.mutate(
+      {
+        signature_name: displayName,
+        signature_title: displayTitle,
+        signature_logo_url: displayLogoUrl,
+        email_signature_html: html,
+      },
+      {
+        onSuccess: () => {
+          toast.success('Signature saved')
+          setHasEdited(false)
+        },
+        onError: () => toast.error('Failed to save signature'),
+      }
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>My Email Signature</CardTitle>
+          <CardDescription>Loading...</CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <PenLine className="h-5 w-5" />
+            My Email Signature
+          </CardTitle>
+          <CardDescription className="mt-1">
+            Your personal signature appended to every outgoing email. All emails send from the shared mailbox — replies come back to the same place.
+          </CardDescription>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="sig-name">Display Name</Label>
+            <Input
+              id="sig-name"
+              placeholder="e.g., Sarah Johnson"
+              value={displayName}
+              onChange={(e) => { setName(e.target.value); setHasEdited(true) }}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="sig-title">Job Title</Label>
+            <Input
+              id="sig-title"
+              placeholder="e.g., Sales Manager"
+              value={displayTitle}
+              onChange={(e) => { setTitle(e.target.value); setHasEdited(true) }}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Logo</Label>
+          <div className="flex items-center gap-3">
+            {displayLogoUrl && (
+              <img
+                src={displayLogoUrl}
+                alt="Signature logo"
+                className="h-10 object-contain border rounded p-1"
+              />
+            )}
+            <div>
+              <Label htmlFor="sig-logo-upload" className="cursor-pointer">
+                <div className="inline-flex items-center gap-2 px-3 py-2 text-sm border rounded-md hover:bg-accent transition-colors">
+                  {isUploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Image className="h-4 w-4" />
+                  )}
+                  {displayLogoUrl ? 'Change Logo' : 'Upload Logo'}
+                </div>
+              </Label>
+              <Input
+                id="sig-logo-upload"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleLogoUpload}
+              />
+              <p className="text-xs text-muted-foreground mt-1">PNG or JPG, max 2MB</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Preview */}
+        {(displayName || displayTitle || displayLogoUrl) && (
+          <div className="space-y-2">
+            <Label>Preview</Label>
+            <div className="p-4 border rounded-lg bg-white text-black">
+              <p className="text-sm text-gray-500 mb-2">Hi Customer,</p>
+              <p className="text-sm text-gray-500 mb-1">Thanks for your order! We'll have an update for you shortly.</p>
+              <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={saveSig.isPending || (!hasEdited && !!(signature?.email_signature_html))}
+          >
+            {saveSig.isPending ? (
+              <><Loader2 className="h-4 w-4 animate-spin mr-2" />Saving...</>
+            ) : (
+              'Save Signature'
+            )}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Settings Page
 // ═══════════════════════════════════════════════════════════════════
 
@@ -1433,6 +1628,9 @@ export default function SettingsPage() {
           </CardHeader>
         </Card>
       </div>
+
+      {/* Email Signature */}
+      <EmailSignatureSection />
 
       {/* Email Templates — full section */}
       <EmailTemplatesSection />

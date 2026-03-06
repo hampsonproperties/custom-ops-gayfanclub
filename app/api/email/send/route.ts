@@ -42,6 +42,24 @@ export async function POST(request: NextRequest) {
 
     const mailboxEmail = process.env.MICROSOFT_MAILBOX_EMAIL || 'sales@thegayfanclub.com'
 
+    // Fetch user's email signature
+    let signatureHtml = ''
+    try {
+      const { data: userData } = await supabase
+        .from('users')
+        .select('email_signature_html')
+        .eq('id', user.id)
+        .single()
+      if (userData?.email_signature_html) {
+        signatureHtml = userData.email_signature_html
+      }
+    } catch (sigError) {
+      log.warn('Failed to fetch user signature, sending without', { error: sigError })
+    }
+
+    // Build HTML body: convert newlines to <br>, then append signature
+    const bodyHtml = `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#333;">${body.replace(/\n/g, '<br>')}</div>${signatureHtml}`
+
     // Build recipients
     const toRecipients = [{ emailAddress: { address: to } }]
     const ccRecipients = cc && cc.length > 0
@@ -52,8 +70,8 @@ export async function POST(request: NextRequest) {
     const message: any = {
       subject,
       body: {
-        contentType: 'Text',
-        content: body,
+        contentType: 'HTML',
+        content: bodyHtml,
       },
       toRecipients,
       ccRecipients,
@@ -105,7 +123,7 @@ export async function POST(request: NextRequest) {
       from_email: mailboxEmail,
       to_emails: [to, ...(cc || [])],
       subject,
-      body_html: body.replace(/\n/g, '<br>'),
+      body_html: bodyHtml,
       body_preview: subject,
       sent_at: new Date().toISOString(),
       triage_status: 'triaged',

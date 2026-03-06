@@ -64,9 +64,9 @@ export function MobileBottomNav() {
           </Link>
 
           {/* Alerts */}
-          <Link href="/inbox/my-inbox" className="flex-1">
+          <Link href="/alerts" className="flex-1">
             <Button
-              variant="ghost"
+              variant={isActive('/alerts') ? 'secondary' : 'ghost'}
               size="sm"
               className="w-full flex flex-col items-center gap-1 h-14 relative"
             >

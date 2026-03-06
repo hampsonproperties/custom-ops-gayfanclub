@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Dialog,
@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { Loader2, Plus } from 'lucide-react'
+import { Loader2, Plus, ChevronsUpDown, Check, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useQuery } from '@tanstack/react-query'
 import { logger } from '@/lib/logger'
@@ -32,18 +32,23 @@ const log = logger('create-project-dialog')
 
 interface CreateProjectDialogProps {
   trigger?: React.ReactNode
+  defaultOpen?: boolean
   customerId?: string
   onProjectCreated?: (projectId: string) => void
 }
 
 export function CreateProjectDialog({
   trigger,
+  defaultOpen = false,
   customerId: initialCustomerId,
   onProjectCreated
 }: CreateProjectDialogProps) {
   const router = useRouter()
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(defaultOpen)
   const [isCreating, setIsCreating] = useState(false)
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [showCustomerList, setShowCustomerList] = useState(false)
+  const customerSearchRef = useRef<HTMLInputElement>(null)
 
   const [formData, setFormData] = useState({
     customer_id: initialCustomerId || '',
@@ -69,6 +74,21 @@ export function CreateProjectDialog({
     },
     enabled: !initialCustomerId, // Only fetch if customer not pre-selected
   })
+
+  const getCustomerLabel = (c: { display_name: string | null; first_name: string | null; last_name: string | null; email: string }) =>
+    c.display_name || `${c.first_name || ''} ${c.last_name || ''}`.trim() || c.email
+
+  const filteredCustomers = useMemo(() => {
+    if (!customers) return []
+    if (!customerSearch.trim()) return customers
+    const q = customerSearch.toLowerCase()
+    return customers.filter((c) => {
+      const label = getCustomerLabel(c).toLowerCase()
+      return label.includes(q) || c.email.toLowerCase().includes(q)
+    })
+  }, [customers, customerSearch])
+
+  const selectedCustomer = customers?.find((c) => c.id === formData.customer_id)
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -183,24 +203,64 @@ export function CreateProjectDialog({
             {/* Customer Selection (if not pre-filled) */}
             {!initialCustomerId && (
               <div className="space-y-2">
-                <Label htmlFor="customer">Customer *</Label>
-                <Select
-                  value={formData.customer_id}
-                  onValueChange={(value) => handleChange('customer_id', value)}
-                >
-                  <SelectTrigger id="customer">
-                    <SelectValue placeholder="Select a customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {customers?.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.display_name ||
-                         `${customer.first_name || ''} ${customer.last_name || ''}`.trim() ||
-                         customer.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Customer *</Label>
+                <div className="relative">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      ref={customerSearchRef}
+                      placeholder={selectedCustomer ? getCustomerLabel(selectedCustomer) : 'Search customers...'}
+                      value={customerSearch}
+                      onChange={(e) => {
+                        setCustomerSearch(e.target.value)
+                        setShowCustomerList(true)
+                      }}
+                      onFocus={() => setShowCustomerList(true)}
+                      className={`pl-9 ${selectedCustomer && !customerSearch ? 'text-foreground' : ''}`}
+                    />
+                  </div>
+                  {showCustomerList && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowCustomerList(false)} />
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-popover border rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                        {filteredCustomers.length === 0 ? (
+                          <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+                            No customers found
+                          </div>
+                        ) : (
+                          filteredCustomers.map((customer) => (
+                            <button
+                              key={customer.id}
+                              type="button"
+                              className={`w-full text-left px-3 py-2 hover:bg-accent transition-colors flex items-center gap-2 ${
+                                formData.customer_id === customer.id ? 'bg-accent' : ''
+                              }`}
+                              onMouseDown={(e) => {
+                                e.preventDefault()
+                                handleChange('customer_id', customer.id)
+                                setCustomerSearch('')
+                                setShowCustomerList(false)
+                              }}
+                            >
+                              {formData.customer_id === customer.id && (
+                                <Check className="h-3.5 w-3.5 shrink-0 text-primary" />
+                              )}
+                              <div className="min-w-0">
+                                <div className="font-medium text-sm truncate">{getCustomerLabel(customer)}</div>
+                                <div className="text-xs text-muted-foreground truncate">{customer.email}</div>
+                              </div>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+                {selectedCustomer && (
+                  <p className="text-xs text-muted-foreground">
+                    Selected: {getCustomerLabel(selectedCustomer)} ({selectedCustomer.email})
+                  </p>
+                )}
               </div>
             )}
 

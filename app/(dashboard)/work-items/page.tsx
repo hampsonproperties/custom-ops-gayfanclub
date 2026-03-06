@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -54,6 +55,9 @@ const log = logger('work-items')
 
 export default function WorkItemsPage() {
   const queryClient = useQueryClient()
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const shouldOpenNew = searchParams.get('new') === 'true'
   const [searchInput, setSearchInput] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [viewMode, setViewMode] = useState<'table' | 'pipeline'>('table')
@@ -411,7 +415,9 @@ export default function WorkItemsPage() {
           </p>
         </div>
         <CreateProjectDialog
+          defaultOpen={shouldOpenNew}
           onProjectCreated={() => {
+            if (shouldOpenNew) router.replace('/work-items')
             queryClient.invalidateQueries({ queryKey: ['work-items'] })
           }}
           trigger={

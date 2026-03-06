@@ -56,6 +56,34 @@ export function useTasks({ workItemId, customerId }: UseTasksOptions) {
   })
 }
 
+export function useMyTasks() {
+  const supabase = createClient()
+
+  return useQuery({
+    queryKey: ['tasks', 'my-tasks'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return []
+
+      const { data, error } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          assigned_to:users!tasks_assigned_to_user_id_fkey(id, full_name, email),
+          created_by:users!tasks_created_by_user_id_fkey(full_name)
+        `)
+        .eq('assigned_to_user_id', user.id)
+        .is('completed_at', null)
+        .order('due_date', { ascending: true, nullsFirst: false })
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      if (error) throw error
+      return data as Task[]
+    },
+  })
+}
+
 export function useCreateTask() {
   const queryClient = useQueryClient()
   const supabase = createClient()

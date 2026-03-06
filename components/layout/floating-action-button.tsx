@@ -1,18 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { Plus, Users, FolderKanban, Mail, X } from 'lucide-react'
+import { Plus, Users, FolderKanban, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-
 export function FloatingActionButton() {
-  const [isOpen, setIsOpen] = useState(false)
   const [showOptions, setShowOptions] = useState(false)
   const router = useRouter()
 
@@ -34,15 +26,6 @@ export function FloatingActionButton() {
         setShowOptions(false)
       },
       color: 'bg-green-500 hover:bg-green-600',
-    },
-    {
-      label: 'Compose Email',
-      icon: Mail,
-      action: () => {
-        router.push('/inbox/my-inbox')
-        setShowOptions(false)
-      },
-      color: 'bg-purple-500 hover:bg-purple-600',
     },
   ]
 

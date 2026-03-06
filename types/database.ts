@@ -2142,28 +2142,40 @@ export type Database = {
         Row: {
           created_at: string | null
           email: string
+          email_signature_html: string | null
           full_name: string | null
           id: string
           is_active: boolean | null
           role_id: string | null
+          signature_logo_url: string | null
+          signature_name: string | null
+          signature_title: string | null
           updated_at: string | null
         }
         Insert: {
           created_at?: string | null
           email: string
+          email_signature_html?: string | null
           full_name?: string | null
           id: string
           is_active?: boolean | null
           role_id?: string | null
+          signature_logo_url?: string | null
+          signature_name?: string | null
+          signature_title?: string | null
           updated_at?: string | null
         }
         Update: {
           created_at?: string | null
           email?: string
+          email_signature_html?: string | null
           full_name?: string | null
           id?: string
           is_active?: boolean | null
           role_id?: string | null
+          signature_logo_url?: string | null
+          signature_name?: string | null
+          signature_title?: string | null
           updated_at?: string | null
         }
         Relationships: [
