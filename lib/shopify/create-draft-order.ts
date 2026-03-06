@@ -4,7 +4,7 @@
  */
 
 import { getShopifyCredentials } from './get-credentials'
-import { SHOPIFY_API_VERSION } from '@/lib/config'
+import { SHOPIFY_API_VERSION, DESIGN_FEE_AMOUNT } from '@/lib/config'
 import { logger } from '@/lib/logger'
 
 const log = logger('shopify-draft-order')
@@ -196,7 +196,7 @@ export async function createDesignFeeInvoice(
     lineItems: [
       {
         title: 'Custom Design Service Fee',
-        price: '250.00',
+        price: DESIGN_FEE_AMOUNT.toFixed(2),
         quantity: 1,
         taxable: false,
       },

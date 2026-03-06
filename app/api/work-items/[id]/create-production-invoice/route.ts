@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createProductionInvoice } from '@/lib/shopify/create-draft-order'
+import { DESIGN_FEE_AMOUNT } from '@/lib/config'
 import { validateBody, validateParams } from '@/lib/api/validate'
 import { createInvoiceBody, idParams } from '@/lib/api/schemas'
 import { notFound, badRequest, serverError } from '@/lib/api/errors'
@@ -51,7 +52,7 @@ export async function POST(
     }
 
     // Apply design fee credit if applicable
-    const designFeeCredit = workItem.design_fee_order_id ? 250 : 0
+    const designFeeCredit = workItem.design_fee_order_id ? DESIGN_FEE_AMOUNT : 0
 
     // Create Shopify draft order
     const result = await createProductionInvoice(

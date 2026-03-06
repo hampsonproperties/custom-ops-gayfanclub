@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
 
   const clientId = process.env.SHOPIFY_API_KEY!
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/shopify/callback`
-  const scopes = 'read_orders,read_products'
+  const scopes = 'read_orders,read_products,read_customers,write_customers,write_draft_orders'
 
   // Generate random state for CSRF protection
   const state = crypto.randomBytes(16).toString('hex')

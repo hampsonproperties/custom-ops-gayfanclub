@@ -49,7 +49,7 @@ export function getShopifyClient() {
     shopifyInstance = shopifyApi({
       apiKey: env.apiKey,
       apiSecretKey: env.apiSecret,
-      scopes: ['read_orders', 'read_customers'],
+      scopes: ['read_orders', 'read_products', 'read_customers', 'write_customers', 'write_draft_orders'],
       hostName: env.shopDomain.replace('https://', '').replace('http://', ''),
       apiVersion: ApiVersion.January26,
       isEmbeddedApp: false,

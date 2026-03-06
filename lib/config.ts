@@ -10,6 +10,9 @@
 /** Shopify REST Admin API version used for manual fetch() calls */
 export const SHOPIFY_API_VERSION = '2026-01'
 
+/** Design fee charged for the first proof (in dollars) */
+export const DESIGN_FEE_AMOUNT = 35
+
 // ── Email lookback windows ──
 
 /** Days to look back when auto-linking emails to a new work item */

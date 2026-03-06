@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Database } from '@/types/database'
+import { DESIGN_FEE_AMOUNT } from '@/lib/config'
 
 type WorkItem = Database['public']['Tables']['work_items']['Row'] & {
   estimated_value?: number | null
@@ -158,7 +159,7 @@ export function InvoiceManager({ workItem }: InvoiceManagerProps) {
               </div>
             </div>
 
-            <div className="text-4xl font-bold">$250</div>
+            <div className="text-4xl font-bold">${DESIGN_FEE_AMOUNT}</div>
 
             <p className="text-sm text-muted-foreground">
               {workItem.design_fee_order_number
@@ -244,7 +245,7 @@ export function InvoiceManager({ workItem }: InvoiceManagerProps) {
                 </div>
                 {workItem.design_fee_order_id && !workItem.shopify_draft_order_id && (
                   <p className="text-xs text-green-600 dark:text-green-400 font-medium">
-                    Includes $250 design fee credit
+                    Includes ${DESIGN_FEE_AMOUNT} design fee credit
                   </p>
                 )}
               </>

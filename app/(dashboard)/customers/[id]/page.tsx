@@ -35,7 +35,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow, format } from 'date-fns'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -539,6 +539,43 @@ export default function CustomerProfilePage() {
   const queryClient = useQueryClient()
   const { data: profileData, isLoading } = useCustomerProfile(customerId)
   const { data: allUsers } = useAllUsers()
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setCurrentUserId(user.id)
+    })
+  }, [])
+
+  const handleClaimCustomer = async () => {
+    if (!currentUserId) return
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('customers')
+      .update({ assigned_to_user_id: currentUserId })
+      .eq('id', customerId)
+    if (error) {
+      toast.error('Failed to claim customer')
+      return
+    }
+    toast.success('Customer claimed')
+    queryClient.invalidateQueries({ queryKey: ['customer-profile', customerId] })
+  }
+
+  const handleReassignCustomer = async (userId: string) => {
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('customers')
+      .update({ assigned_to_user_id: userId })
+      .eq('id', customerId)
+    if (error) {
+      toast.error('Failed to reassign customer')
+      return
+    }
+    toast.success('Customer reassigned')
+    queryClient.invalidateQueries({ queryKey: ['customer-profile', customerId] })
+  }
 
   // Fetch alternative contacts
   const { data: alternativeContacts } = useQuery({
@@ -592,6 +629,10 @@ export default function CustomerProfilePage() {
   }
 
   const { customer, projects, conversations, stats } = profileData
+
+  // Show Shopify tab only if customer has a Shopify connection
+  const hasShopifyConnection = !!customer.shopify_customer_id ||
+    projects.some((p: any) => !!p.shopify_order_number)
 
   return (
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
@@ -648,15 +689,34 @@ export default function CustomerProfilePage() {
             </div>
 
             {/* Assigned To */}
-            {(customer as any).assigned_to_user_id && (
-              <div className="flex items-center gap-2 mt-2 text-sm">
-                <UserCircle className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground">Assigned to:</span>
-                <span className="font-medium">
-                  {allUsers?.find((u) => u.id === (customer as any).assigned_to_user_id)?.full_name || 'Unassigned'}
-                </span>
-              </div>
-            )}
+            <div className="flex items-center gap-2 mt-2 text-sm">
+              <UserCircle className="h-4 w-4 text-muted-foreground" />
+              {(customer as any).assigned_to_user_id ? (
+                <>
+                  <span className="text-muted-foreground">Assigned to:</span>
+                  <span className="font-medium">
+                    {allUsers?.find((u) => u.id === (customer as any).assigned_to_user_id)?.full_name || 'Unknown'}
+                  </span>
+                  <select
+                    className="ml-2 text-xs border rounded px-1.5 py-0.5 bg-background text-foreground"
+                    value={(customer as any).assigned_to_user_id}
+                    onChange={(e) => handleReassignCustomer(e.target.value)}
+                  >
+                    {allUsers?.map((u) => (
+                      <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
+                    ))}
+                  </select>
+                </>
+              ) : (
+                <>
+                  <span className="text-muted-foreground">Unassigned</span>
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1 ml-1" onClick={handleClaimCustomer}>
+                    <User className="h-3 w-3" />
+                    Claim
+                  </Button>
+                </>
+              )}
+            </div>
 
             {/* Alternative Contacts */}
             {alternativeContacts && alternativeContacts.length > 0 && (
@@ -800,10 +860,12 @@ export default function CustomerProfilePage() {
                 <MessageSquare className="h-4 w-4 flex-shrink-0" />
                 <span className="truncate">Activity</span>
               </TabsTrigger>
-              <TabsTrigger value="shopify" className="gap-1.5 sm:gap-2 flex-1 min-w-[85px] sm:min-w-[100px] h-10 sm:h-11 text-sm">
-                <ShoppingBag className="h-4 w-4 flex-shrink-0" />
-                <span className="truncate">Shopify</span>
-              </TabsTrigger>
+              {hasShopifyConnection && (
+                <TabsTrigger value="shopify" className="gap-1.5 sm:gap-2 flex-1 min-w-[85px] sm:min-w-[100px] h-10 sm:h-11 text-sm">
+                  <ShoppingBag className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">Shopify</span>
+                </TabsTrigger>
+              )}
               <TabsTrigger value="files" className="gap-1.5 sm:gap-2 flex-1 min-w-[85px] sm:min-w-[100px] h-10 sm:h-11 text-sm">
                 <FileText className="h-4 w-4 flex-shrink-0" />
                 <span className="truncate">Files</span>
@@ -956,12 +1018,14 @@ export default function CustomerProfilePage() {
             </TabsContent>
 
             {/* Shopify Orders Tab */}
-            <TabsContent value="shopify">
-              <ShopifyOrdersTab
-                customerId={customerId}
-                customerEmail={customer.email}
-              />
-            </TabsContent>
+            {hasShopifyConnection && (
+              <TabsContent value="shopify">
+                <ShopifyOrdersTab
+                  customerId={customerId}
+                  customerEmail={customer.email}
+                />
+              </TabsContent>
+            )}
 
             {/* Files Tab */}
             <TabsContent value="files">
