@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { ChangeStatusDialog } from '@/components/work-items/change-status-dialog'
 import { CloseLeadDialog } from '@/components/work-items/close-lead-dialog'
@@ -21,7 +22,7 @@ import { useCommunications } from '@/lib/hooks/use-communications'
 import { useFiles, useUploadFile, useDeleteFile, getFileUrl } from '@/lib/hooks/use-files'
 import { useTimeline, useToggleTimelineStar } from '@/lib/hooks/use-timeline'
 import { useCreateNote } from '@/lib/hooks/use-notes'
-import { ArrowLeft, Mail, FileText, Upload, File as FileIcon, Trash2, Download, Image as ImageIcon, Clock, CheckCircle, Activity, ExternalLink, Phone, Building2, Calendar, DollarSign, User } from 'lucide-react'
+import { ArrowLeft, Mail, FileText, Upload, File as FileIcon, Trash2, Download, Image as ImageIcon, Clock, CheckCircle, Activity, ExternalLink, Phone, Building2, Calendar, DollarSign, User, ChevronDown } from 'lucide-react'
 import type { Database } from '@/types/database'
 import { InternalNotes } from '@/components/work-items/internal-notes'
 import { AssignmentManager } from '@/components/work-items/assignment-manager'
@@ -33,6 +34,17 @@ import { InvoiceManager } from '@/components/work-items/invoice-manager'
 import { EnhancedTimeline } from '@/components/timeline/enhanced-timeline'
 import { Breadcrumbs } from '@/components/ui/breadcrumbs'
 import { SummaryPanel } from '@/components/ai/summary-panel'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { getValidStatusesForWorkItem, getStatusLabel } from '@/lib/utils/status-transitions'
+import type { WorkItemType, WorkItemStatus } from '@/types/database'
+import { createClient } from '@/lib/supabase/client'
+import { useQueryClient } from '@tanstack/react-query'
 
 type FileRecord = Database['public']['Tables']['files']['Row']
 import { formatDistanceToNow } from 'date-fns'
@@ -78,6 +90,23 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
   const [showStatusDialog, setShowStatusDialog] = useState(false)
   const [showApprovalDialog, setShowApprovalDialog] = useState(false)
   const [showCloseDialog, setShowCloseDialog] = useState(false)
+  const queryClient = useQueryClient()
+
+  const handleDirectStatusChange = async (newStatus: string) => {
+    if (!newStatus || newStatus === workItem?.status) return
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('work_items')
+      .update({ status: newStatus })
+      .eq('id', id)
+    if (error) {
+      toast.error('Failed to update status')
+      return
+    }
+    toast.success(`Status moved to ${getStatusLabel(newStatus as WorkItemStatus)}`)
+    queryClient.invalidateQueries({ queryKey: ['work-item', id] })
+    queryClient.invalidateQueries({ queryKey: ['work-items'] })
+  }
 
 
   const handleUploadFile = async () => {
@@ -205,6 +234,19 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">Status:</span>
                 <StatusBadge status={workItem.status} />
+                <Select onValueChange={handleDirectStatusChange}>
+                  <SelectTrigger className="h-7 w-auto gap-1 text-xs px-2 border-dashed">
+                    <span>Move to...</span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getValidStatusesForWorkItem(workItem.type as WorkItemType).map((s) => (
+                      <SelectItem key={s} value={s} disabled={s === workItem.status}>
+                        {getStatusLabel(s)}
+                        {s === workItem.status ? ' (Current)' : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {workItem.next_follow_up_at && (
@@ -400,6 +442,31 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
                 <div>
                   <label className="text-sm font-medium text-muted-foreground mb-2 block">Tags</label>
                   <TagManager workItemId={id} />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground block">Suppress Drip Emails</label>
+                    <p className="text-xs text-muted-foreground mt-0.5">When on, automated drip emails are skipped for this project</p>
+                  </div>
+                  <Switch
+                    checked={workItem.suppress_drip_emails ?? false}
+                    onCheckedChange={async (checked) => {
+                      const supabase = createClient()
+                      const { error } = await supabase
+                        .from('work_items')
+                        .update({ suppress_drip_emails: checked })
+                        .eq('id', id)
+                      if (error) {
+                        toast.error('Failed to update drip email setting')
+                        return
+                      }
+                      toast.success(checked ? 'Drip emails suppressed' : 'Drip emails enabled')
+                      queryClient.invalidateQueries({ queryKey: ['work-item', id] })
+                    }}
+                  />
                 </div>
               </CardContent>
             </Card>

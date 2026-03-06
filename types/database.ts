@@ -2591,6 +2591,7 @@ export type Database = {
           shopify_order_number: string | null
           source: string
           status: string
+          suppress_drip_emails: boolean
           title: string | null
           type: string
           updated_at: string | null
@@ -2646,6 +2647,7 @@ export type Database = {
           shopify_order_number?: string | null
           source: string
           status: string
+          suppress_drip_emails?: boolean
           title?: string | null
           type: string
           updated_at?: string | null
@@ -2701,6 +2703,7 @@ export type Database = {
           shopify_order_number?: string | null
           source?: string
           status?: string
+          suppress_drip_emails?: boolean
           title?: string | null
           type?: string
           updated_at?: string | null
@@ -2971,6 +2974,7 @@ export type Database = {
           shopify_order_number: string | null
           source: string | null
           status: string | null
+          suppress_drip_emails: boolean | null
           tag_colors: string[] | null
           tag_names: string[] | null
           title: string | null
@@ -3077,6 +3081,7 @@ export type Database = {
           shopify_order_number: string | null
           source: string | null
           status: string | null
+          suppress_drip_emails: boolean | null
           tag_colors: string[] | null
           tag_names: string[] | null
           title: string | null

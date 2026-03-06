@@ -225,7 +225,24 @@ async function queueDripEmail(
 
   let totalQueued = 0
 
+  // Fetch suppress_drip_emails flag for all work items in this batch
+  const workItemIds = batchItems.map((item: any) => item.work_item_id)
+  const { data: workItems } = await supabase
+    .from('work_items')
+    .select('id, suppress_drip_emails')
+    .in('id', workItemIds)
+
+  const suppressedIds = new Set(
+    (workItems || []).filter((wi: any) => wi.suppress_drip_emails).map((wi: any) => wi.id)
+  )
+
   for (const item of batchItems) {
+    // Skip work items with drip emails suppressed
+    if (suppressedIds.has(item.work_item_id)) {
+      log.info('Skipping suppressed work item', { workItemId: item.work_item_id, batchId: batch.id })
+      continue
+    }
+
     // queueBatchEmailsForWorkItem handles:
     // - Looking up customer email + alternates
     // - Dedup checking (already queued/sent)

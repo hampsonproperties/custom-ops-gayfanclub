@@ -50,7 +50,7 @@ export function CreateCustomerDialog({
     last_name: '',
     phone: '',
     organization_name: '',
-    assigned_to_user_id: '',
+    assigned_to_user_id: 'none',
     sales_stage: 'new_lead',
   })
 
@@ -128,7 +128,7 @@ export function CreateCustomerDialog({
         customerData.organization_name = formData.organization_name.trim()
       }
 
-      if (formData.assigned_to_user_id) {
+      if (formData.assigned_to_user_id && formData.assigned_to_user_id !== 'none') {
         customerData.assigned_to_user_id = formData.assigned_to_user_id
       }
 
@@ -158,7 +158,7 @@ export function CreateCustomerDialog({
         last_name: '',
         phone: '',
         organization_name: '',
-        assigned_to_user_id: '',
+        assigned_to_user_id: 'none',
         sales_stage: 'new_lead',
       })
 
@@ -266,7 +266,7 @@ export function CreateCustomerDialog({
                   <SelectValue placeholder="Select team member (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="none">Unassigned</SelectItem>
                   {users?.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.full_name || user.email}

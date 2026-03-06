@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
+import Link from 'next/link'
 
 export default function CustomifyOrdersPage() {
   const { data: orders, isLoading } = useDesignReviewQueue()
@@ -265,16 +266,19 @@ export default function CustomifyOrdersPage() {
 
                     {/* Quick Actions */}
                     <div className="flex-shrink-0 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
-                      {order.design_download_url && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-2"
-                          onClick={() => window.open(order.design_download_url!, '_blank')}
-                        >
+                      <Link href={`/work-items/${order.id}`}>
+                        <Button variant="outline" size="sm" className="gap-2 w-full">
                           <ExternalLink className="h-4 w-4" />
-                          View Full
+                          Project
                         </Button>
+                      </Link>
+                      {order.customer_id && (
+                        <Link href={`/customers/${order.customer_id}`}>
+                          <Button variant="outline" size="sm" className="gap-2 w-full">
+                            <ExternalLink className="h-4 w-4" />
+                            Customer
+                          </Button>
+                        </Link>
                       )}
                     </div>
                   </div>
@@ -292,7 +296,22 @@ export default function CustomifyOrdersPage() {
             <>
               <DialogHeader>
                 <DialogTitle>Review: {selectedOrderData.title || selectedOrderData.customer_name}</DialogTitle>
-                <DialogDescription>Complete the checklist, then approve or request a fix</DialogDescription>
+                <DialogDescription className="flex items-center gap-3">
+                  <span>Complete the checklist, then approve or request a fix</span>
+                  <span className="flex items-center gap-2">
+                    <Link href={`/work-items/${selectedOrderData.id}`} className="text-primary hover:underline text-xs font-medium">
+                      View Project
+                    </Link>
+                    {selectedOrderData.customer_id && (
+                      <>
+                        <span className="text-muted-foreground">|</span>
+                        <Link href={`/customers/${selectedOrderData.customer_id}`} className="text-primary hover:underline text-xs font-medium">
+                          View Customer
+                        </Link>
+                      </>
+                    )}
+                  </span>
+                </DialogDescription>
               </DialogHeader>
 
               {/* Design files in dialog */}
