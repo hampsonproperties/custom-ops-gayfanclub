@@ -1377,6 +1377,51 @@ export type Database = {
           },
         ]
       }
+      reference_docs: {
+        Row: {
+          id: string
+          name: string
+          category: string
+          original_filename: string
+          storage_path: string
+          mime_type: string | null
+          size_bytes: number | null
+          content_text: string | null
+          is_active: boolean
+          uploaded_by_user_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          category?: string
+          original_filename: string
+          storage_path: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          content_text?: string | null
+          is_active?: boolean
+          uploaded_by_user_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          category?: string
+          original_filename?: string
+          storage_path?: string
+          mime_type?: string | null
+          size_bytes?: number | null
+          content_text?: string | null
+          is_active?: boolean
+          uploaded_by_user_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       quick_reply_templates: {
         Row: {
           attachment_urls: string[] | null

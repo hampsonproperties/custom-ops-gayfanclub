@@ -35,10 +35,17 @@ import {
   useDeleteTemplate,
   type QuickReplyTemplate,
 } from '@/lib/hooks/use-templates'
+import {
+  useReferenceDocs,
+  useUploadReferenceDoc,
+  useToggleReferenceDoc,
+  useDeleteReferenceDoc,
+  type ReferenceDoc,
+} from '@/lib/hooks/use-reference-docs'
 import { toast } from 'sonner'
 import {
   Loader2, Check, Clock, Pause, CalendarDays,
-  Plus, Pencil, Trash2, FileText, Mail,
+  Plus, Pencil, Trash2, FileText, Mail, Upload, BookOpen,
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════════════
@@ -695,6 +702,267 @@ function EmailTemplatesSection() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// AI Reference Documents Section
+// ═══════════════════════════════════════════════════════════════════
+
+const DOC_CATEGORIES = [
+  { value: 'pricing', label: 'Pricing' },
+  { value: 'policies', label: 'Policies' },
+  { value: 'faqs', label: 'FAQs' },
+  { value: 'general', label: 'General' },
+]
+
+function ReferenceDocsSection() {
+  const { data: docs, isLoading, error } = useReferenceDocs()
+  const uploadDoc = useUploadReferenceDoc()
+  const toggleDoc = useToggleReferenceDoc()
+  const deleteDoc = useDeleteReferenceDoc()
+
+  const [showUpload, setShowUpload] = useState(false)
+  const [uploadName, setUploadName] = useState('')
+  const [uploadCategory, setUploadCategory] = useState('general')
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+
+  const handleUpload = async () => {
+    if (!uploadFile) {
+      toast.error('Please select a file')
+      return
+    }
+    if (!uploadName.trim()) {
+      toast.error('Please enter a name for this document')
+      return
+    }
+
+    uploadDoc.mutate(
+      { file: uploadFile, name: uploadName.trim(), category: uploadCategory },
+      {
+        onSuccess: () => {
+          toast.success(`"${uploadName}" uploaded successfully`)
+          setShowUpload(false)
+          setUploadName('')
+          setUploadCategory('general')
+          setUploadFile(null)
+        },
+        onError: (err) => toast.error(err instanceof Error ? err.message : 'Failed to upload document'),
+      }
+    )
+  }
+
+  const handleDelete = (doc: ReferenceDoc) => {
+    deleteDoc.mutate(
+      { id: doc.id, storagePath: doc.storage_path },
+      {
+        onSuccess: () => {
+          toast.success(`"${doc.name}" removed`)
+          setConfirmDelete(null)
+        },
+        onError: () => toast.error('Failed to remove document'),
+      }
+    )
+  }
+
+  const handleToggle = (doc: ReferenceDoc) => {
+    toggleDoc.mutate(
+      { id: doc.id, isActive: !doc.is_active },
+      {
+        onSuccess: () => toast.success(`"${doc.name}" ${doc.is_active ? 'deactivated' : 'activated'}`),
+        onError: () => toast.error('Failed to update document'),
+      }
+    )
+  }
+
+  const formatFileSize = (bytes: number | null) => {
+    if (!bytes) return ''
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>AI Reference Documents</CardTitle>
+          <CardDescription>Loading documents...</CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>AI Reference Documents</CardTitle>
+          <CardDescription className="text-destructive">Failed to load documents</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5" />
+              AI Reference Documents
+            </CardTitle>
+            <CardDescription className="mt-1">
+              Upload price sheets, FAQs, and policies. The AI uses these when suggesting email replies.
+            </CardDescription>
+          </div>
+          <Button
+            size="sm"
+            className="gap-2"
+            onClick={() => setShowUpload(!showUpload)}
+          >
+            <Upload className="h-4 w-4" />
+            Upload
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Upload Form */}
+        {showUpload && (
+          <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="doc-name">Document Name *</Label>
+                <Input
+                  id="doc-name"
+                  placeholder="e.g. 2026 Price Sheet"
+                  value={uploadName}
+                  onChange={(e) => setUploadName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="doc-category">Category</Label>
+                <Select value={uploadCategory} onValueChange={setUploadCategory}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DOC_CATEGORIES.map((cat) => (
+                      <SelectItem key={cat.value} value={cat.value}>
+                        {cat.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="doc-file">File (PDF or text) *</Label>
+              <Input
+                id="doc-file"
+                type="file"
+                accept=".pdf,.txt,.md,text/plain,text/markdown,application/pdf"
+                onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+              />
+              <p className="text-xs text-muted-foreground">
+                PDF text is extracted automatically so the AI can read it. Plain text and Markdown files work too.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" size="sm" onClick={() => { setShowUpload(false); setUploadFile(null); setUploadName('') }}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleUpload} disabled={uploadDoc.isPending || !uploadFile || !uploadName.trim()}>
+                {uploadDoc.isPending ? (
+                  <><Loader2 className="h-4 w-4 animate-spin mr-2" />Uploading...</>
+                ) : (
+                  <><Upload className="h-4 w-4 mr-2" />Upload Document</>
+                )}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Document List */}
+        {!docs || docs.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-20" />
+            <p>No reference documents yet. Upload price sheets, FAQs, or policies to help the AI write better replies.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {docs.map((doc) => (
+              <div
+                key={doc.id}
+                className={`flex items-center gap-3 p-3 rounded-lg border ${!doc.is_active ? 'opacity-50 bg-muted/30' : ''}`}
+              >
+                <FileText className="h-5 w-5 text-muted-foreground shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm">{doc.name}</span>
+                    <Badge variant="outline" className="text-xs">
+                      {DOC_CATEGORIES.find((c) => c.value === doc.category)?.label || doc.category}
+                    </Badge>
+                    {doc.content_text && (
+                      <Badge variant="secondary" className="text-xs">
+                        AI-readable
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {doc.original_filename}
+                    {doc.size_bytes ? ` · ${formatFileSize(doc.size_bytes)}` : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-1.5">
+                    <Switch
+                      id={`doc-active-${doc.id}`}
+                      checked={doc.is_active}
+                      onCheckedChange={() => handleToggle(doc)}
+                      className="scale-75"
+                    />
+                    <Label htmlFor={`doc-active-${doc.id}`} className="text-xs text-muted-foreground cursor-pointer">
+                      Active
+                    </Label>
+                  </div>
+                  {confirmDelete === doc.id ? (
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="h-8 text-xs px-2"
+                        onClick={() => handleDelete(doc)}
+                        disabled={deleteDoc.isPending}
+                      >
+                        {deleteDoc.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Remove'}
+                      </Button>
+                      <Button variant="ghost" size="sm" className="h-8 text-xs px-2" onClick={() => setConfirmDelete(null)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => setConfirmDelete(doc.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Settings Page
 // ═══════════════════════════════════════════════════════════════════
 
@@ -731,6 +999,9 @@ export default function SettingsPage() {
 
       {/* Email Templates — full section */}
       <EmailTemplatesSection />
+
+      {/* AI Reference Documents */}
+      <ReferenceDocsSection />
 
       {/* Follow-Up Rules — full section */}
       <FollowUpRulesSection />

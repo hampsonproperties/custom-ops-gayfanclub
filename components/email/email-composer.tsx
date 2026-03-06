@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
-import { Loader2, Mail, X, Sparkles } from 'lucide-react'
+import { Loader2, Mail, X, Sparkles, MessageSquareReply } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { logger } from '@/lib/logger'
 
@@ -56,6 +56,7 @@ export function EmailComposer({
   const [ccEmails, setCcEmails] = useState<string[]>([])
   const [isSending, setIsSending] = useState(false)
   const [isPolishing, setIsPolishing] = useState(false)
+  const [isSuggesting, setIsSuggesting] = useState(false)
 
   const handleCcToggle = (email: string, checked: boolean) => {
     if (checked) {
@@ -89,6 +90,33 @@ export function EmailComposer({
       toast.error(error.message || 'Failed to polish email')
     } finally {
       setIsPolishing(false)
+    }
+  }
+
+  const handleSuggestReply = async () => {
+    setIsSuggesting(true)
+    try {
+      const payload: Record<string, string> = {}
+      if (projectId) payload.workItemId = projectId
+      else if (customerId) payload.customerId = customerId
+      const response = await fetch('/api/ai/suggest-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to generate suggested reply')
+      }
+      const { reply, subject: suggestedSubject } = await response.json()
+      setBody(reply)
+      if (suggestedSubject && !subject) setSubject(suggestedSubject)
+      toast.success('AI reply loaded — review and edit before sending')
+    } catch (error: any) {
+      log.error('Suggest reply error', { error })
+      toast.error(error.message || 'Failed to generate suggestion')
+    } finally {
+      setIsSuggesting(false)
     }
   }
 
@@ -265,18 +293,28 @@ export function EmailComposer({
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={handleCancel} disabled={isSending || isPolishing}>
+          <Button variant="outline" onClick={handleCancel} disabled={isSending || isPolishing || isSuggesting}>
             Cancel
           </Button>
+          {(customerId || projectId) && (
+            <Button
+              variant="outline"
+              onClick={handleSuggestReply}
+              disabled={isSending || isPolishing || isSuggesting}
+            >
+              {isSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MessageSquareReply className="mr-2 h-4 w-4" />}
+              {isSuggesting ? 'Generating...' : 'Suggest Reply'}
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={handlePolish}
-            disabled={!body.trim() || isSending || isPolishing}
+            disabled={!body.trim() || isSending || isPolishing || isSuggesting}
           >
             {isPolishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
             {isPolishing ? 'Polishing...' : 'Polish'}
           </Button>
-          <Button onClick={handleSend} disabled={isSending || isPolishing}>
+          <Button onClick={handleSend} disabled={isSending || isPolishing || isSuggesting}>
             {isSending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Send Email
           </Button>

@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { TemplateSelector } from './template-selector'
 import { useSendEmail } from '@/lib/hooks/use-communications'
-import { Send, Sparkles, Loader2 } from 'lucide-react'
+import { Send, Sparkles, Loader2, MessageSquareReply } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Database } from '@/types/database'
 import type { SelectedTemplate } from './template-selector'
@@ -37,6 +37,7 @@ export function InlineEmailComposer({
   const [body, setBody] = useState('')
 
   const [isPolishing, setIsPolishing] = useState(false)
+  const [isSuggesting, setIsSuggesting] = useState(false)
   const sendEmail = useSendEmail()
 
   const handlePolish = async () => {
@@ -63,6 +64,30 @@ export function InlineEmailComposer({
       toast.error(error instanceof Error ? error.message : 'Failed to polish email')
     } finally {
       setIsPolishing(false)
+    }
+  }
+
+  const handleSuggestReply = async () => {
+    setIsSuggesting(true)
+    try {
+      const response = await fetch('/api/ai/suggest-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workItemId }),
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to generate suggested reply')
+      }
+      const { reply, subject: suggestedSubject } = await response.json()
+      setBody(reply)
+      if (suggestedSubject && !subject) setSubject(suggestedSubject)
+      toast.success('AI reply loaded — review and edit before sending')
+    } catch (error) {
+      log.error('Suggest reply error', { error })
+      toast.error(error instanceof Error ? error.message : 'Failed to generate suggestion')
+    } finally {
+      setIsSuggesting(false)
     }
   }
 
@@ -156,15 +181,23 @@ export function InlineEmailComposer({
         <div className="flex justify-end gap-2 pt-2 border-t">
           <Button
             variant="outline"
+            onClick={handleSuggestReply}
+            disabled={sendEmail.isPending || isPolishing || isSuggesting}
+          >
+            {isSuggesting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MessageSquareReply className="h-4 w-4 mr-2" />}
+            {isSuggesting ? 'Generating...' : 'Suggest Reply'}
+          </Button>
+          <Button
+            variant="outline"
             onClick={handlePolish}
-            disabled={!body.trim() || sendEmail.isPending || isPolishing}
+            disabled={!body.trim() || sendEmail.isPending || isPolishing || isSuggesting}
           >
             {isPolishing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
             {isPolishing ? 'Polishing...' : 'Polish'}
           </Button>
           <Button
             onClick={handleSend}
-            disabled={!to || !subject || !body || sendEmail.isPending || isPolishing}
+            disabled={!to || !subject || !body || sendEmail.isPending || isPolishing || isSuggesting}
           >
             <Send className="h-4 w-4 mr-2" />
             {sendEmail.isPending ? 'Sending...' : 'Send Email'}

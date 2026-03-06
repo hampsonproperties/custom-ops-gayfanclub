@@ -273,6 +273,15 @@ export const summarizeBody = z.object({
   { message: 'Either workItemId or customerId is required' }
 )
 
+// POST /api/ai/suggest-reply
+export const suggestReplyBody = z.object({
+  workItemId: uuid.optional(),
+  customerId: uuid.optional(),
+}).refine(
+  (data) => data.workItemId || data.customerId,
+  { message: 'Either workItemId or customerId is required' }
+)
+
 // ============================================================
 // JSONB field schemas (for validating data before DB writes)
 // ============================================================
