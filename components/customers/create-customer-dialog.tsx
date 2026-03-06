@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Dialog,
@@ -54,7 +54,7 @@ export function CreateCustomerDialog({
     sales_stage: 'new_lead',
   })
 
-  // Fetch users for assignment dropdown
+  // Fetch users for assignment dropdown + current user for default
   const { data: users } = useQuery({
     queryKey: ['users-for-assignment'],
     queryFn: async () => {
@@ -68,6 +68,18 @@ export function CreateCustomerDialog({
       return data
     },
   })
+
+  // Default assignment to current user
+  useEffect(() => {
+    if (formData.assigned_to_user_id === 'none') {
+      const supabase = createClient()
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+          setFormData(prev => ({ ...prev, assigned_to_user_id: user.id }))
+        }
+      })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -85,6 +97,11 @@ export function CreateCustomerDialog({
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(formData.email)) {
       toast.error('Please enter a valid email address')
+      return
+    }
+
+    if (!formData.assigned_to_user_id || formData.assigned_to_user_id === 'none') {
+      toast.error('Please assign this customer to a team member')
       return
     }
 
@@ -128,9 +145,7 @@ export function CreateCustomerDialog({
         customerData.organization_name = formData.organization_name.trim()
       }
 
-      if (formData.assigned_to_user_id && formData.assigned_to_user_id !== 'none') {
-        customerData.assigned_to_user_id = formData.assigned_to_user_id
-      }
+      customerData.assigned_to_user_id = formData.assigned_to_user_id
 
       // Generate display_name if we have first/last name
       if (formData.first_name.trim() || formData.last_name.trim()) {
@@ -257,16 +272,15 @@ export function CreateCustomerDialog({
 
             {/* Assigned To */}
             <div className="space-y-2">
-              <Label htmlFor="assigned_to">Assign To</Label>
+              <Label htmlFor="assigned_to">Assign To *</Label>
               <Select
                 value={formData.assigned_to_user_id}
                 onValueChange={(value) => handleChange('assigned_to_user_id', value)}
               >
                 <SelectTrigger id="assigned_to">
-                  <SelectValue placeholder="Select team member (optional)" />
+                  <SelectValue placeholder="Select team member" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Unassigned</SelectItem>
                   {users?.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.full_name || user.email}

@@ -181,12 +181,19 @@ export function useTriageEmail() {
       triageStatus: 'created_lead' | 'attached' | 'flagged_support' | 'archived'
       workItemId?: string
     }) => {
+      // Auto-assign the triaging user as the email owner (feeds priority inbox)
+      const { data: { user } } = await supabase.auth.getUser()
+
       const updates: CommunicationUpdate = {
         triage_status: triageStatus,
       }
 
       if (workItemId) {
         updates.work_item_id = workItemId
+      }
+
+      if (user) {
+        updates.owner_user_id = user.id
       }
 
       const { data, error } = await supabase
@@ -203,6 +210,7 @@ export function useTriageEmail() {
       queryClient.invalidateQueries({ queryKey: ['communications', 'untriaged'] })
       queryClient.invalidateQueries({ queryKey: ['communications', 'support'] })
       queryClient.invalidateQueries({ queryKey: ['communications'] })
+      queryClient.invalidateQueries({ queryKey: ['my-inbox'] })
       // Invalidate the specific work item's communications if it was linked
       if (data.work_item_id) {
         queryClient.invalidateQueries({ queryKey: ['communications', data.work_item_id] })

@@ -93,12 +93,21 @@ function CustomersPageContent() {
   const [view, setView] = useState<'pipeline' | 'list'>('list')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'with_projects' | 'no_projects'>('all')
-  const [sourceFilter, setSourceFilter] = useState<'all' | 'shopify' | 'email_import'>('all')
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'shopify' | 'email_import' | 'unclaimed'>('all')
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [bulkLoading, setBulkLoading] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
+  // Fetch current user for "Claim" button
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) setCurrentUserId(user.id)
+    })
+  }, [])
 
   // Reset page when filters change
   const handleSearchChange = (value: string) => {
@@ -109,7 +118,7 @@ function CustomersPageContent() {
     setFilterStatus(value)
     setPage(1)
   }
-  const handleSourceFilterChange = (value: 'all' | 'shopify' | 'email_import') => {
+  const handleSourceFilterChange = (value: 'all' | 'shopify' | 'email_import' | 'unclaimed') => {
     setSourceFilter(value)
     setPage(1)
   }
@@ -129,6 +138,23 @@ function CustomersPageContent() {
     } else {
       setSelectedItems(new Set(customers.map((c) => c.id)))
     }
+  }
+
+  const handleClaimCustomer = async (customerId: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!currentUserId) return
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('customers')
+      .update({ assigned_to_user_id: currentUserId })
+      .eq('id', customerId)
+    if (error) {
+      toast.error('Failed to claim customer')
+      return
+    }
+    toast.success('Customer claimed')
+    queryClient.invalidateQueries({ queryKey: ['customers'] })
   }
 
   const handleBulkDelete = async () => {
@@ -189,6 +215,8 @@ function CustomersPageContent() {
         query = query.not('shopify_customer_id', 'is', null)
       } else if (sourceFilter === 'email_import') {
         query = query.is('shopify_customer_id', null)
+      } else if (sourceFilter === 'unclaimed') {
+        query = query.is('assigned_to_user_id', null)
       }
 
       // Apply search filter
@@ -401,6 +429,7 @@ function CustomersPageContent() {
                     <SelectItem value="all">All Sources</SelectItem>
                     <SelectItem value="shopify">Shopify Imported</SelectItem>
                     <SelectItem value="email_import">Email Imported</SelectItem>
+                    <SelectItem value="unclaimed">Unclaimed</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting} className="h-9 gap-2">
@@ -504,14 +533,22 @@ function CustomersPageContent() {
                         </TableCell>
 
                         {/* Assigned To */}
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           {(customer as any).assigned_to_user?.full_name ? (
                             <div className="flex items-center gap-2 text-sm">
                               <User className="h-3.5 w-3.5 text-muted-foreground" />
                               <span>{(customer as any).assigned_to_user.full_name}</span>
                             </div>
                           ) : (
-                            <span className="text-xs text-muted-foreground">Unassigned</span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs gap-1"
+                              onClick={(e) => handleClaimCustomer(customer.id, e)}
+                            >
+                              <User className="h-3 w-3" />
+                              Claim
+                            </Button>
                           )}
                         </TableCell>
 
@@ -658,11 +695,21 @@ function CustomersPageContent() {
                             </div>
 
                             {/* Assigned To */}
-                            {(customer as any).assigned_to_user?.full_name && (
+                            {(customer as any).assigned_to_user?.full_name ? (
                               <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1.5">
                                 <User className="h-3 w-3" />
                                 <span>Assigned to {(customer as any).assigned_to_user.full_name}</span>
                               </div>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 text-xs gap-1 mb-1"
+                                onClick={(e) => handleClaimCustomer(customer.id, e)}
+                              >
+                                <User className="h-3 w-3" />
+                                Claim
+                              </Button>
                             )}
 
                             {/* Next Follow-Up */}
