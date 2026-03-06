@@ -1104,7 +1104,7 @@ export default function EmailIntakePage() {
                             />
                           ) : (
                             <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                              {extractEmailPreview(email.body_html, email.body_preview, Infinity)}
+                              {extractEmailPreview(email.body_html, null, Infinity)}
                             </p>
                           )}
                         </div>
@@ -1181,7 +1181,7 @@ export default function EmailIntakePage() {
                         />
                       ) : (
                         <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                          {extractEmailPreview(selectedEmail.body_html, selectedEmail.body_preview, Infinity)}
+                          {extractEmailPreview(selectedEmail.body_html, null, Infinity)}
                         </p>
                       )}
                     </div>
