@@ -194,29 +194,32 @@ export function InlineEmailComposer({
         </div>
 
         {/* Actions */}
-        <div className="flex justify-end gap-2 pt-2 border-t">
+        <div className="flex flex-wrap justify-end gap-2 pt-2 border-t">
           <Button
             variant="outline"
+            size="sm"
             onClick={handleSuggestReply}
             disabled={sendEmail.isPending || isPolishing || isSuggesting}
           >
-            {isSuggesting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MessageSquareReply className="h-4 w-4 mr-2" />}
-            {isSuggesting ? 'Generating...' : 'Suggest Reply'}
+            {isSuggesting ? <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" /> : <MessageSquareReply className="h-4 w-4 sm:mr-2" />}
+            <span className="hidden sm:inline">{isSuggesting ? 'Generating...' : 'Suggest Reply'}</span>
           </Button>
           <Button
             variant="outline"
+            size="sm"
             onClick={handlePolish}
             disabled={!body.trim() || sendEmail.isPending || isPolishing || isSuggesting}
           >
-            {isPolishing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-            {isPolishing ? 'Polishing...' : 'Polish'}
+            {isPolishing ? <Loader2 className="h-4 w-4 sm:mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 sm:mr-2" />}
+            <span className="hidden sm:inline">{isPolishing ? 'Polishing...' : 'Polish'}</span>
           </Button>
           <Button
+            size="sm"
             onClick={handleSend}
             disabled={!to || !subject || !body || sendEmail.isPending || isPolishing || isSuggesting}
           >
             <Send className="h-4 w-4 mr-2" />
-            {sendEmail.isPending ? 'Sending...' : 'Send Email'}
+            {sendEmail.isPending ? 'Sending...' : 'Send'}
           </Button>
         </div>
       </div>

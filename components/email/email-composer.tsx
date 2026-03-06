@@ -308,31 +308,33 @@ export function EmailComposer({
           </div> */}
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={handleCancel} disabled={isSending || isPolishing || isSuggesting}>
+        <DialogFooter className="gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={handleCancel} disabled={isSending || isPolishing || isSuggesting}>
             Cancel
           </Button>
           {(customerId || projectId) && (
             <Button
               variant="outline"
+              size="sm"
               onClick={handleSuggestReply}
               disabled={isSending || isPolishing || isSuggesting}
             >
-              {isSuggesting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MessageSquareReply className="mr-2 h-4 w-4" />}
-              {isSuggesting ? 'Generating...' : 'Suggest Reply'}
+              {isSuggesting ? <Loader2 className="sm:mr-2 h-4 w-4 animate-spin" /> : <MessageSquareReply className="sm:mr-2 h-4 w-4" />}
+              <span className="hidden sm:inline">{isSuggesting ? 'Generating...' : 'Suggest Reply'}</span>
             </Button>
           )}
           <Button
             variant="outline"
+            size="sm"
             onClick={handlePolish}
             disabled={!body.trim() || isSending || isPolishing || isSuggesting}
           >
-            {isPolishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-            {isPolishing ? 'Polishing...' : 'Polish'}
+            {isPolishing ? <Loader2 className="sm:mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="sm:mr-2 h-4 w-4" />}
+            <span className="hidden sm:inline">{isPolishing ? 'Polishing...' : 'Polish'}</span>
           </Button>
-          <Button onClick={handleSend} disabled={isSending || isPolishing || isSuggesting}>
+          <Button size="sm" onClick={handleSend} disabled={isSending || isPolishing || isSuggesting}>
             {isSending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Send Email
+            Send
           </Button>
         </DialogFooter>
       </DialogContent>

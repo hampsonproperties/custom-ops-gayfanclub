@@ -461,13 +461,13 @@ export default function CustomersPage() {
               <div className="md:hidden space-y-3">
                 {customers.map((customer) => (
                   <Link key={customer.id} href={`/customers/${customer.id}`}>
-                    <Card className="hover:shadow-md transition-shadow">
+                    <Card className="hover:shadow-md transition-shadow overflow-hidden">
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
                           <div className="h-12 w-12 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white font-semibold shrink-0">
                             {(customer.display_name || customer.email || 'U').charAt(0).toUpperCase()}
                           </div>
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1 min-w-0 overflow-hidden">
                             {/* Name */}
                             <div className="font-medium text-base mb-1">
                               {customer.display_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'No name'}
@@ -482,7 +482,7 @@ export default function CustomersPage() {
                             )}
 
                             {/* Email */}
-                            <div className="text-sm text-muted-foreground mb-1 truncate">
+                            <div className="text-sm text-muted-foreground mb-1 truncate max-w-full overflow-hidden">
                               {customer.email}
                             </div>
 

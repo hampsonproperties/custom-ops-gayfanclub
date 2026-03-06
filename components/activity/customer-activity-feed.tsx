@@ -32,6 +32,33 @@ const log = logger('customer-activity-feed')
 type ActivityType = 'note' | 'email' | 'task'
 type FilterType = 'all' | 'starred' | 'note' | 'email' | 'task'
 
+const SHOPIFY_DOMAIN = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || ''
+
+/** Render text with Shopify order references (#1234) as clickable admin links */
+function linkifyShopifyRefs(text: string): React.ReactNode {
+  if (!SHOPIFY_DOMAIN) return text
+  const parts = text.split(/(#\d{3,})/g)
+  if (parts.length === 1) return text
+  return parts.map((part, i) => {
+    const match = part.match(/^#(\d{3,})$/)
+    if (match) {
+      return (
+        <a
+          key={i}
+          href={`https://${SHOPIFY_DOMAIN}/admin/orders?query=%23${match[1]}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary underline hover:no-underline"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {part}
+        </a>
+      )
+    }
+    return part
+  })
+}
+
 interface ActivityItem {
   id: string
   type: ActivityType
@@ -657,8 +684,8 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
                   /* Non-email content */
                   <div className="text-sm whitespace-pre-wrap">
                     {shouldTruncate && !isExpanded
-                      ? activity.content.substring(0, 300) + '...'
-                      : activity.content}
+                      ? linkifyShopifyRefs(activity.content.substring(0, 300) + '...')
+                      : linkifyShopifyRefs(activity.content)}
                   </div>
                 )}
 

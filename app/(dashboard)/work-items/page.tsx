@@ -450,33 +450,33 @@ export default function WorkItemsPage() {
         <CardContent className="p-4">
           <div className="flex flex-col gap-3">
             {/* Filter Toggle - Production Focused */}
-            <div className="flex gap-2 flex-wrap">
+            <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-2">
               <Button
                 variant={filterMode === 'my-projects' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilterMode('my-projects')}
-                className="gap-2 h-9"
+                className="gap-1.5 h-9 text-xs sm:text-sm"
               >
-                <User className="h-4 w-4" />
-                My Projects
+                <User className="h-4 w-4 shrink-0" />
+                <span className="truncate">My Projects</span>
               </Button>
               <Button
                 variant={filterMode === 'all-projects' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilterMode('all-projects')}
-                className="gap-2 h-9"
+                className="gap-1.5 h-9 text-xs sm:text-sm"
               >
-                <Users className="h-4 w-4" />
-                All Projects
+                <Users className="h-4 w-4 shrink-0" />
+                <span className="truncate">All Projects</span>
               </Button>
               <Button
                 variant={filterMode === 'need-design' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setFilterMode('need-design')}
-                className="gap-2 h-9"
+                className="gap-1.5 h-9 text-xs sm:text-sm"
               >
-                <Palette className="h-4 w-4" />
-                Needs Design
+                <Palette className="h-4 w-4 shrink-0" />
+                <span className="truncate">Needs Design</span>
               </Button>
 
               <div className="hidden sm:block h-6 w-px bg-border" />
@@ -486,27 +486,27 @@ export default function WorkItemsPage() {
                 variant={typeFilter === 'all' ? 'secondary' : 'outline'}
                 size="sm"
                 onClick={() => setTypeFilter('all')}
-                className="gap-2 h-9"
+                className="gap-1.5 h-9 text-xs sm:text-sm"
               >
-                All Types
+                <span className="truncate">All Types</span>
               </Button>
               <Button
                 variant={typeFilter === 'customify_order' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setTypeFilter('customify_order')}
-                className="gap-2 h-9"
+                className="gap-1.5 h-9 text-xs sm:text-sm"
               >
-                <Filter className="h-4 w-4" />
-                Customify
+                <Filter className="h-4 w-4 shrink-0" />
+                <span className="truncate">Customify</span>
               </Button>
               <Button
                 variant={typeFilter === 'assisted_project' ? 'default' : 'outline'}
                 size="sm"
                 onClick={() => setTypeFilter('assisted_project')}
-                className="gap-2 h-9"
+                className="gap-1.5 h-9 text-xs sm:text-sm"
               >
-                <Filter className="h-4 w-4" />
-                Assisted
+                <Filter className="h-4 w-4 shrink-0" />
+                <span className="truncate">Assisted</span>
               </Button>
             </div>
 

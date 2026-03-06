@@ -146,7 +146,7 @@ export function MentionInput({
 
       {/* Mentions Dropdown */}
       {showMentions && filteredUsers.length > 0 && (
-        <div className="absolute bottom-full left-0 mb-2 w-64 bg-popover border rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+        <div className="absolute left-0 right-0 sm:right-auto sm:w-64 top-full mt-1 bg-popover border rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
           {filteredUsers.map((user, index) => (
             <button
               key={user.id}
@@ -154,7 +154,7 @@ export function MentionInput({
               className={`w-full text-left px-3 py-2 hover:bg-accent transition-colors ${
                 index === selectedIndex ? 'bg-accent' : ''
               }`}
-              onClick={() => insertMention(user)}
+              onMouseDown={(e) => { e.preventDefault(); insertMention(user) }}
               onMouseEnter={() => setSelectedIndex(index)}
             >
               <div className="font-medium text-sm">
