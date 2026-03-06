@@ -12,7 +12,7 @@ import { useWorkItems, useUpdateWorkItemStatus, type PaginatedResult } from '@/l
 import { PaginationControls } from '@/components/ui/pagination-controls'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { KanbanBoard } from '@/components/work-items/kanban-board'
-import { Search, Filter, LayoutList, LayoutGrid, Mail, Phone, MoreHorizontal, Building2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, User, Users, Plus, Palette, Loader2, UserPlus, XCircle, Download } from 'lucide-react'
+import { Search, Filter, LayoutList, LayoutGrid, Mail, Phone, MoreHorizontal, Building2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, User, Users, Plus, Palette, Loader2, UserPlus, XCircle, Download, MailX } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -355,6 +355,25 @@ function WorkItemsPageContent() {
     queryClient.invalidateQueries({ queryKey: ['work-items'] })
   }
 
+  const handleBulkSuppressEmails = async () => {
+    setBulkLoading(true)
+    const supabase = createClient()
+    const ids = [...selectedItems]
+    const { error } = await supabase
+      .from('work_items')
+      .update({ suppress_drip_emails: true })
+      .in('id', ids)
+
+    if (error) {
+      toast.error('Failed to suppress emails')
+    } else {
+      toast.success(`Suppressed batch emails for ${ids.length} project${ids.length !== 1 ? 's' : ''}`)
+    }
+    setSelectedItems(new Set())
+    setBulkLoading(false)
+    queryClient.invalidateQueries({ queryKey: ['work-items'] })
+  }
+
   // Stats from full database (separate count queries, not current page)
   const { data: pageStats } = useQuery({
     queryKey: ['work-items', 'page-stats'],
@@ -633,6 +652,18 @@ function WorkItemsPageContent() {
                 >
                   <UserPlus className="h-4 w-4 mr-1" />
                   Assign
+                </Button>
+
+                {/* Bulk Suppress Batch Emails */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={bulkLoading}
+                  onClick={handleBulkSuppressEmails}
+                  className="h-9"
+                >
+                  <MailX className="h-4 w-4 mr-1" />
+                  Suppress Emails
                 </Button>
 
                 {bulkLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}

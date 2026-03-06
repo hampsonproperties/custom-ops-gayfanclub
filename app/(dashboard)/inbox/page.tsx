@@ -74,6 +74,10 @@ import DOMPurify from 'dompurify'
 import { toast } from 'sonner'
 import { parseEmailAddress, extractEmailPreview } from '@/lib/utils/email-formatting'
 import { PaginationControls } from '@/components/ui/pagination-controls'
+import { TemplateSelector } from '@/components/email/template-selector'
+import type { SelectedTemplate } from '@/components/email/template-selector'
+import { useMyEmailSignature, buildSignaturePlainText } from '@/lib/hooks/use-email-signature'
+import { Sparkles, Loader2 as Loader2Icon } from 'lucide-react'
 
 type EmailCategory = 'primary' | 'promotional' | 'spam' | 'notifications'
 type EmailTab = EmailCategory | 'support'  // Support is a tab, not a category
@@ -280,6 +284,8 @@ export default function EmailIntakePage() {
   const markAsRead = useMarkEmailAsRead()
   const moveToCategory = useMoveEmailToCategory()
   const { data: threadEmails } = useEmailThread(selectedEmail?.provider_thread_id || null)
+  const { data: mySignature } = useMyEmailSignature()
+  const [isPolishing, setIsPolishing] = useState(false)
 
   const [leadForm, setLeadForm] = useState({
     customerName: '',
@@ -479,6 +485,58 @@ export default function EmailIntakePage() {
     } catch {
       toast.error('Failed to send reply')
     }
+  }
+
+  const handlePolishReply = async () => {
+    if (!replyText.trim()) {
+      toast.error('Write a draft first, then polish it')
+      return
+    }
+    setIsPolishing(true)
+    try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 15_000)
+      const response = await fetch('/api/email/polish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: replyText }),
+        signal: controller.signal,
+      })
+      clearTimeout(timeout)
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to polish email')
+      }
+      const { polished } = await response.json()
+      setReplyText(polished)
+      toast.success('Email polished in brand voice')
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        toast.error('AI is temporarily unavailable. Please try again in a moment.')
+      } else {
+        toast.error(error instanceof Error ? error.message : 'Failed to polish email')
+      }
+    } finally {
+      setIsPolishing(false)
+    }
+  }
+
+  const handleSelectReplyTemplate = (template: SelectedTemplate) => {
+    setReplyText(template.body)
+    toast.success(`Template "${template.name}" applied`)
+  }
+
+  const handleInsertSignature = () => {
+    if (!mySignature?.signature_name) {
+      toast.error('No signature configured — set one in Settings')
+      return
+    }
+    const sig = buildSignaturePlainText({
+      name: mySignature.signature_name || '',
+      title: mySignature.signature_title || '',
+    })
+    setReplyText((prev) => prev + sig)
+    toast.success('Signature inserted')
   }
 
   const openCreateLeadDialog = (email: Email) => {
@@ -905,7 +963,7 @@ export default function EmailIntakePage() {
           {selectedEmail && (
             <>
               <SheetHeader>
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between pr-10">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap mb-2">
                       <SheetTitle className="mb-0">{selectedEmail.subject || '(no subject)'}</SheetTitle>
@@ -1046,7 +1104,7 @@ export default function EmailIntakePage() {
                             />
                           ) : (
                             <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                              {extractEmailPreview(email.body_html, email.body_preview, 1000)}
+                              {extractEmailPreview(email.body_html, email.body_preview, Infinity)}
                             </p>
                           )}
                         </div>
@@ -1123,7 +1181,7 @@ export default function EmailIntakePage() {
                         />
                       ) : (
                         <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                          {extractEmailPreview(selectedEmail.body_html, selectedEmail.body_preview, 1000)}
+                          {extractEmailPreview(selectedEmail.body_html, selectedEmail.body_preview, Infinity)}
                         </p>
                       )}
                     </div>
@@ -1172,6 +1230,27 @@ export default function EmailIntakePage() {
                           rows={6}
                           className="mt-2"
                         />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handlePolishReply}
+                          disabled={isPolishing || !replyText.trim()}
+                          className="gap-1"
+                        >
+                          {isPolishing ? <Loader2Icon className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                          Polish
+                        </Button>
+                        <TemplateSelector onSelectTemplate={handleSelectReplyTemplate} />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleInsertSignature}
+                          className="gap-1"
+                        >
+                          Signature
+                        </Button>
                       </div>
                       <div className="flex gap-2">
                         <Button onClick={handleReply} disabled={!replyText.trim() || sendEmail.isPending}>

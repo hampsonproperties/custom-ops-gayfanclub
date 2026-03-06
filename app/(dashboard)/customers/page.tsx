@@ -85,7 +85,7 @@ function CustomersPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const shouldOpenNew = searchParams.get('new') === 'true'
-  const [view, setView] = useState<'pipeline' | 'list'>('pipeline')
+  const [view, setView] = useState<'pipeline' | 'list'>('list')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'with_projects' | 'no_projects'>('all')
   const [page, setPage] = useState(1)
