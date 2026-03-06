@@ -16,6 +16,7 @@ interface WorkItemFilters {
   dateTo?: string
   search?: string
   includeClosed?: boolean // Default false - only show open items
+  neverBatched?: boolean
   page?: number
   pageSize?: number
   sortColumn?: string
@@ -74,6 +75,9 @@ export function useWorkItems(filters?: WorkItemFilters) {
           assignedToUserId = user.id
         }
         query = query.eq('assigned_to_user_id', assignedToUserId)
+      }
+      if (filters?.neverBatched) {
+        query = query.is('batch_id', null)
       }
       if (filters?.search) {
         const searchTerm = filters.search.toLowerCase()

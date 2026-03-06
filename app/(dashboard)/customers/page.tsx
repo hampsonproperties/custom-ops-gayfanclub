@@ -40,7 +40,11 @@ import {
   DollarSign,
   Download,
   Loader2,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { formatDistanceToNow, format } from 'date-fns'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -84,12 +88,17 @@ export default function CustomersPage() {
 function CustomersPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const queryClient = useQueryClient()
   const shouldOpenNew = searchParams.get('new') === 'true'
   const [view, setView] = useState<'pipeline' | 'list'>('list')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'with_projects' | 'no_projects'>('all')
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'shopify' | 'email_import'>('all')
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // Reset page when filters change
   const handleSearchChange = (value: string) => {
@@ -100,6 +109,50 @@ function CustomersPageContent() {
     setFilterStatus(value)
     setPage(1)
   }
+  const handleSourceFilterChange = (value: 'all' | 'shopify' | 'email_import') => {
+    setSourceFilter(value)
+    setPage(1)
+  }
+
+  const handleSelectItem = (id: string) => {
+    setSelectedItems((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const handleSelectAll = () => {
+    if (selectedItems.size === customers.length) {
+      setSelectedItems(new Set())
+    } else {
+      setSelectedItems(new Set(customers.map((c) => c.id)))
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    setBulkLoading(true)
+    setShowDeleteConfirm(false)
+    const supabase = createClient()
+    const ids = [...selectedItems]
+    const results = await Promise.allSettled(
+      ids.map(async (id) => {
+        const { error } = await supabase.from('customers').delete().eq('id', id)
+        if (error) throw error
+      })
+    )
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length
+    const failed = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[]
+    if (failed.length === 0) {
+      toast.success(`Deleted ${succeeded} customer${succeeded !== 1 ? 's' : ''}`)
+    } else {
+      toast.error(`${succeeded} deleted, ${failed.length} failed (likely have linked projects)`, { duration: 8000 })
+    }
+    setSelectedItems(new Set())
+    setBulkLoading(false)
+    queryClient.invalidateQueries({ queryKey: ['customers'] })
+  }
 
   // Paginate in list view, but not when "no_projects" filter is active
   // (no_projects requires client-side filtering after join, so server pagination breaks it)
@@ -107,7 +160,7 @@ function CustomersPageContent() {
 
   // Fetch customers with stats
   const { data: customersData, isLoading, refetch } = useQuery({
-    queryKey: ['customers', searchQuery, filterStatus, isPaginated ? page : 'all', isPaginated ? PAGE_SIZE : 'all'],
+    queryKey: ['customers', searchQuery, filterStatus, sourceFilter, isPaginated ? page : 'all', isPaginated ? PAGE_SIZE : 'all'],
     queryFn: async () => {
       const supabase = createClient()
 
@@ -130,6 +183,13 @@ function CustomersPageContent() {
           )
         `, isPaginated ? { count: 'exact' } : {})
         .order('updated_at', { ascending: false })
+
+      // Apply source filter
+      if (sourceFilter === 'shopify') {
+        query = query.not('shopify_customer_id', 'is', null)
+      } else if (sourceFilter === 'email_import') {
+        query = query.is('shopify_customer_id', null)
+      }
 
       // Apply search filter
       if (searchQuery) {
@@ -332,6 +392,17 @@ function CustomersPageContent() {
                     <SelectItem value="no_projects">No Projects</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select value={sourceFilter} onValueChange={(value: any) => handleSourceFilterChange(value)}>
+                  <SelectTrigger className="w-full sm:w-[200px]">
+                    <ShoppingBag className="mr-2 h-4 w-4" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sources</SelectItem>
+                    <SelectItem value="shopify">Shopify Imported</SelectItem>
+                    <SelectItem value="email_import">Email Imported</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting} className="h-9 gap-2">
                   {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                   Export CSV
@@ -350,11 +421,45 @@ function CustomersPageContent() {
             </div>
           ) : (
             <>
+              {/* Bulk Action Bar */}
+              {selectedItems.size > 0 && (
+                <div className="border rounded-lg bg-muted/30 p-3 mb-4 flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">
+                      {selectedItems.size} customer{selectedItems.size > 1 ? 's' : ''} selected
+                    </span>
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedItems(new Set())} className="h-9">
+                      Clear
+                    </Button>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={bulkLoading}
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="gap-1 h-9"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </Button>
+                    {bulkLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                  </div>
+                </div>
+              )}
+
               {/* Desktop Table View - Hidden on mobile */}
               <div className="hidden md:block rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12">
+                        <Checkbox
+                          checked={selectedItems.size === customers.length && customers.length > 0}
+                          onCheckedChange={handleSelectAll}
+                          aria-label="Select all"
+                        />
+                      </TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead>Assigned To</TableHead>
                       <TableHead>Company</TableHead>
@@ -367,18 +472,33 @@ function CustomersPageContent() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {customers.map((customer) => (
+                    {customers.map((customer) => {
+                      const hasNoName = !customer.display_name && !customer.first_name && !customer.last_name
+                      return (
                       <TableRow key={customer.id} className="cursor-pointer hover:bg-muted/50">
+                        {/* Checkbox */}
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedItems.has(customer.id)}
+                            onCheckedChange={() => handleSelectItem(customer.id)}
+                          />
+                        </TableCell>
                         {/* Customer Name */}
                         <TableCell>
                           <Link href={`/customers/${customer.id}`} className="flex items-center gap-3">
                             <div className="h-10 w-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white font-semibold">
                               {(customer.display_name || customer.email || 'U').charAt(0).toUpperCase()}
                             </div>
-                            <div>
+                            <div className="flex items-center gap-2">
                               <div className="font-medium">
-                                {customer.display_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'No name'}
+                                {customer.display_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || customer.email}
                               </div>
+                              {hasNoName && (
+                                <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs gap-1">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  No name
+                                </Badge>
+                              )}
                             </div>
                           </Link>
                         </TableCell>
@@ -467,15 +587,25 @@ function CustomersPageContent() {
                           </Link>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      )
+                    })}
                   </TableBody>
                 </Table>
               </div>
 
               {/* Mobile Card View - Shown on mobile only */}
               <div className="md:hidden space-y-3">
-                {customers.map((customer) => (
-                  <Link key={customer.id} href={`/customers/${customer.id}`}>
+                {customers.map((customer) => {
+                  const hasNoName = !customer.display_name && !customer.first_name && !customer.last_name
+                  return (
+                  <div key={customer.id} className="flex items-start gap-3">
+                    <div className="pt-4 pl-3" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedItems.has(customer.id)}
+                        onCheckedChange={() => handleSelectItem(customer.id)}
+                      />
+                    </div>
+                    <Link href={`/customers/${customer.id}`} className="flex-1">
                     <Card className="hover:shadow-md transition-shadow overflow-hidden">
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">
@@ -484,8 +614,14 @@ function CustomersPageContent() {
                           </div>
                           <div className="flex-1 min-w-0 overflow-hidden">
                             {/* Name */}
-                            <div className="font-medium text-base mb-1">
-                              {customer.display_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || 'No name'}
+                            <div className="font-medium text-base mb-1 flex items-center gap-2">
+                              <span>{customer.display_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || customer.email}</span>
+                              {hasNoName && (
+                                <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs gap-1 shrink-0">
+                                  <AlertTriangle className="h-3 w-3" />
+                                  No name
+                                </Badge>
+                              )}
                             </div>
 
                             {/* Company */}
@@ -540,8 +676,10 @@ function CustomersPageContent() {
                         </div>
                       </CardContent>
                     </Card>
-                  </Link>
-                ))}
+                    </Link>
+                  </div>
+                  )
+                })}
               </div>
             </>
           )}
@@ -555,6 +693,26 @@ function CustomersPageContent() {
       </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {selectedItems.size} customer{selectedItems.size !== 1 ? 's' : ''}?</DialogTitle>
+            <DialogDescription>
+              This cannot be undone. Customers with linked projects cannot be deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleBulkDelete} disabled={bulkLoading}>
+              {bulkLoading ? 'Deleting...' : 'Delete'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
