@@ -89,7 +89,7 @@ function ProjectCard({ project, customerId }: { project: any; customerId: string
 
   return (
     <Link href={`/work-items/${project.id}`}>
-      <Card className="hover:shadow-md transition-all duration-150 cursor-pointer border-muted/40">
+      <Card className={`hover:shadow-md transition-all duration-150 cursor-pointer border-muted/40 ${project.closed_at ? 'opacity-60' : ''}`}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1 min-w-0">
@@ -839,7 +839,14 @@ export default function CustomerProfilePage() {
                 /* Project list */
                 <>
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold">{projects.length} Projects</h3>
+                    <h3 className="text-lg font-semibold">
+                      {projects.length} {projects.length === 1 ? 'Project' : 'Projects'}
+                      {projects.filter(p => p.closed_at).length > 0 && (
+                        <span className="text-sm font-normal text-muted-foreground ml-2">
+                          ({projects.filter(p => !p.closed_at).length} active, {projects.filter(p => p.closed_at).length} closed)
+                        </span>
+                      )}
+                    </h3>
                     <CreateProjectDialog
                       customerId={customerId}
                       onProjectCreated={(projectId) => {

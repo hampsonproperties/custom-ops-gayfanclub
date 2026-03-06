@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Package, Plus, FileDown, CheckCircle, Clock, Truck } from 'lucide-react'
+import { Package, Plus, FileDown, CheckCircle, Clock, Truck, MailX } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import { useReadyForBatch } from '@/lib/hooks/use-work-items'
 import { useBatches, useCreateBatch, useConfirmBatch, useExportBatch } from '@/lib/hooks/use-batches'
 import { StatusBadge } from '@/components/custom/status-badge'
@@ -25,6 +26,7 @@ export default function BatchesPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [batchName, setBatchName] = useState('')
   const [selectedItems, setSelectedItems] = useState<string[]>([])
+  const [suppressDripEmails, setSuppressDripEmails] = useState(false)
 
   const handleToggleItem = (workItemId: string) => {
     setSelectedItems((prev) =>
@@ -59,11 +61,25 @@ export default function BatchesPage() {
         workItemIds: selectedItems,
       })
 
-      toast.success(`Batch "${batchName}" created with ${selectedItems.length} items`)
+      // If suppress drip emails is checked, update all work items in the batch
+      if (suppressDripEmails) {
+        const supabase = createClient()
+        const { error: suppressError } = await supabase
+          .from('work_items')
+          .update({ suppress_drip_emails: true })
+          .in('id', selectedItems)
+
+        if (suppressError) {
+          toast.error('Batch created but failed to suppress emails — update items manually')
+        }
+      }
+
+      toast.success(`Batch "${batchName}" created with ${selectedItems.length} items${suppressDripEmails ? ' (drip emails suppressed)' : ''}`)
 
       setShowCreateDialog(false)
       setBatchName('')
       setSelectedItems([])
+      setSuppressDripEmails(false)
     } catch (error) {
       toast.error('Failed to create batch')
     }
@@ -297,6 +313,25 @@ export default function BatchesPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Suppress Drip Emails */}
+            <div className="flex items-start gap-3 p-3 border rounded-lg bg-muted/50">
+              <Checkbox
+                id="suppress-drip"
+                checked={suppressDripEmails}
+                onCheckedChange={(checked) => setSuppressDripEmails(checked === true)}
+                className="mt-0.5"
+              />
+              <div>
+                <label htmlFor="suppress-drip" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                  <MailX className="h-4 w-4" />
+                  Suppress automated batch emails
+                </label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Skip drip emails for all items in this batch (use when retroactively organizing old orders)
+                </p>
               </div>
             </div>
           </div>

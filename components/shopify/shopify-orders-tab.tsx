@@ -20,7 +20,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { RefreshCw, ExternalLink, DollarSign, Package, CheckCircle2, Clock } from 'lucide-react'
+import { RefreshCw, ExternalLink, DollarSign, Package, CheckCircle2, Clock, Link2, Plus } from 'lucide-react'
+import Link from 'next/link'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import { logger } from '@/lib/logger'
@@ -35,6 +36,29 @@ interface ShopifyOrdersTabProps {
 export function ShopifyOrdersTab({ customerId, customerEmail }: ShopifyOrdersTabProps) {
   const queryClient = useQueryClient()
   const [isSyncing, setIsSyncing] = useState(false)
+
+  const [importingOrder, setImportingOrder] = useState<string | null>(null)
+
+  // Fetch work items for this customer to cross-reference linked orders
+  const { data: linkedOrderNumbers } = useQuery({
+    queryKey: ['linked-order-numbers', customerId],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('work_items')
+        .select('id, shopify_order_number')
+        .eq('customer_id', customerId)
+        .not('shopify_order_number', 'is', null)
+
+      const map = new Map<string, string>()
+      for (const item of data || []) {
+        if (item.shopify_order_number) {
+          map.set(item.shopify_order_number, item.id)
+        }
+      }
+      return map
+    },
+  })
 
   // Fetch orders for this customer (by customer_id or email)
   const { data: orders, isLoading } = useQuery({
@@ -106,6 +130,33 @@ export function ShopifyOrdersTab({ customerId, customerEmail }: ShopifyOrdersTab
     }
   }
 
+  // Import a Shopify order as a work item
+  const handleImportOrder = async (orderNumber: string) => {
+    setImportingOrder(orderNumber)
+    try {
+      const response = await fetch('/api/shopify/import-single-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderNumber }),
+      })
+
+      const data = await response.json()
+
+      if (data.success || data.workItemId) {
+        toast.success(`Project created from order #${orderNumber}`)
+        queryClient.invalidateQueries({ queryKey: ['linked-order-numbers', customerId] })
+        queryClient.invalidateQueries({ queryKey: ['customer-profile', customerId] })
+      } else {
+        toast.error(data.error || 'Failed to import order')
+      }
+    } catch (error) {
+      log.error('Import order error', { error })
+      toast.error('Failed to import order')
+    } finally {
+      setImportingOrder(null)
+    }
+  }
+
   // Helper to get status badge variant
   const getFinancialStatusBadge = (status: string) => {
     const variants: Record<string, any> = {
@@ -169,6 +220,7 @@ export function ShopifyOrdersTab({ customerId, customerEmail }: ShopifyOrdersTab
                     <TableHead className="text-right">Amount</TableHead>
                     <TableHead>Payment</TableHead>
                     <TableHead>Fulfillment</TableHead>
+                    <TableHead>Project</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -205,6 +257,27 @@ export function ShopifyOrdersTab({ customerId, customerEmail }: ShopifyOrdersTab
                             {order.fulfillment_status || 'Unfulfilled'}
                           </span>
                         </div>
+                      </TableCell>
+                      <TableCell>
+                        {linkedOrderNumbers?.get(order.shopify_order_number) ? (
+                          <Link href={`/work-items/${linkedOrderNumbers.get(order.shopify_order_number)}`}>
+                            <Button variant="ghost" size="sm" className="gap-1 text-xs">
+                              <Link2 className="h-3.5 w-3.5" />
+                              View
+                            </Button>
+                          </Link>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1 text-xs"
+                            onClick={() => handleImportOrder(order.shopify_order_number)}
+                            disabled={importingOrder === order.shopify_order_number}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            {importingOrder === order.shopify_order_number ? 'Creating...' : 'Create'}
+                          </Button>
+                        )}
                       </TableCell>
                       <TableCell>
                         <a

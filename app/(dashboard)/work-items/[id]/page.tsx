@@ -286,6 +286,30 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
                   </div>
                 </>
               )}
+
+              <Separator orientation="vertical" className="h-4 hidden sm:block" />
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="suppress-drip-status-bar"
+                  checked={workItem.suppress_drip_emails ?? false}
+                  onCheckedChange={async (checked) => {
+                    const supabase = createClient()
+                    const { error } = await supabase
+                      .from('work_items')
+                      .update({ suppress_drip_emails: checked })
+                      .eq('id', id)
+                    if (error) {
+                      toast.error('Failed to update drip email setting')
+                      return
+                    }
+                    toast.success(checked ? 'Drip emails suppressed' : 'Drip emails enabled')
+                    queryClient.invalidateQueries({ queryKey: ['work-item', id] })
+                  }}
+                />
+                <label htmlFor="suppress-drip-status-bar" className="text-sm text-muted-foreground cursor-pointer">
+                  Suppress emails
+                </label>
+              </div>
             </div>
 
             {/* Quick Info Pills */}

@@ -100,12 +100,9 @@ export function useCustomerProfile(customerId: string | null) {
         total_spent: customer.total_spent ?? 0,
       }
 
-      // Filter out closed projects for display
-      const activeProjects = allProjects?.filter((p) => !p.closed_at) || []
-
       return {
         customer,
-        projects: activeProjects,
+        projects: allProjects || [],
         conversations: conversations || [],
         stats,
       } as CustomerProfileData

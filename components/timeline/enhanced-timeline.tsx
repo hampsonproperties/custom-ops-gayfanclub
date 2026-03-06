@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
+import { MentionInput } from '@/components/work-items/mention-input'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   FileText, Mail, MessageSquare, Phone, Calendar,
@@ -258,10 +258,11 @@ export function EnhancedTimeline({
             </TabsList>
 
             <TabsContent value="note" className="p-4 space-y-3">
-              <Textarea
+              <MentionInput
                 placeholder="Add a note... Use @ to mention team members"
                 value={noteContent}
-                onChange={(e) => setNoteContent(e.target.value)}
+                onChange={setNoteContent}
+                rows={4}
                 className="min-h-[100px] resize-none"
               />
               <div className="flex items-center justify-between">
