@@ -10,7 +10,7 @@ import {
   type Notification,
 } from '@/lib/hooks/use-notifications'
 import { useMyTasks, useToggleTask } from '@/lib/hooks/use-tasks'
-import { Bell, CheckCheck, Circle, ListTodo, ExternalLink } from 'lucide-react'
+import { Bell, CheckCheck, CheckCircle, Circle, ListTodo, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -41,16 +41,21 @@ export default function AlertsPage() {
       </div>
 
       {/* My Tasks */}
-      {myTasks && myTasks.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <ListTodo className="h-4 w-4" />
-              My Tasks ({myTasks.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-3 space-y-1">
-            {myTasks.map((task) => {
+      <Card>
+        <CardHeader className="pb-2 pt-4 px-4">
+          <CardTitle className="text-sm font-semibold flex items-center gap-2">
+            <ListTodo className="h-4 w-4" />
+            My Tasks {myTasks && myTasks.length > 0 ? `(${myTasks.length})` : ''}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-3 space-y-1">
+          {!myTasks || myTasks.length === 0 ? (
+            <div className="text-center py-4 text-sm text-muted-foreground">
+              <CheckCircle className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              No tasks assigned to you right now
+            </div>
+          ) : (
+            myTasks.map((task) => {
               const isOverdue = task.due_date && new Date(task.due_date) < new Date()
               return (
                 <div key={task.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors">
@@ -81,10 +86,10 @@ export default function AlertsPage() {
                   )}
                 </div>
               )
-            })}
-          </CardContent>
-        </Card>
-      )}
+            })
+          )}
+        </CardContent>
+      </Card>
 
       {/* Notifications */}
       <Card>

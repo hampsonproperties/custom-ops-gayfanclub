@@ -79,18 +79,23 @@ export default function DashboardPage() {
       )}
 
       {/* My Tasks */}
-      {myTasks && myTasks.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <ListTodo className="h-4 w-4" />
-                My Tasks ({myTasks.length})
-              </CardTitle>
+      <Card>
+        <CardHeader className="pb-2 pt-4 px-4">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              <ListTodo className="h-4 w-4" />
+              My Tasks {myTasks && myTasks.length > 0 ? `(${myTasks.length})` : ''}
+            </CardTitle>
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 pb-3 space-y-1">
+          {!myTasks || myTasks.length === 0 ? (
+            <div className="text-center py-4 text-sm text-muted-foreground">
+              <CheckCircle className="h-8 w-8 mx-auto mb-2 opacity-40" />
+              No tasks assigned to you right now
             </div>
-          </CardHeader>
-          <CardContent className="px-4 pb-3 space-y-1">
-            {myTasks.map((task) => {
+          ) : (
+            myTasks.map((task) => {
               const isOverdue = task.due_date && new Date(task.due_date) < new Date()
               return (
                 <div key={task.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors">
@@ -121,10 +126,10 @@ export default function DashboardPage() {
                   )}
                 </div>
               )
-            })}
-          </CardContent>
-        </Card>
-      )}
+            })
+          )}
+        </CardContent>
+      </Card>
 
       {/* Split View: Sales + Production */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

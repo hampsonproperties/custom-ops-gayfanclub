@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
@@ -74,6 +74,14 @@ interface CustomerStats {
 }
 
 export default function CustomersPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-center text-muted-foreground">Loading...</div>}>
+      <CustomersPageContent />
+    </Suspense>
+  )
+}
+
+function CustomersPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const shouldOpenNew = searchParams.get('new') === 'true'

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -54,6 +54,14 @@ import { generateCSV, downloadCSV, exportFilename, type CSVColumn } from '@/lib/
 const log = logger('work-items')
 
 export default function WorkItemsPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-center text-muted-foreground">Loading...</div>}>
+      <WorkItemsPageContent />
+    </Suspense>
+  )
+}
+
+function WorkItemsPageContent() {
   const queryClient = useQueryClient()
   const searchParams = useSearchParams()
   const router = useRouter()

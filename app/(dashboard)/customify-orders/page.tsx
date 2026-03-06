@@ -188,27 +188,24 @@ export default function CustomifyOrdersPage() {
         <div className="space-y-4">
           {orders.map((order: any) => {
             const sla = calculateSLA(order.created_at)
-            const isSelected = selectedOrder === order.id
 
             return (
               <Card
                 key={order.id}
-                className={`cursor-pointer transition-all ${
-                  isSelected ? 'ring-2 ring-pink-500 shadow-lg' : 'hover:shadow-md'
-                } ${
+                className={`cursor-pointer transition-all hover:shadow-md ${
                   sla === 'overdue' ? 'border-l-4 border-l-[#E91E63]' :
                   sla === 'expiring' ? 'border-l-4 border-l-[#FFC107]' :
                   sla === 'new' ? 'border-l-4 border-l-[#9C27B0]' : ''
                 }`}
                 onClick={() => {
-                  setSelectedOrder(isSelected ? null : order.id)
-                  if (!isSelected) resetReviewForm()
+                  setSelectedOrder(order.id)
+                  resetReviewForm()
                 }}
               >
                 <CardContent className="p-4 sm:p-6">
                   <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                     {/* Design Preview / File Gallery */}
-                    <div className="flex-shrink-0 w-full sm:w-32">
+                    <div className="flex-shrink-0 w-full sm:w-32" onClick={(e) => e.stopPropagation()}>
                       {order.files && order.files.length > 0 ? (
                         <FileGallery files={order.files} />
                       ) : (
@@ -288,113 +285,123 @@ export default function CustomifyOrdersPage() {
         </div>
       )}
 
-      {/* Review Panel */}
-      {selectedOrder && selectedOrderData && (
-        <Card className="border-2 border-pink-500">
-          <CardHeader>
-            <CardTitle>Review: {selectedOrderData.title || selectedOrderData.customer_name}</CardTitle>
-            <CardDescription>Complete the checklist, then approve or request a fix</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Review Checklist */}
-            <div className="space-y-3">
-              <Label className="text-base font-semibold">Review Checklist</Label>
-              <div className="space-y-3 pl-1">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="bleed"
-                    checked={reviewChecklist.bleed_ok}
-                    onCheckedChange={(checked) =>
-                      setReviewChecklist({ ...reviewChecklist, bleed_ok: !!checked })
-                    }
-                  />
-                  <label htmlFor="bleed" className="text-sm font-medium leading-none">
-                    No bleed issues (design extends to edges properly)
-                  </label>
+      {/* Review Dialog */}
+      <Dialog open={!!selectedOrder && !!selectedOrderData} onOpenChange={(open) => { if (!open) { setSelectedOrder(null); resetReviewForm() } }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          {selectedOrderData && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Review: {selectedOrderData.title || selectedOrderData.customer_name}</DialogTitle>
+                <DialogDescription>Complete the checklist, then approve or request a fix</DialogDescription>
+              </DialogHeader>
+
+              {/* Design files in dialog */}
+              {selectedOrderData.files && selectedOrderData.files.length > 0 && (
+                <div className="py-2">
+                  <FileGallery files={selectedOrderData.files} />
                 </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="resolution"
-                    checked={reviewChecklist.resolution_ok}
-                    onCheckedChange={(checked) =>
-                      setReviewChecklist({ ...reviewChecklist, resolution_ok: !!checked })
-                    }
-                  />
-                  <label htmlFor="resolution" className="text-sm font-medium leading-none">
-                    Resolution is acceptable (at least 300 DPI)
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="quality"
-                    checked={reviewChecklist.design_quality_ok}
-                    onCheckedChange={(checked) =>
-                      setReviewChecklist({ ...reviewChecklist, design_quality_ok: !!checked })
-                    }
-                  />
-                  <label htmlFor="quality" className="text-sm font-medium leading-none">
-                    Design quality is acceptable (no major issues)
-                  </label>
+              )}
+
+              {/* Review Checklist */}
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Review Checklist</Label>
+                <div className="space-y-3 pl-1">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="bleed"
+                      checked={reviewChecklist.bleed_ok}
+                      onCheckedChange={(checked) =>
+                        setReviewChecklist({ ...reviewChecklist, bleed_ok: !!checked })
+                      }
+                    />
+                    <label htmlFor="bleed" className="text-sm font-medium leading-none">
+                      No bleed issues (design extends to edges properly)
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="resolution"
+                      checked={reviewChecklist.resolution_ok}
+                      onCheckedChange={(checked) =>
+                        setReviewChecklist({ ...reviewChecklist, resolution_ok: !!checked })
+                      }
+                    />
+                    <label htmlFor="resolution" className="text-sm font-medium leading-none">
+                      Resolution is acceptable (at least 300 DPI)
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="quality"
+                      checked={reviewChecklist.design_quality_ok}
+                      onCheckedChange={(checked) =>
+                        setReviewChecklist({ ...reviewChecklist, design_quality_ok: !!checked })
+                      }
+                    />
+                    <label htmlFor="quality" className="text-sm font-medium leading-none">
+                      Design quality is acceptable (no major issues)
+                    </label>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                placeholder="Add notes (required for fix requests)..."
-                value={reviewNotes}
-                onChange={(e) => setReviewNotes(e.target.value)}
-                rows={3}
-              />
-            </div>
-
-            {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button
-                className="flex-1 bg-green-600 hover:bg-green-700 h-11 sm:h-10"
-                disabled={!allChecksPass || approveMutation.isPending}
-                onClick={() => {
-                  if (!selectedOrderData?.files?.length) {
-                    toast.error('Cannot approve: no design files attached')
-                    return
-                  }
-                  approveMutation.mutate({ orderId: selectedOrder, fileId: selectedOrderData.files[0].id })
-                }}
-              >
-                <CheckCircle className="mr-2 h-4 w-4" />
-                {approveMutation.isPending ? 'Approving...' : 'Approve & Send Proof'}
-              </Button>
-              <Button
-                variant="destructive"
-                className="flex-1 h-11 sm:h-10"
-                disabled={updateStatus.isPending}
-                onClick={() => {
-                  if (!reviewNotes.trim()) {
-                    toast.error('Please add notes describing the issue')
-                    return
-                  }
-                  setShowFixDialog(true)
-                }}
-              >
-                <FileWarning className="mr-2 h-4 w-4" />
-                Request Fix
-              </Button>
-            </div>
-
-            {!allChecksPass && (
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-yellow-50 border border-yellow-200">
-                <AlertCircle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
-                <p className="text-sm text-yellow-800">
-                  Complete all checklist items before approving. If there are issues, use &quot;Request Fix&quot; instead.
-                </p>
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label htmlFor="review-notes">Notes</Label>
+                <Textarea
+                  id="review-notes"
+                  placeholder="Add notes (required for fix requests)..."
+                  value={reviewNotes}
+                  onChange={(e) => setReviewNotes(e.target.value)}
+                  rows={3}
+                />
               </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+
+              {/* Actions */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button
+                  className="flex-1 bg-green-600 hover:bg-green-700 h-11 sm:h-10"
+                  disabled={!allChecksPass || approveMutation.isPending}
+                  onClick={() => {
+                    if (!selectedOrderData?.files?.length) {
+                      toast.error('Cannot approve: no design files attached')
+                      return
+                    }
+                    approveMutation.mutate({ orderId: selectedOrder!, fileId: selectedOrderData.files[0].id })
+                  }}
+                >
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  {approveMutation.isPending ? 'Approving...' : 'Approve & Send Proof'}
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1 h-11 sm:h-10"
+                  disabled={updateStatus.isPending}
+                  onClick={() => {
+                    if (!reviewNotes.trim()) {
+                      toast.error('Please add notes describing the issue')
+                      return
+                    }
+                    setShowFixDialog(true)
+                  }}
+                >
+                  <FileWarning className="mr-2 h-4 w-4" />
+                  Request Fix
+                </Button>
+              </div>
+
+              {!allChecksPass && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-yellow-50 border border-yellow-200">
+                  <AlertCircle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
+                  <p className="text-sm text-yellow-800">
+                    Complete all checklist items before approving. If there are issues, use &quot;Request Fix&quot; instead.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Confirm Fix Request Dialog */}
       <Dialog open={showFixDialog} onOpenChange={setShowFixDialog}>
