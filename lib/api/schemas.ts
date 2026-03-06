@@ -259,6 +259,20 @@ export const lookupCustomerQuery = z.object({
   email: email,
 })
 
+// POST /api/email/polish
+export const polishEmailBody = z.object({
+  text: z.string().min(1, 'Text is required').max(10000),
+})
+
+// POST /api/ai/summarize
+export const summarizeBody = z.object({
+  workItemId: uuid.optional(),
+  customerId: uuid.optional(),
+}).refine(
+  (data) => data.workItemId || data.customerId,
+  { message: 'Either workItemId or customerId is required' }
+)
+
 // ============================================================
 // JSONB field schemas (for validating data before DB writes)
 // ============================================================

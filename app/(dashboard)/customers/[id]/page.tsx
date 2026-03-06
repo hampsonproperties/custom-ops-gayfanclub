@@ -48,6 +48,7 @@ import { CustomerActivityFeed } from '@/components/activity/customer-activity-fe
 import { CreateProjectDialog } from '@/components/projects/create-project-dialog'
 import { ShopifyOrdersTab } from '@/components/shopify/shopify-orders-tab'
 import { useAllUsers } from '@/lib/hooks/use-users'
+import { SummaryPanel } from '@/components/ai/summary-panel'
 
 const log = logger('customer-detail')
 
@@ -732,6 +733,9 @@ export default function CustomerProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* AI Summary */}
+      <SummaryPanel customerId={customerId} />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

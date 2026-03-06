@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { TemplateSelector } from './template-selector'
 import { useSendEmail } from '@/lib/hooks/use-communications'
-import { Send } from 'lucide-react'
+import { Send, Sparkles, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Database } from '@/types/database'
 import type { SelectedTemplate } from './template-selector'
@@ -36,7 +36,35 @@ export function InlineEmailComposer({
   const [subject, setSubject] = useState(defaultSubject)
   const [body, setBody] = useState('')
 
+  const [isPolishing, setIsPolishing] = useState(false)
   const sendEmail = useSendEmail()
+
+  const handlePolish = async () => {
+    if (!body.trim()) {
+      toast.error('Write a draft first, then polish it')
+      return
+    }
+    setIsPolishing(true)
+    try {
+      const response = await fetch('/api/email/polish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: body }),
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to polish email')
+      }
+      const { polished } = await response.json()
+      setBody(polished)
+      toast.success('Email polished in brand voice')
+    } catch (error) {
+      log.error('Polish error', { error })
+      toast.error(error instanceof Error ? error.message : 'Failed to polish email')
+    } finally {
+      setIsPolishing(false)
+    }
+  }
 
   const handleSelectTemplate = (template: SelectedTemplate) => {
     setSubject(template.subject)
@@ -124,11 +152,19 @@ export function InlineEmailComposer({
           />
         </div>
 
-        {/* Send Button */}
-        <div className="flex justify-end pt-2 border-t">
+        {/* Actions */}
+        <div className="flex justify-end gap-2 pt-2 border-t">
+          <Button
+            variant="outline"
+            onClick={handlePolish}
+            disabled={!body.trim() || sendEmail.isPending || isPolishing}
+          >
+            {isPolishing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+            {isPolishing ? 'Polishing...' : 'Polish'}
+          </Button>
           <Button
             onClick={handleSend}
-            disabled={!to || !subject || !body || sendEmail.isPending}
+            disabled={!to || !subject || !body || sendEmail.isPending || isPolishing}
           >
             <Send className="h-4 w-4 mr-2" />
             {sendEmail.isPending ? 'Sending...' : 'Send Email'}

@@ -15,8 +15,10 @@ import {
   useMarkNotificationRead,
   useMarkAllNotificationsRead,
 } from '@/lib/hooks/use-notifications'
+import { useRealtimeNotifications } from '@/lib/hooks/use-realtime'
 
 export function NotificationBell() {
+  useRealtimeNotifications()
   const router = useRouter()
   const { data: notifications = [] } = useNotifications()
   const { data: unreadCount = 0 } = useUnreadNotificationCount()

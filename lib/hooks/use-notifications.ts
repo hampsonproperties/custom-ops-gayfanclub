@@ -56,7 +56,7 @@ export function useUnreadNotificationCount() {
       if (error) throw error
       return count || 0
     },
-    refetchInterval: 60_000, // Poll every 60 seconds
+    refetchInterval: 300_000, // Fallback poll every 5 min (Realtime handles instant updates)
   })
 }
 

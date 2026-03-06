@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRealtimeEmails } from '@/lib/hooks/use-realtime'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -26,6 +27,7 @@ import { logger } from '@/lib/logger'
 const log = logger('inbox-replies')
 
 export default function InboxRepliesPage() {
+  useRealtimeEmails()
   const { data: replies, isLoading } = useInboxReplies()
   const markActioned = useMarkCommunicationActioned()
   const [replyingToId, setReplyingToId] = useState<string | null>(null)

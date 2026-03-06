@@ -32,6 +32,7 @@ import { ShopifyInfo } from '@/components/work-items/shopify-info'
 import { InvoiceManager } from '@/components/work-items/invoice-manager'
 import { EnhancedTimeline } from '@/components/timeline/enhanced-timeline'
 import { Breadcrumbs } from '@/components/ui/breadcrumbs'
+import { SummaryPanel } from '@/components/ai/summary-panel'
 
 type FileRecord = Database['public']['Tables']['files']['Row']
 import { formatDistanceToNow } from 'date-fns'
@@ -280,7 +281,10 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Main Content - Timeline First */}
-      <div className="flex-1 p-4 sm:p-6">
+      <div className="flex-1 p-4 sm:p-6 space-y-4">
+        {/* AI Summary */}
+        <SummaryPanel workItemId={id} />
+
         <Tabs defaultValue="timeline" className="space-y-4">
           <TabsList className="flex w-full overflow-x-auto">
             <TabsTrigger value="timeline" className="gap-2">

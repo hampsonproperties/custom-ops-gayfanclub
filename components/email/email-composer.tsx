@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
-import { Loader2, Mail, X } from 'lucide-react'
+import { Loader2, Mail, X, Sparkles } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { logger } from '@/lib/logger'
 
@@ -55,12 +55,40 @@ export function EmailComposer({
   const [body, setBody] = useState('')
   const [ccEmails, setCcEmails] = useState<string[]>([])
   const [isSending, setIsSending] = useState(false)
+  const [isPolishing, setIsPolishing] = useState(false)
 
   const handleCcToggle = (email: string, checked: boolean) => {
     if (checked) {
       setCcEmails(prev => [...prev, email])
     } else {
       setCcEmails(prev => prev.filter(e => e !== email))
+    }
+  }
+
+  const handlePolish = async () => {
+    if (!body.trim()) {
+      toast.error('Write a draft first, then polish it')
+      return
+    }
+    setIsPolishing(true)
+    try {
+      const response = await fetch('/api/email/polish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: body }),
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to polish email')
+      }
+      const { polished } = await response.json()
+      setBody(polished)
+      toast.success('Email polished in brand voice')
+    } catch (error: any) {
+      log.error('Polish error', { error })
+      toast.error(error.message || 'Failed to polish email')
+    } finally {
+      setIsPolishing(false)
     }
   }
 
@@ -237,10 +265,18 @@ export function EmailComposer({
         </div>
 
         <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={handleCancel} disabled={isSending}>
+          <Button variant="outline" onClick={handleCancel} disabled={isSending || isPolishing}>
             Cancel
           </Button>
-          <Button onClick={handleSend} disabled={isSending}>
+          <Button
+            variant="outline"
+            onClick={handlePolish}
+            disabled={!body.trim() || isSending || isPolishing}
+          >
+            {isPolishing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+            {isPolishing ? 'Polishing...' : 'Polish'}
+          </Button>
+          <Button onClick={handleSend} disabled={isSending || isPolishing}>
             {isSending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Send Email
           </Button>

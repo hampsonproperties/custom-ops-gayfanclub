@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useMemo } from 'react'
+import { useRealtimeEmails } from '@/lib/hooks/use-realtime'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -32,6 +33,7 @@ type PriorityLevel = 'high' | 'medium' | 'low'
 type EmailStatus = 'needs_reply' | 'waiting_on_customer' | 'closed'
 
 export default function MyInboxPage() {
+  useRealtimeEmails()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedEmail, setSelectedEmail] = useState<any>(null)
   const [showReassignDialog, setShowReassignDialog] = useState(false)

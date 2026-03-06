@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
+import { useRealtimeEmails } from '@/lib/hooks/use-realtime'
 import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/types/database'
 import { Card, CardContent } from '@/components/ui/card'
@@ -223,6 +224,7 @@ function LinkedWorkItemBadge({ workItemId }: { workItemId: string | null }) {
 }
 
 export default function EmailIntakePage() {
+  useRealtimeEmails()
   const router = useRouter()
   const [activeCategory, setActiveCategory] = useState<EmailTab>('primary')
   const [searchQuery, setSearchQuery] = useState('')
