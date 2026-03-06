@@ -54,8 +54,6 @@ import {
   Reply,
   Archive,
   Flag,
-  FileText,
-  Code,
   Search,
   Inbox,
   Tag,
@@ -72,7 +70,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import DOMPurify from 'dompurify'
 import { toast } from 'sonner'
-import { parseEmailAddress, extractEmailPreview } from '@/lib/utils/email-formatting'
+import { parseEmailAddress, extractEmailPreview, separateQuotedContent } from '@/lib/utils/email-formatting'
 import { PaginationControls } from '@/components/ui/pagination-controls'
 import { TemplateSelector } from '@/components/email/template-selector'
 import type { SelectedTemplate } from '@/components/email/template-selector'
@@ -138,6 +136,69 @@ function AttachmentList({
         ))}
       </div>
     </div>
+  )
+}
+
+// Renders email body as formatted HTML with quoted content collapsed
+function EmailBody({ bodyHtml, bodyPreview }: { bodyHtml: string | null; bodyPreview: string | null }) {
+  const [showQuoted, setShowQuoted] = useState(false)
+
+  const ALLOWED_TAGS = [
+    'p', 'br', 'strong', 'em', 'u', 'a', 'ul', 'ol', 'li',
+    'h1', 'h2', 'h3', 'h4', 'div', 'span',
+    'table', 'thead', 'tbody', 'tr', 'td', 'th',
+    'img', 'blockquote', 'hr',
+  ]
+  const ALLOWED_ATTR = ['href', 'target', 'src', 'alt', 'width', 'height', 'style']
+
+  if (bodyHtml) {
+    const { body, hasQuoted, quotedContent } = separateQuotedContent(bodyHtml)
+
+    return (
+      <div className="space-y-2">
+        <div
+          className="email-content prose prose-sm max-w-none"
+          dangerouslySetInnerHTML={{
+            __html: DOMPurify.sanitize(body, { ALLOWED_TAGS, ALLOWED_ATTR }),
+          }}
+        />
+        {hasQuoted && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowQuoted(!showQuoted)}
+              className="text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded border border-dashed border-muted-foreground/30 hover:border-muted-foreground/50 transition-colors"
+            >
+              {showQuoted ? 'Hide' : '...'} quoted text
+            </button>
+            {showQuoted && (
+              <div
+                className="email-content prose prose-sm max-w-none mt-2 pl-3 border-l-2 border-muted-foreground/20 opacity-60"
+                dangerouslySetInnerHTML={{
+                  __html: DOMPurify.sanitize(quotedContent, { ALLOWED_TAGS, ALLOWED_ATTR }),
+                }}
+              />
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Plain text fallback — preserve line breaks
+  const text = bodyPreview || ''
+  if (!text) return <p className="text-sm text-muted-foreground italic">No content</p>
+
+  return (
+    <div
+      className="email-content prose prose-sm max-w-none"
+      dangerouslySetInnerHTML={{
+        __html: DOMPurify.sanitize(
+          text.replace(/\n/g, '<br>'),
+          { ALLOWED_TAGS: ['br'] }
+        ),
+      }}
+    />
   )
 }
 
@@ -235,7 +296,7 @@ export default function EmailIntakePage() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [selectedEmails, setSelectedEmails] = useState<Set<string>>(new Set())
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set())
-  const [viewMode, setViewMode] = useState<'html' | 'text'>('text')
+  // viewMode removed — detail sheet now always renders HTML with formatting
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
 
@@ -999,26 +1060,6 @@ export default function EmailIntakePage() {
                       })()}
                     </SheetDescription>
                   </div>
-                  <div className="flex gap-1 ml-4">
-                    <Button
-                      size="sm"
-                      variant={viewMode === 'text' ? 'default' : 'outline'}
-                      onClick={() => setViewMode('text')}
-                      className="gap-1"
-                    >
-                      <FileText className="h-3 w-3" />
-                      Text
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant={viewMode === 'html' ? 'default' : 'outline'}
-                      onClick={() => setViewMode('html')}
-                      className="gap-1"
-                    >
-                      <Code className="h-3 w-3" />
-                      HTML
-                    </Button>
-                  </div>
                 </div>
               </SheetHeader>
 
@@ -1068,45 +1109,7 @@ export default function EmailIntakePage() {
 
                         {/* Email Body */}
                         <div className="border-t pt-3">
-                          {viewMode === 'html' && email.body_html ? (
-                            <div
-                              className="email-content prose prose-sm max-w-none"
-                              dangerouslySetInnerHTML={{
-                                __html: DOMPurify.sanitize(email.body_html, {
-                                  ALLOWED_TAGS: [
-                                    'p',
-                                    'br',
-                                    'strong',
-                                    'em',
-                                    'u',
-                                    'a',
-                                    'ul',
-                                    'ol',
-                                    'li',
-                                    'h1',
-                                    'h2',
-                                    'h3',
-                                    'h4',
-                                    'div',
-                                    'span',
-                                    'table',
-                                    'thead',
-                                    'tbody',
-                                    'tr',
-                                    'td',
-                                    'th',
-                                    'img',
-                                    'blockquote',
-                                  ],
-                                  ALLOWED_ATTR: ['href', 'target', 'src', 'alt', 'width', 'height'],
-                                }),
-                              }}
-                            />
-                          ) : (
-                            <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                              {extractEmailPreview(email.body_html, null, Infinity)}
-                            </p>
-                          )}
+                          <EmailBody bodyHtml={email.body_html} bodyPreview={email.body_preview} />
                         </div>
 
                         <AttachmentList
@@ -1145,45 +1148,7 @@ export default function EmailIntakePage() {
                     </div>
 
                     <div className="border-t pt-3">
-                      {viewMode === 'html' && selectedEmail.body_html ? (
-                        <div
-                          className="email-content prose prose-sm max-w-none"
-                          dangerouslySetInnerHTML={{
-                            __html: DOMPurify.sanitize(selectedEmail.body_html, {
-                              ALLOWED_TAGS: [
-                                'p',
-                                'br',
-                                'strong',
-                                'em',
-                                'u',
-                                'a',
-                                'ul',
-                                'ol',
-                                'li',
-                                'h1',
-                                'h2',
-                                'h3',
-                                'h4',
-                                'div',
-                                'span',
-                                'table',
-                                'thead',
-                                'tbody',
-                                'tr',
-                                'td',
-                                'th',
-                                'img',
-                                'blockquote',
-                              ],
-                              ALLOWED_ATTR: ['href', 'target', 'src', 'alt', 'width', 'height'],
-                            }),
-                          }}
-                        />
-                      ) : (
-                        <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                          {extractEmailPreview(selectedEmail.body_html, null, Infinity)}
-                        </p>
-                      )}
+                      <EmailBody bodyHtml={selectedEmail.body_html} bodyPreview={selectedEmail.body_preview} />
                     </div>
 
                     <AttachmentList
