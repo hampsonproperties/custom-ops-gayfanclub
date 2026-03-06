@@ -1,8 +1,21 @@
+/**
+ * Reprocess Webhook Events
+ *
+ * Re-runs a failed or stuck webhook event through the same shared
+ * processors used by the main Shopify webhook handler. This ensures
+ * reprocessing has identical behavior to the original processing
+ * (three-tier routing, Faire auto-creation, etc.).
+ */
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { validateBody } from '@/lib/api/validate'
 import { reprocessWebhookBody } from '@/lib/api/schemas'
 import { badRequest, notFound, serverError } from '@/lib/api/errors'
+import { processOrder } from '@/lib/shopify/processors/order-processor'
+import { processFulfillment } from '@/lib/shopify/processors/fulfillment-processor'
+import { processCustomer } from '@/lib/shopify/processors/customer-processor'
+import { processRefund } from '@/lib/shopify/processors/refund-processor'
 import { logger } from '@/lib/logger'
 
 const log = logger('api-webhooks-reprocess')
@@ -43,7 +56,7 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', webhookId)
 
-    // Reprocess based on event type
+    // Reprocess using the same shared processors as the main webhook handler
     const payload = webhookEvent.payload
     const eventType = webhookEvent.event_type
 
@@ -52,6 +65,10 @@ export async function POST(request: NextRequest) {
         await processOrder(supabase, payload, webhookId)
       } else if (eventType === 'fulfillments/create' || eventType === 'orders/fulfilled') {
         await processFulfillment(supabase, payload, webhookId)
+      } else if (eventType === 'customers/create' || eventType === 'customers/update') {
+        await processCustomer(supabase, payload, webhookId)
+      } else if (eventType === 'refunds/create') {
+        await processRefund(supabase, payload, webhookId)
       } else {
         // Unknown event type
         await supabase
@@ -83,170 +100,4 @@ export async function POST(request: NextRequest) {
     log.error('Reprocess error', { error })
     return serverError(error instanceof Error ? error.message : 'Reprocessing failed')
   }
-}
-
-// Copy of processOrder from main webhook handler
-async function processOrder(supabase: any, order: any, webhookEventId: string) {
-  const isCustomOrder = detectCustomOrder(order)
-
-  if (!isCustomOrder) {
-    await supabase
-      .from('webhook_events')
-      .update({
-        processing_status: 'completed',
-        processed_at: new Date().toISOString(),
-        error_message: 'Not a custom order - no work item created',
-      })
-      .eq('id', webhookEventId)
-    return
-  }
-
-  const { data: existingWorkItem } = await supabase
-    .from('work_items')
-    .select('id')
-    .eq('shopify_order_id', order.id.toString())
-    .single()
-
-  if (existingWorkItem) {
-    await supabase
-      .from('work_items')
-      .update({
-        shopify_financial_status: order.financial_status,
-        shopify_fulfillment_status: order.fulfillment_status,
-      })
-      .eq('id', existingWorkItem.id)
-
-    await supabase
-      .from('webhook_events')
-      .update({
-        processing_status: 'completed',
-        processed_at: new Date().toISOString(),
-      })
-      .eq('id', webhookEventId)
-
-    return
-  }
-
-  let designPreviewUrl = null
-  let designDownloadUrl = null
-  let quantity = 0
-  let gripColor = null
-
-  for (const item of order.line_items || []) {
-    if (item.properties) {
-      const props = Array.isArray(item.properties) ? item.properties : []
-      for (const prop of props) {
-        if (prop.name === 'design_preview' || prop.name === '_design_preview_url') {
-          designPreviewUrl = prop.value
-        }
-        if (prop.name === 'design_download' || prop.name === '_design_download_url') {
-          designDownloadUrl = prop.value
-        }
-        if (prop.name === 'grip_color' || prop.name === 'Grip Color') {
-          gripColor = prop.value
-        }
-      }
-    }
-    quantity += item.quantity
-  }
-
-  const { error: insertError } = await supabase.from('work_items').insert({
-    type: 'customify_order',
-    source: 'shopify',
-    status: 'needs_design_review',
-    shopify_order_id: order.id.toString(),
-    shopify_order_number: order.name,
-    shopify_financial_status: order.financial_status,
-    shopify_fulfillment_status: order.fulfillment_status,
-    customer_name: order.customer
-      ? `${order.customer.first_name || ''} ${order.customer.last_name || ''}`.trim()
-      : null,
-    customer_email: order.customer?.email,
-    quantity,
-    grip_color: gripColor,
-    design_preview_url: designPreviewUrl,
-    design_download_url: designDownloadUrl,
-    reason_included: {
-      detected_via: 'shopify_webhook_reprocess',
-      order_tags: order.tags,
-      has_customify_properties: !!designPreviewUrl || !!designDownloadUrl,
-    },
-  })
-
-  if (insertError) {
-    throw new Error(`Failed to create work item: ${insertError.message}`)
-  }
-
-  await supabase
-    .from('webhook_events')
-    .update({
-      processing_status: 'completed',
-      processed_at: new Date().toISOString(),
-    })
-    .eq('id', webhookEventId)
-}
-
-async function processFulfillment(supabase: any, fulfillment: any, webhookEventId: string) {
-  const orderId = fulfillment.order_id?.toString()
-
-  if (!orderId) {
-    await supabase
-      .from('webhook_events')
-      .update({
-        processing_status: 'failed',
-        error_message: 'Missing order_id in fulfillment payload',
-      })
-      .eq('id', webhookEventId)
-    return
-  }
-
-  const { error: updateError } = await supabase
-    .from('work_items')
-    .update({
-      status: 'shipped',
-      shopify_fulfillment_status: 'fulfilled',
-    })
-    .eq('shopify_order_id', orderId)
-
-  if (updateError) {
-    throw new Error(`Failed to update work item: ${updateError.message}`)
-  }
-
-  await supabase
-    .from('webhook_events')
-    .update({
-      processing_status: 'completed',
-      processed_at: new Date().toISOString(),
-    })
-    .eq('id', webhookEventId)
-}
-
-function detectCustomOrder(order: any): boolean {
-  for (const item of order.line_items || []) {
-    if (item.properties) {
-      const props = Array.isArray(item.properties) ? item.properties : []
-      for (const prop of props) {
-        if (
-          prop.name.toLowerCase().includes('design') ||
-          prop.name.toLowerCase().includes('customify')
-        ) {
-          return true
-        }
-      }
-    }
-
-    if (
-      item.title?.toLowerCase().includes('custom') ||
-      item.title?.toLowerCase().includes('customify')
-    ) {
-      return true
-    }
-  }
-
-  const tags = order.tags?.toLowerCase() || ''
-  if (tags.includes('custom') || tags.includes('customify')) {
-    return true
-  }
-
-  return false
 }
