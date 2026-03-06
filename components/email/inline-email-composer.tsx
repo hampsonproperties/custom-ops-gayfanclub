@@ -47,11 +47,15 @@ export function InlineEmailComposer({
     }
     setIsPolishing(true)
     try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 15_000)
       const response = await fetch('/api/email/polish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: body }),
+        signal: controller.signal,
       })
+      clearTimeout(timeout)
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.error || 'Failed to polish email')
@@ -61,7 +65,11 @@ export function InlineEmailComposer({
       toast.success('Email polished in brand voice')
     } catch (error) {
       log.error('Polish error', { error })
-      toast.error(error instanceof Error ? error.message : 'Failed to polish email')
+      if (error instanceof Error && error.name === 'AbortError') {
+        toast.error('AI is temporarily unavailable. Please try again in a moment.')
+      } else {
+        toast.error(error instanceof Error ? error.message : 'Failed to polish email')
+      }
     } finally {
       setIsPolishing(false)
     }
@@ -70,11 +78,15 @@ export function InlineEmailComposer({
   const handleSuggestReply = async () => {
     setIsSuggesting(true)
     try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 15_000)
       const response = await fetch('/api/ai/suggest-reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ workItemId }),
+        signal: controller.signal,
       })
+      clearTimeout(timeout)
       if (!response.ok) {
         const error = await response.json()
         throw new Error(error.error || 'Failed to generate suggested reply')
@@ -85,7 +97,11 @@ export function InlineEmailComposer({
       toast.success('AI reply loaded — review and edit before sending')
     } catch (error) {
       log.error('Suggest reply error', { error })
-      toast.error(error instanceof Error ? error.message : 'Failed to generate suggestion')
+      if (error instanceof Error && error.name === 'AbortError') {
+        toast.error('AI is temporarily unavailable. Please try again in a moment.')
+      } else {
+        toast.error(error instanceof Error ? error.message : 'Failed to generate suggestion')
+      }
     } finally {
       setIsSuggesting(false)
     }

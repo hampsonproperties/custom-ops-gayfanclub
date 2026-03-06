@@ -5,6 +5,7 @@ import { validateBody } from '@/lib/api/validate'
 import { suggestReplyBody } from '@/lib/api/schemas'
 import { logger } from '@/lib/logger'
 import { serverError } from '@/lib/api/errors'
+import { getBrandTone } from '@/lib/ai/brand-tone'
 
 const log = logger('ai-suggest-reply')
 
@@ -15,17 +16,13 @@ function getOpenAIClient() {
   return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 }
 
-const SUGGEST_REPLY_PROMPT = `You are an email assistant for Gay Fan Club, a custom merchandise company specializing in hand fans, banners, and promotional items for Pride events, drag shows, and celebrations.
+function buildSuggestReplyPrompt(brandTone: string) {
+  return `You are an email assistant for Gay Fan Club, a custom merchandise company specializing in hand fans, banners, and promotional items for Pride events, drag shows, and celebrations.
 
 YOUR JOB: Draft a reply to the customer's most recent email. Use the conversation history and reference documents to give accurate, specific answers.
 
 BRAND VOICE:
-- Playful. Powerful. Pride-forward.
-- Confident chaos, handled professionally.
-- Bold, inclusive, fast and friendly — like a cool founder texting you, not a help desk.
-- Short paragraphs. Occasional emoji. Zero corporate fluff.
-- Never snarky or mean. Always warm and enthusiastic.
-- Use "we" and "us" naturally.
+${brandTone}
 
 RULES:
 1. Return ONLY the email body text — no subject line, no commentary
@@ -36,6 +33,7 @@ RULES:
 6. Don't use "Dear" or formal openings
 7. End with a warm sign-off but not overly formal
 8. Include next steps when appropriate`
+}
 
 async function gatherContext(supabase: any, workItemId?: string, customerId?: string): Promise<string> {
   let context = ''
@@ -163,10 +161,11 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // Gather conversation context and reference docs in parallel
-    const [context, refDocs] = await Promise.all([
+    // Gather conversation context, reference docs, and brand tone in parallel
+    const [context, refDocs, brandTone] = await Promise.all([
       gatherContext(supabase, workItemId, customerId),
       getReferenceDocs(supabase),
+      getBrandTone(),
     ])
 
     const fullContext = context + refDocs
@@ -178,7 +177,7 @@ export async function POST(request: NextRequest) {
       max_tokens: 1024,
       temperature: 0.7,
       messages: [
-        { role: 'system', content: SUGGEST_REPLY_PROMPT },
+        { role: 'system', content: buildSuggestReplyPrompt(brandTone) },
         { role: 'user', content: `Draft a reply to the customer's most recent email based on this context:\n\n${fullContext}` },
       ],
     })

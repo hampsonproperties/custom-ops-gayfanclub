@@ -5,11 +5,10 @@ import { validateBody } from '@/lib/api/validate'
 import { generateEmailBody } from '@/lib/api/schemas'
 import { logger } from '@/lib/logger'
 import { serverError } from '@/lib/api/errors'
+import { getBrandTone } from '@/lib/ai/brand-tone'
 
 const log = logger('email-generate')
 
-
-// Lazy initialize OpenAI client to avoid build-time errors
 function getOpenAIClient() {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY environment variable is not set')
@@ -101,6 +100,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const [openai, brandTone] = await Promise.all([
+      Promise.resolve(getOpenAIClient()),
+      getBrandTone(),
+    ])
+
     // Build system prompt for email generation
     const systemPrompt = `You are an AI email assistant for Gay Fan Club, a custom merchandise company specializing in custom hand fans, banners, and promotional items for events.
 
@@ -110,10 +114,7 @@ CONTEXT:
 ${context || 'No specific project context available.'}
 
 BRAND VOICE:
-- Friendly but professional
-- LGBTQ+ inclusive and celebratory
-- Helpful and solution-oriented
-- Enthusiastic about custom fan designs and events
+${brandTone}
 
 GUIDELINES:
 1. Generate ONLY the email body content (no subject line)
@@ -130,9 +131,6 @@ AVOID:
 - Long-winded explanations
 - Apologizing excessively
 - Making promises about timing unless specified`
-
-    // Generate email using OpenAI
-    const openai = getOpenAIClient()
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-3.5-turbo',

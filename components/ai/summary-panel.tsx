@@ -22,11 +22,15 @@ export function SummaryPanel({ workItemId, customerId }: SummaryPanelProps) {
   const handleSummarize = async () => {
     setIsLoading(true)
     try {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 15_000)
       const response = await fetch('/api/ai/summarize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ workItemId, customerId }),
+        signal: controller.signal,
       })
+      clearTimeout(timeout)
 
       if (!response.ok) {
         const error = await response.json()
@@ -38,7 +42,11 @@ export function SummaryPanel({ workItemId, customerId }: SummaryPanelProps) {
       setIsExpanded(true)
     } catch (error) {
       log.error('Summary error', { error })
-      toast.error(error instanceof Error ? error.message : 'Failed to generate summary')
+      if (error instanceof Error && error.name === 'AbortError') {
+        toast.error('AI is temporarily unavailable. Please try again in a moment.')
+      } else {
+        toast.error(error instanceof Error ? error.message : 'Failed to generate summary')
+      }
     } finally {
       setIsLoading(false)
     }

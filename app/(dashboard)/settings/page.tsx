@@ -42,10 +42,11 @@ import {
   useDeleteReferenceDoc,
   type ReferenceDoc,
 } from '@/lib/hooks/use-reference-docs'
+import { useBrandTone, useSaveBrandTone, DEFAULT_BRAND_TONE } from '@/lib/hooks/use-brand-tone'
 import { toast } from 'sonner'
 import {
   Loader2, Check, Clock, Pause, CalendarDays,
-  Plus, Pencil, Trash2, FileText, Mail, Upload, BookOpen,
+  Plus, Pencil, Trash2, FileText, Mail, Upload, BookOpen, Megaphone,
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════════════
@@ -763,6 +764,18 @@ function ReferenceDocsSection() {
   }
 
   const handleToggle = (doc: ReferenceDoc) => {
+    // Block activation if it would exceed the character limit
+    if (!doc.is_active && docs) {
+      const currentActiveChars = docs
+        .filter((d) => d.is_active)
+        .reduce((sum, d) => sum + (d.content_text?.length || 0), 0)
+      const newTotal = currentActiveChars + (doc.content_text?.length || 0)
+      if (newTotal > REFERENCE_DOCS_CHAR_LIMIT) {
+        toast.error('Activating this document would exceed the character limit. Deactivate other documents first.')
+        return
+      }
+    }
+
     toggleDoc.mutate(
       { id: doc.id, isActive: !doc.is_active },
       {
@@ -828,6 +841,37 @@ function ReferenceDocsSection() {
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Total size safeguard */}
+        {docs && docs.length > 0 && (() => {
+          const activeChars = docs
+            .filter((d) => d.is_active)
+            .reduce((sum, d) => sum + (d.content_text?.length || 0), 0)
+          const pct = Math.min(100, Math.round((activeChars / REFERENCE_DOCS_CHAR_LIMIT) * 100))
+          const isOver = activeChars >= REFERENCE_DOCS_CHAR_LIMIT
+          const isWarning = pct >= 75
+          return (
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Active document text: {activeChars.toLocaleString()} / {REFERENCE_DOCS_CHAR_LIMIT.toLocaleString()} chars</span>
+                <span className={isOver ? 'text-destructive font-medium' : isWarning ? 'text-orange-600 font-medium' : ''}>
+                  {pct}%
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${isOver ? 'bg-destructive' : isWarning ? 'bg-orange-500' : 'bg-primary'}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              {isOver && (
+                <p className="text-xs text-destructive">
+                  Over the limit. Deactivate some documents before activating more.
+                </p>
+              )}
+            </div>
+          )
+        })()}
+
         {/* Upload Form */}
         {showUpload && (
           <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
@@ -963,6 +1007,105 @@ function ReferenceDocsSection() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// Brand Voice Section
+// ═══════════════════════════════════════════════════════════════════
+
+const REFERENCE_DOCS_CHAR_LIMIT = 80_000
+
+function BrandVoiceSection() {
+  const { data: savedTone, isLoading } = useBrandTone()
+  const saveTone = useSaveBrandTone()
+  const [tone, setTone] = useState('')
+  const [hasEdited, setHasEdited] = useState(false)
+
+  // Sync saved value into local state when loaded (only if user hasn't edited)
+  const displayTone = hasEdited ? tone : (savedTone ?? DEFAULT_BRAND_TONE)
+
+  const handleSave = () => {
+    saveTone.mutate(displayTone, {
+      onSuccess: () => {
+        toast.success('Brand voice saved')
+        setHasEdited(false)
+      },
+      onError: () => toast.error('Failed to save brand voice'),
+    })
+  }
+
+  const handleReset = () => {
+    setTone(DEFAULT_BRAND_TONE)
+    setHasEdited(true)
+  }
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Brand Voice</CardTitle>
+          <CardDescription>Loading...</CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div>
+          <CardTitle className="flex items-center gap-2">
+            <Megaphone className="h-5 w-5" />
+            Brand Voice
+          </CardTitle>
+          <CardDescription className="mt-1">
+            Instructions that tell the AI how to write in your brand's voice. Used by Polish, Suggest Reply, and email generation.
+          </CardDescription>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Textarea
+          rows={8}
+          value={displayTone}
+          onChange={(e) => {
+            setTone(e.target.value)
+            setHasEdited(true)
+          }}
+          className="font-mono text-sm"
+          placeholder="Describe your brand voice here..."
+        />
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-muted-foreground">
+            {displayTone.length} characters
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReset}
+              disabled={saveTone.isPending}
+            >
+              Reset to Default
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={saveTone.isPending || (!hasEdited && savedTone === displayTone)}
+            >
+              {saveTone.isPending ? (
+                <><Loader2 className="h-4 w-4 animate-spin mr-2" />Saving...</>
+              ) : (
+                'Save Brand Voice'
+              )}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Settings Page
 // ═══════════════════════════════════════════════════════════════════
 
@@ -999,6 +1142,9 @@ export default function SettingsPage() {
 
       {/* Email Templates — full section */}
       <EmailTemplatesSection />
+
+      {/* Brand Voice */}
+      <BrandVoiceSection />
 
       {/* AI Reference Documents */}
       <ReferenceDocsSection />
