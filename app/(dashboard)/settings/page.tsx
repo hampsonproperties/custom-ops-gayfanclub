@@ -43,10 +43,15 @@ import {
   type ReferenceDoc,
 } from '@/lib/hooks/use-reference-docs'
 import { useBrandTone, useSaveBrandTone, DEFAULT_BRAND_TONE } from '@/lib/hooks/use-brand-tone'
+import {
+  useSystemTemplates,
+  useUpdateSystemTemplate,
+  type SystemTemplate,
+} from '@/lib/hooks/use-system-templates'
 import { toast } from 'sonner'
 import {
   Loader2, Check, Clock, Pause, CalendarDays,
-  Plus, Pencil, Trash2, FileText, Mail, Upload, BookOpen, Megaphone,
+  Plus, Pencil, Trash2, FileText, Mail, Upload, BookOpen, Megaphone, Settings,
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════════════
@@ -703,6 +708,295 @@ function EmailTemplatesSection() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// System Email Templates Section (proof approval + batch drip)
+// ═══════════════════════════════════════════════════════════════════
+
+const SYSTEM_TEMPLATE_META: Record<string, { group: string; description: string }> = {
+  'customify-proof-approval': {
+    group: 'Proof Approval',
+    description: 'Sent to customers when staff sends a proof for review. Contains approve/reject links.',
+  },
+  'batch-entering-production': {
+    group: 'Batch Drip Emails',
+    description: 'Sent on Day 0 when an Alibaba order number is added to a batch.',
+  },
+  'batch-midway-checkin': {
+    group: 'Batch Drip Emails',
+    description: 'Sent on Day 7 as a mid-production check-in.',
+  },
+  'batch-en-route': {
+    group: 'Batch Drip Emails',
+    description: 'Sent on Day 14 when tracking info is added.',
+  },
+  'batch-arrived-stateside': {
+    group: 'Batch Drip Emails',
+    description: 'Sent on Day 21 when the batch is marked as received.',
+  },
+}
+
+function SystemTemplateEditDialog({
+  open,
+  onOpenChange,
+  template,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  template: SystemTemplate
+}) {
+  const updateTemplate = useUpdateSystemTemplate()
+  const [name, setName] = useState(template.name)
+  const [subject, setSubject] = useState(template.subject_template)
+  const [body, setBody] = useState(template.body_html_template)
+
+  const mergeFields = template.merge_fields ?? []
+  const meta = SYSTEM_TEMPLATE_META[template.key]
+
+  const canSave = subject.trim().length > 0 && body.trim().length > 0
+
+  const handleSave = () => {
+    if (!canSave) return
+
+    updateTemplate.mutate(
+      {
+        id: template.id,
+        updates: {
+          name: name.trim(),
+          subject_template: subject.trim(),
+          body_html_template: body.trim(),
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success(`Template "${name}" updated`)
+          onOpenChange(false)
+        },
+        onError: () => toast.error('Failed to update template'),
+      }
+    )
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edit System Template</DialogTitle>
+          <DialogDescription>
+            {meta?.description ?? 'Edit this system email template. Changes take effect immediately.'}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Key:</span>
+            <Badge variant="outline" className="font-mono text-xs">{template.key}</Badge>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="sys-tpl-name">Template Name</Label>
+            <Input
+              id="sys-tpl-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="sys-tpl-subject">Subject Line *</Label>
+            <Input
+              id="sys-tpl-subject"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Email subject line"
+              className="font-mono text-sm"
+            />
+            {subject.trim().length === 0 && (
+              <p className="text-xs text-destructive">Subject line is required</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="sys-tpl-body">Body (HTML) *</Label>
+            {mergeFields.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                <span className="text-xs text-muted-foreground mr-1">Merge fields:</span>
+                {mergeFields.map((field) => (
+                  <Badge key={field} variant="secondary" className="font-mono text-xs px-1.5 py-0">
+                    {`{{${field}}}`}
+                  </Badge>
+                ))}
+              </div>
+            )}
+            <Textarea
+              id="sys-tpl-body"
+              rows={16}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              className="font-mono text-sm"
+            />
+            {body.trim().length === 0 && (
+              <p className="text-xs text-destructive">Body is required</p>
+            )}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={updateTemplate.isPending}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} disabled={!canSave || updateTemplate.isPending}>
+            {updateTemplate.isPending ? (
+              <><Loader2 className="h-4 w-4 animate-spin mr-2" />Saving...</>
+            ) : (
+              'Save Changes'
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function SystemTemplatesSection() {
+  const { data: templates, isLoading, error } = useSystemTemplates()
+  const [editingTemplate, setEditingTemplate] = useState<SystemTemplate | null>(null)
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>System Email Templates</CardTitle>
+          <CardDescription>Loading templates...</CardDescription>
+        </CardHeader>
+        <CardContent className="flex justify-center py-8">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>System Email Templates</CardTitle>
+          <CardDescription className="text-destructive">Failed to load templates</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+
+  const systemTemplates = templates?.filter((t) => SYSTEM_TEMPLATE_META[t.key]) ?? []
+
+  // Group into Proof Approval and Batch Drip Emails
+  const groups = [
+    {
+      label: 'Proof Approval',
+      color: 'bg-blue-100 text-blue-800',
+      templates: systemTemplates.filter((t) => SYSTEM_TEMPLATE_META[t.key]?.group === 'Proof Approval'),
+    },
+    {
+      label: 'Batch Drip Emails',
+      color: 'bg-green-100 text-green-800',
+      templates: systemTemplates.filter((t) => SYSTEM_TEMPLATE_META[t.key]?.group === 'Batch Drip Emails'),
+    },
+  ].filter((g) => g.templates.length > 0)
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              System Email Templates
+            </CardTitle>
+            <CardDescription className="mt-1">
+              Proof approval and batch drip email templates. Changes take effect immediately on the next send.
+            </CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {systemTemplates.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <FileText className="h-12 w-12 mx-auto mb-4 opacity-20" />
+              <p>No system templates found. They may need to be seeded via migration.</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {groups.map((group) => (
+                <div key={group.label}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <Badge className={group.color} variant="secondary">
+                      {group.label}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {group.templates.length} template{group.templates.length !== 1 ? 's' : ''}
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {group.templates.map((template) => {
+                      const meta = SYSTEM_TEMPLATE_META[template.key]
+                      return (
+                        <div
+                          key={template.id}
+                          className="flex items-start gap-3 p-3 rounded-lg border hover:bg-muted/30 transition-colors"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{template.name}</span>
+                              <Badge variant="outline" className="font-mono text-[10px] px-1.5 py-0">
+                                {template.key}
+                              </Badge>
+                            </div>
+                            {meta?.description && (
+                              <p className="text-xs text-muted-foreground mt-0.5">{meta.description}</p>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-1 font-mono truncate">
+                              Subject: {template.subject_template}
+                            </p>
+                            {(template.merge_fields?.length ?? 0) > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1.5">
+                                {template.merge_fields!.map((field) => (
+                                  <Badge key={field} variant="secondary" className="font-mono text-[10px] px-1 py-0">
+                                    {`{{${field}}}`}
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 shrink-0"
+                            onClick={() => setEditingTemplate(template)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {editingTemplate && (
+        <SystemTemplateEditDialog
+          open={!!editingTemplate}
+          onOpenChange={(open) => {
+            if (!open) setEditingTemplate(null)
+          }}
+          template={editingTemplate}
+        />
+      )}
+    </>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // AI Reference Documents Section
 // ═══════════════════════════════════════════════════════════════════
 
@@ -1142,6 +1436,9 @@ export default function SettingsPage() {
 
       {/* Email Templates — full section */}
       <EmailTemplatesSection />
+
+      {/* System Email Templates (proof approval + batch drip) */}
+      <SystemTemplatesSection />
 
       {/* Brand Voice */}
       <BrandVoiceSection />
