@@ -30,6 +30,10 @@ import {
   CheckCircle2,
   UserCheck,
   AlertTriangle,
+  RefreshCw,
+  Sun,
+  PackageCheck,
+  RotateCcw,
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
@@ -122,7 +126,7 @@ function useCustomerCheckIns() {
 
       const { data, error } = await supabase
         .from('customers')
-        .select('id, email, first_name, last_name, display_name, organization_name, customer_type, next_follow_up_at')
+        .select('id, email, first_name, last_name, display_name, organization_name, customer_type, next_follow_up_at, follow_up_reason, follow_up_touch_number, follow_up_max_touches')
         .not('next_follow_up_at', 'is', null)
         .lte('next_follow_up_at', endOfToday.toISOString())
         .order('next_follow_up_at', { ascending: true })
@@ -132,6 +136,116 @@ function useCustomerCheckIns() {
       return data || []
     },
     refetchInterval: 5 * 60 * 1000,
+  })
+}
+
+// Hook: fetch retailers/organizations who haven't ordered in 60+ days
+// Excludes Customify-only customers
+function useRetailReorders() {
+  return useQuery({
+    queryKey: ['morning-briefing', 'retail-reorders'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString()
+
+      // Get retailers and organizations with orders older than 60 days
+      const { data: customers, error } = await supabase
+        .from('customers')
+        .select('id, email, first_name, last_name, display_name, organization_name, customer_type, last_order_date, total_order_count')
+        .in('customer_type', ['retailer', 'organization'])
+        .not('last_order_date', 'is', null)
+        .lt('last_order_date', sixtyDaysAgo)
+        .order('last_order_date', { ascending: true })
+        .limit(20)
+
+      if (error) throw error
+      if (!customers || customers.length === 0) return []
+
+      // Exclude Customify-only: must have non-customify work items
+      const customerIds = customers.map(c => c.id)
+      const { data: withProjects } = await supabase
+        .from('work_items')
+        .select('customer_id')
+        .in('customer_id', customerIds)
+        .in('type', ['assisted_project', 'design_service', 'bulk_order'])
+
+      if (!withProjects || withProjects.length === 0) return []
+      const hasRealProjectIds = new Set(withProjects.map(w => w.customer_id))
+      return customers.filter(c => hasRealProjectIds.has(c.id)).slice(0, 10)
+    },
+    refetchInterval: 10 * 60 * 1000,
+  })
+}
+
+// Hook: fetch past event customers whose season is coming up (4 months ahead)
+function useSeasonalOutreach() {
+  return useQuery({
+    queryKey: ['morning-briefing', 'seasonal-outreach'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const now = new Date()
+      const targetMonth = ((now.getMonth() + 4) % 12) + 1 // 1-based month, 4 months ahead
+
+      // Find work items with event_date set
+      const { data: eventItems, error } = await supabase
+        .from('work_items')
+        .select('customer_id, customer_name, customer_email, event_date, title')
+        .not('event_date', 'is', null)
+        .not('customer_id', 'is', null)
+
+      if (error) throw error
+      if (!eventItems || eventItems.length === 0) return []
+
+      // Filter to items where event month matches target and event is in the past
+      const matching = eventItems.filter(item => {
+        const eventDate = new Date(item.event_date!)
+        return (eventDate.getMonth() + 1) === targetMonth && eventDate < now
+      })
+
+      if (matching.length === 0) return []
+
+      // Group by customer
+      const customerMap = new Map<string, { eventDate: string; orderCount: number }>()
+      for (const item of matching) {
+        const cid = item.customer_id!
+        const existing = customerMap.get(cid)
+        if (!existing) {
+          customerMap.set(cid, { eventDate: item.event_date!, orderCount: 1 })
+        } else {
+          existing.orderCount++
+          if (new Date(item.event_date!) > new Date(existing.eventDate)) {
+            existing.eventDate = item.event_date!
+          }
+        }
+      }
+
+      const customerIds = Array.from(customerMap.keys())
+      const { data: customers } = await supabase
+        .from('customers')
+        .select('id, email, first_name, last_name, display_name, organization_name, customer_type')
+        .in('id', customerIds)
+
+      if (!customers) return []
+
+      // Exclude Customify-only
+      const { data: withProjects } = await supabase
+        .from('work_items')
+        .select('customer_id')
+        .in('customer_id', customerIds)
+        .in('type', ['assisted_project', 'design_service', 'bulk_order'])
+
+      const hasRealProjectIds = new Set((withProjects || []).map(w => w.customer_id))
+
+      return customers
+        .filter(c => hasRealProjectIds.has(c.id))
+        .map(c => ({
+          ...c,
+          eventDate: customerMap.get(c.id)!.eventDate,
+          orderCount: customerMap.get(c.id)!.orderCount,
+        }))
+        .slice(0, 10)
+    },
+    refetchInterval: 30 * 60 * 1000,
   })
 }
 
@@ -221,6 +335,8 @@ export default function DashboardPage() {
   const { data: followUps } = useFollowUpsBriefing()
   const { data: customerCheckIns } = useCustomerCheckIns()
   const { data: dormantCustomers } = useDormantCustomers()
+  const { data: retailReorders } = useRetailReorders()
+  const { data: seasonalOutreach } = useSeasonalOutreach()
   const queryClient = useQueryClient()
 
   const handleAcknowledge = async (customerId: string, e: React.MouseEvent) => {
@@ -267,7 +383,9 @@ export default function DashboardPage() {
     (waitingOn && waitingOn.length > 0) ||
     (followUps && followUps.length > 0) ||
     (customerCheckIns && customerCheckIns.length > 0) ||
-    (dormantCustomers && dormantCustomers.length > 0)
+    (dormantCustomers && dormantCustomers.length > 0) ||
+    (retailReorders && retailReorders.length > 0) ||
+    (seasonalOutreach && seasonalOutreach.length > 0)
 
   return (
     <div className="p-6 space-y-5">
@@ -416,7 +534,7 @@ export default function DashboardPage() {
 
         {/* RIGHT COLUMN: Check-ins + Dormant + Tasks */}
         <div className="space-y-4">
-          {/* Customer Check-ins */}
+          {/* Customer Check-ins — now shows follow-up reason context */}
           {customerCheckIns && customerCheckIns.length > 0 && (
             <Card className="border-l-2 border-l-blue-400">
               <CardHeader className="pb-2 pt-4 px-4">
@@ -428,10 +546,25 @@ export default function DashboardPage() {
               <CardContent className="px-4 pb-3 space-y-1">
                 {customerCheckIns.slice(0, 5).map((c) => {
                   const isOverdue = new Date(c.next_follow_up_at!) < new Date()
+                  const reasonLabel = c.follow_up_reason === 'post-delivery' ? 'Post-delivery check-in'
+                    : c.follow_up_reason === 'win-back' && c.follow_up_touch_number && c.follow_up_max_touches
+                      ? `Win-back (touch ${c.follow_up_touch_number}/${c.follow_up_max_touches})`
+                      : c.follow_up_reason === 'seasonal' ? 'Seasonal outreach'
+                      : c.follow_up_reason === 'reorder-prompt' ? 'Reorder prompt'
+                      : null
                   return (
                     <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
                       <div className="p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
-                        <div className="font-medium text-sm truncate">{getCustomerDisplayName(c)}</div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm truncate">{getCustomerDisplayName(c)}</div>
+                          {reasonLabel && (
+                            <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                              {c.follow_up_reason === 'post-delivery' && <PackageCheck className="h-3 w-3" />}
+                              {c.follow_up_reason === 'win-back' && <RotateCcw className="h-3 w-3" />}
+                              {reasonLabel}
+                            </div>
+                          )}
+                        </div>
                         <Badge variant="outline" className={`text-[11px] gap-0.5 px-1.5 py-0 ml-2 shrink-0 ${isOverdue ? 'text-red-600 border-red-300' : 'text-blue-600 border-blue-300'}`}>
                           <Calendar className="h-2.5 w-2.5" />
                           {isOverdue ? `${daysAgo(c.next_follow_up_at!)}d overdue` : 'Today'}
@@ -485,6 +618,88 @@ export default function DashboardPage() {
                   <Link href="/customers">
                     <div className="text-xs text-center font-medium text-orange-600/70 hover:text-orange-600 py-1 hover:underline">
                       +{dormantCustomers.length - 5} more &rarr;
+                    </div>
+                  </Link>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Retail Reorders — retailers/orgs who haven't ordered in 60+ days */}
+          {retailReorders && retailReorders.length > 0 && (
+            <Card className="border-l-2 border-l-emerald-400">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-emerald-700">
+                  <RefreshCw className="h-4 w-4" />
+                  Retail Reorders ({retailReorders.length})
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">Haven&apos;t ordered in 60+ days</p>
+              </CardHeader>
+              <CardContent className="px-4 pb-3 space-y-1">
+                {retailReorders.slice(0, 5).map((c) => (
+                  <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
+                    <div className="p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm">{getCustomerDisplayName(c)}</div>
+                        <div className="text-xs text-muted-foreground capitalize">{c.customer_type}</div>
+                      </div>
+                      <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                        {c.total_order_count && (
+                          <Badge variant="outline" className="text-[11px] px-1.5 py-0">
+                            {c.total_order_count} order{c.total_order_count !== 1 ? 's' : ''}
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className="text-emerald-600 border-emerald-300 text-[11px] gap-0.5 px-1.5 py-0">
+                          <Clock className="h-2.5 w-2.5" />
+                          {c.last_order_date ? `${daysAgo(c.last_order_date)}d` : '60d+'}
+                        </Badge>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+                {retailReorders.length > 5 && (
+                  <Link href="/customers">
+                    <div className="text-xs text-center font-medium text-emerald-600/70 hover:text-emerald-600 py-1 hover:underline">
+                      +{retailReorders.length - 5} more &rarr;
+                    </div>
+                  </Link>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Seasonal Outreach — past event customers whose season is coming up */}
+          {seasonalOutreach && seasonalOutreach.length > 0 && (
+            <Card className="border-l-2 border-l-purple-400">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-purple-700">
+                  <Sun className="h-4 w-4" />
+                  Seasonal Outreach ({seasonalOutreach.length})
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">Past event customers &mdash; their season is coming up</p>
+              </CardHeader>
+              <CardContent className="px-4 pb-3 space-y-1">
+                {seasonalOutreach.slice(0, 5).map((c) => (
+                  <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
+                    <div className="p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm">{getCustomerDisplayName(c)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Event {new Date(c.eventDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                          {c.orderCount > 1 && ` (${c.orderCount} orders)`}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="text-purple-600 border-purple-300 text-[11px] gap-0.5 px-1.5 py-0 ml-2 shrink-0">
+                        <Calendar className="h-2.5 w-2.5" />
+                        {c.orderCount} order{c.orderCount !== 1 ? 's' : ''}
+                      </Badge>
+                    </div>
+                  </Link>
+                ))}
+                {seasonalOutreach.length > 5 && (
+                  <Link href="/customers">
+                    <div className="text-xs text-center font-medium text-purple-600/70 hover:text-purple-600 py-1 hover:underline">
+                      +{seasonalOutreach.length - 5} more &rarr;
                     </div>
                   </Link>
                 )}

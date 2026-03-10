@@ -774,6 +774,9 @@ export type Database = {
           estimated_value: number | null
           first_name: string | null
           first_order_date: string | null
+          follow_up_max_touches: number | null
+          follow_up_reason: string | null
+          follow_up_touch_number: number | null
           id: string
           last_inbound_at: string | null
           last_name: string | null
@@ -803,6 +806,9 @@ export type Database = {
           estimated_value?: number | null
           first_name?: string | null
           first_order_date?: string | null
+          follow_up_max_touches?: number | null
+          follow_up_reason?: string | null
+          follow_up_touch_number?: number | null
           id?: string
           last_inbound_at?: string | null
           last_name?: string | null
@@ -832,6 +838,9 @@ export type Database = {
           estimated_value?: number | null
           first_name?: string | null
           first_order_date?: string | null
+          follow_up_max_touches?: number | null
+          follow_up_reason?: string | null
+          follow_up_touch_number?: number | null
           id?: string
           last_inbound_at?: string | null
           last_name?: string | null

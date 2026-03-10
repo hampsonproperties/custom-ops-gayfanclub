@@ -850,9 +850,63 @@ export default function CustomerProfilePage() {
     } else if (daysFromNow !== null) {
       followUpDate = new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000).toISOString()
     }
+
+    // When clearing a win-back follow-up, auto-advance to the next touch
+    if (followUpDate === null && customer.follow_up_reason === 'win-back' &&
+        customer.follow_up_touch_number && customer.follow_up_max_touches &&
+        customer.follow_up_touch_number < customer.follow_up_max_touches) {
+      const { WIN_BACK_CADENCES } = await import('@/components/work-items/close-lead-dialog')
+      // Find the close reason from the most recent closed work item
+      const { data: lastClosed } = await supabase
+        .from('work_items')
+        .select('close_reason')
+        .eq('customer_id', customerId)
+        .not('closed_at', 'is', null)
+        .not('close_reason', 'is', null)
+        .order('closed_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      const closeReason = lastClosed?.close_reason || ''
+      const cadence = WIN_BACK_CADENCES[closeReason]
+      const nextTouchIndex = customer.follow_up_touch_number // 0-based index for next touch
+      if (cadence && nextTouchIndex < cadence.length) {
+        const nextDays = cadence[nextTouchIndex]
+        const nextTouchNumber = customer.follow_up_touch_number + 1
+        const { error } = await supabase
+          .from('customers')
+          .update({
+            next_follow_up_at: new Date(Date.now() + nextDays * 24 * 60 * 60 * 1000).toISOString(),
+            follow_up_touch_number: nextTouchNumber,
+          })
+          .eq('id', customerId)
+        if (error) {
+          toast.error('Failed to advance win-back cadence')
+          return
+        }
+        toast.success(`Win-back touch ${nextTouchNumber} of ${customer.follow_up_max_touches} scheduled`)
+        setShowFollowUpPicker(false)
+        queryClient.invalidateQueries({ queryKey: ['customer-profile', customerId] })
+        queryClient.invalidateQueries({ queryKey: ['morning-briefing'] })
+        return
+      }
+    }
+
+    // Normal follow-up set/clear
+    const updateData: Record<string, unknown> = { next_follow_up_at: followUpDate }
+    if (followUpDate === null) {
+      // Clearing: also clear cadence tracking
+      updateData.follow_up_reason = null
+      updateData.follow_up_touch_number = null
+      updateData.follow_up_max_touches = null
+    } else if (!customer.follow_up_reason) {
+      // Setting manually: tag as manual
+      updateData.follow_up_reason = 'manual'
+    }
+
     const { error } = await supabase
       .from('customers')
-      .update({ next_follow_up_at: followUpDate })
+      .update(updateData)
       .eq('id', customerId)
     if (error) {
       toast.error('Failed to set follow-up')

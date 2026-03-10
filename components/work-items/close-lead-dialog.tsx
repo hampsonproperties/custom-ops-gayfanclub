@@ -61,6 +61,20 @@ const FOLLOW_UP_SUGGESTIONS: Record<string, { label: string; days: number } | nu
   other: null,
 }
 
+// Win-back cadence: multi-touch follow-up schedules per close reason
+// Each array entry is the number of days from NOW for that touch
+export const WIN_BACK_CADENCES: Record<string, number[] | null> = {
+  missed_deadline: [14, 30, 90],
+  too_expensive: [60, 90],
+  ghosted: [30, 60],
+  went_with_competitor: [90],
+  not_ready_yet: [30, 60, 90],
+  cancelled: [60, 120],
+  won: null,
+  spam: null,
+  other: null,
+}
+
 interface CloseLeadDialogProps {
   workItemId: string
   workItemName: string
@@ -106,12 +120,23 @@ export function CloseLeadDialog({
   const handleSetFollowUp = async (days: number) => {
     if (!customerId) return
     const supabase = createClient()
+
+    // Determine win-back cadence info
+    const cadence = WIN_BACK_CADENCES[reason]
+    const isWinBack = cadence && cadence.length > 0
+
     await supabase
       .from('customers')
-      .update({ next_follow_up_at: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString() })
+      .update({
+        next_follow_up_at: new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString(),
+        follow_up_reason: isWinBack ? 'win-back' : 'manual',
+        follow_up_touch_number: isWinBack ? 1 : null,
+        follow_up_max_touches: isWinBack ? cadence.length : null,
+      })
       .eq('id', customerId)
 
-    toast.success(`Follow-up set for ${days} days from now`)
+    const touchInfo = isWinBack ? ` (win-back touch 1 of ${cadence.length})` : ''
+    toast.success(`Follow-up set for ${days} days from now${touchInfo}`)
     queryClient.invalidateQueries({ queryKey: ['morning-briefing'] })
     queryClient.invalidateQueries({ queryKey: ['customer-profile', customerId] })
     onOpenChange(false)
@@ -130,6 +155,7 @@ export function CloseLeadDialog({
   }
 
   const suggestion = FOLLOW_UP_SUGGESTIONS[reason]
+  const cadence = WIN_BACK_CADENCES[reason]
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { onOpenChange(open); if (!open) setStep('reason') }}>
@@ -182,7 +208,9 @@ export function CloseLeadDialog({
               </DialogTitle>
               <DialogDescription>
                 This customer was closed as &ldquo;{CLOSE_REASONS.find(r => r.value === reason)?.label}&rdquo;.
-                Want to check back in later?
+                {cadence && cadence.length > 1
+                  ? ` The system will auto-schedule ${cadence.length} check-in touches.`
+                  : ' Want to check back in later?'}
               </DialogDescription>
             </DialogHeader>
 
@@ -195,6 +223,11 @@ export function CloseLeadDialog({
                 >
                   <Calendar className="h-4 w-4 text-blue-600" />
                   Follow up in {suggestion.label} (recommended)
+                  {cadence && cadence.length > 1 && (
+                    <span className="text-xs text-muted-foreground ml-auto">
+                      {cadence.length} touches
+                    </span>
+                  )}
                 </Button>
               )}
               {[

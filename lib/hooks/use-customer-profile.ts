@@ -60,6 +60,10 @@ export interface CustomerProfileData {
     total_spent: number | null
     estimated_value: number | null
     next_follow_up_at: string | null
+    follow_up_reason: string | null
+    follow_up_touch_number: number | null
+    follow_up_max_touches: number | null
+    sales_stage: string | null
     status?: string | null
     created_at: string
   }

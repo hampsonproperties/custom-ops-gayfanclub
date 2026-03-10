@@ -70,6 +70,40 @@ export async function processFulfillment(
     }
   }
 
+  // Auto-schedule post-delivery follow-up on the customer (5 days after ship)
+  if (workItems && workItems.length > 0) {
+    try {
+      // Get the customer_id from the first work item
+      const { data: workItemData } = await supabase
+        .from('work_items')
+        .select('customer_id')
+        .eq('shopify_order_id', orderId)
+        .not('customer_id', 'is', null)
+        .limit(1)
+        .single()
+
+      if (workItemData?.customer_id) {
+        const fiveDaysOut = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()
+        await supabase
+          .from('customers')
+          .update({
+            next_follow_up_at: fiveDaysOut,
+            follow_up_reason: 'post-delivery',
+            follow_up_touch_number: null,
+            follow_up_max_touches: null,
+          })
+          .eq('id', workItemData.customer_id)
+
+        log.info('Post-delivery follow-up set', {
+          customerId: workItemData.customer_id,
+          followUpDate: fiveDaysOut,
+        })
+      }
+    } catch (followUpSetError) {
+      log.error('Error setting post-delivery follow-up', { error: followUpSetError })
+    }
+  }
+
   // Mark webhook as completed
   await supabase
     .from('webhook_events')
