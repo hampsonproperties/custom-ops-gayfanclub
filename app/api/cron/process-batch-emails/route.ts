@@ -10,6 +10,7 @@ import {
 import { addToDLQ } from '@/lib/utils/dead-letter-queue'
 import { unauthorized, serverError } from '@/lib/api/errors'
 import { logger } from '@/lib/logger'
+import { getAutoEmailsEnabled } from '@/lib/settings/auto-emails'
 
 const log = logger('cron-batch-emails')
 
@@ -27,6 +28,13 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    // Check global auto-email toggle (defaults to OFF)
+    const autoEmailsEnabled = await getAutoEmailsEnabled(supabase)
+    if (!autoEmailsEnabled) {
+      log.info('Auto emails disabled — skipping batch email processing')
+      return NextResponse.json({ success: true, skipped: true, reason: 'auto_emails_disabled' })
+    }
 
     // Find emails ready to send (scheduled_send_at <= NOW, status = 'pending')
     const { data: pendingEmails, error: fetchError } = await supabase

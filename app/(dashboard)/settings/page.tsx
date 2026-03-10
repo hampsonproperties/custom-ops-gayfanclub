@@ -43,6 +43,7 @@ import {
   type ReferenceDoc,
 } from '@/lib/hooks/use-reference-docs'
 import { useBrandTone, useSaveBrandTone, DEFAULT_BRAND_TONE } from '@/lib/hooks/use-brand-tone'
+import { useAutoEmailsSetting, useToggleAutoEmails } from '@/lib/hooks/use-auto-emails-setting'
 import {
   useSystemTemplates,
   useUpdateSystemTemplate,
@@ -1656,6 +1657,61 @@ function ShopifyIntegrationCard() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// Auto Emails Toggle Card
+// ═══════════════════════════════════════════════════════════════════
+
+function AutoEmailsCard() {
+  const { data: enabled, isLoading } = useAutoEmailsSetting()
+  const toggleMutation = useToggleAutoEmails()
+
+  const handleToggle = (checked: boolean) => {
+    toggleMutation.mutate(checked, {
+      onSuccess: () => {
+        toast.success(checked ? 'Auto emails enabled' : 'Auto emails disabled')
+      },
+      onError: () => {
+        toast.error('Failed to update auto email setting')
+      },
+    })
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>Automatic Customer Emails</CardTitle>
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          ) : (
+            <Switch
+              checked={enabled ?? false}
+              onCheckedChange={handleToggle}
+              disabled={toggleMutation.isPending}
+            />
+          )}
+        </div>
+        <CardDescription>
+          Controls the batch drip email sequence (production updates, shipping notifications) and queued batch emails.
+          Proof approval emails you send manually are not affected.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="flex items-center gap-2">
+          <Badge variant={enabled ? 'default' : 'secondary'}>
+            {enabled ? 'Enabled' : 'Disabled'}
+          </Badge>
+          {!enabled && (
+            <span className="text-xs text-muted-foreground">
+              No automatic emails will be sent to customers
+            </span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Settings Page
 // ═══════════════════════════════════════════════════════════════════
 
@@ -1681,6 +1737,9 @@ export default function SettingsPage() {
           </CardHeader>
         </Card>
       </div>
+
+      {/* Auto email toggle */}
+      <AutoEmailsCard />
 
       {/* Email Signature */}
       <EmailSignatureSection />

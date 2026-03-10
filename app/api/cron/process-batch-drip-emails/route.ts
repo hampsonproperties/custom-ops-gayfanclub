@@ -4,6 +4,7 @@ import { queueBatchEmailsForWorkItem } from '@/lib/email/batch-emails'
 import { unauthorized, serverError } from '@/lib/api/errors'
 import { logger } from '@/lib/logger'
 import { DRIP_EMAIL_SCHEDULE } from '@/lib/config'
+import { getAutoEmailsEnabled } from '@/lib/settings/auto-emails'
 
 const log = logger('cron-batch-drip-emails')
 
@@ -42,6 +43,13 @@ export async function GET(request: Request) {
 
     // Use service role key for cron job
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    // Check global auto-email toggle (defaults to OFF)
+    const autoEmailsEnabled = await getAutoEmailsEnabled(supabase)
+    if (!autoEmailsEnabled) {
+      log.info('Auto emails disabled — skipping drip email processing')
+      return NextResponse.json({ success: true, skipped: true, reason: 'auto_emails_disabled' })
+    }
 
     const results = {
       email1_queued: 0,
