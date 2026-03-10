@@ -22,6 +22,8 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { generateCSV, downloadCSV, exportFilename, type CSVColumn } from '@/lib/utils/csv-export'
 import { getStatusLabel } from '@/lib/utils/status-transitions'
+import { scoreLeadHealth } from '@/lib/utils/health-scoring'
+import { HealthDot } from '@/components/custom/health-badge'
 import type { WorkItemStatus } from '@/types/database'
 
 export default function SalesLeadsPage() {
@@ -120,9 +122,15 @@ export default function SalesLeadsPage() {
   }
 
   // Filter active leads from current page
-  const activeLeads = (leads ?? []).filter(
-    (lead) => !['closed_won', 'closed_lost', 'closed_event_cancelled'].includes(lead.status)
-  )
+  const fourteenDaysAgo = Date.now() - 14 * 24 * 60 * 60 * 1000
+  const activeLeads = (leads ?? []).filter((lead) => {
+    if (['closed_won', 'closed_lost', 'closed_event_cancelled'].includes(lead.status)) return false
+    if (filters.status === 'stale') {
+      const lastActivity = new Date(lead.updated_at || lead.created_at).getTime()
+      return lastActivity < fourteenDaysAgo
+    }
+    return true
+  })
 
   return (
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
@@ -237,6 +245,7 @@ export default function SalesLeadsPage() {
                   <SelectItem value="design_fee_paid">Design Fee Paid</SelectItem>
                   <SelectItem value="closed_won">Won</SelectItem>
                   <SelectItem value="closed_lost">Lost</SelectItem>
+                  <SelectItem value="stale">Stale (14d+ no activity)</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -261,6 +270,7 @@ export default function SalesLeadsPage() {
                     <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground">Company</th>
                     <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground">Email</th>
                     <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground">Phone</th>
+                    <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground whitespace-nowrap">Days</th>
                     <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground whitespace-nowrap">Est. Value</th>
                     <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground whitespace-nowrap">Next Follow-Up</th>
                     <th className="text-right px-4 py-3 font-medium text-xs text-muted-foreground">Actions</th>
@@ -269,13 +279,13 @@ export default function SalesLeadsPage() {
                 <tbody>
                   {isLoading ? (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                      <td colSpan={8} className="p-8 text-center text-muted-foreground">
                         Loading leads...
                       </td>
                     </tr>
                   ) : activeLeads.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="p-8 text-center text-muted-foreground">
+                      <td colSpan={8} className="p-8 text-center text-muted-foreground">
                         No active leads found
                       </td>
                     </tr>
@@ -293,7 +303,8 @@ export default function SalesLeadsPage() {
                                   </AvatarFallback>
                                 </Avatar>
                                 <div>
-                                  <p className="font-medium text-sm hover:underline">
+                                  <p className="font-medium text-sm hover:underline flex items-center gap-1.5">
+                                    {(() => { const h = scoreLeadHealth(lead as any); return <HealthDot level={h.level} reason={h.reason} /> })()}
                                     {lead.customer_name || lead.customer_email || 'Unknown'}
                                   </p>
                                   <div className="mt-1">
@@ -316,6 +327,11 @@ export default function SalesLeadsPage() {
                           <td className="px-4 py-3">
                             <span className="text-sm">
                               {lead.phone_number || '-'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`text-sm ${Math.floor((Date.now() - new Date(lead.updated_at || lead.created_at).getTime()) / (1000 * 60 * 60 * 24)) >= 14 ? 'text-red-600 font-medium' : Math.floor((Date.now() - new Date(lead.updated_at || lead.created_at).getTime()) / (1000 * 60 * 60 * 24)) >= 7 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                              {Math.floor((Date.now() - new Date(lead.updated_at || lead.created_at).getTime()) / (1000 * 60 * 60 * 24))}d
                             </span>
                           </td>
                           <td className="px-4 py-3">
@@ -388,7 +404,8 @@ export default function SalesLeadsPage() {
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex-1 min-w-0">
-                              <div className="font-medium text-base mb-1">
+                              <div className="font-medium text-base mb-1 flex items-center gap-1.5">
+                                {(() => { const h = scoreLeadHealth(lead as any); return <HealthDot level={h.level} reason={h.reason} /> })()}
                                 {lead.customer_name || lead.customer_email || 'Unknown'}
                               </div>
                               <div className="mb-2">

@@ -57,7 +57,7 @@ import {
 import { toast } from 'sonner'
 import {
   Loader2, Check, Clock, Pause, CalendarDays,
-  Plus, Pencil, Trash2, FileText, Mail, Upload, BookOpen, Megaphone, Settings, PenLine, Image,
+  Plus, Pencil, Trash2, FileText, Mail, Upload, BookOpen, Megaphone, Settings, PenLine, Image, Link2,
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1595,6 +1595,67 @@ function EmailSignatureSection() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// Shopify Integration Card — with bulk link button
+// ═══════════════════════════════════════════════════════════════════
+
+function ShopifyIntegrationCard() {
+  const [isLinking, setIsLinking] = useState(false)
+  const [linkResult, setLinkResult] = useState<{ linked: number; total: number } | null>(null)
+
+  const handleBulkLink = async () => {
+    setIsLinking(true)
+    setLinkResult(null)
+    try {
+      const resp = await fetch('/api/shopify/link-customers', { method: 'POST' })
+      const data = await resp.json()
+      if (data.success) {
+        setLinkResult({ linked: data.linked, total: data.total })
+        toast.success(`Linked ${data.linked} of ${data.total} customers to Shopify`)
+      } else {
+        toast.error('Failed to link customers')
+      }
+    } catch {
+      toast.error('Failed to link customers')
+    } finally {
+      setIsLinking(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>Shopify Integration</CardTitle>
+          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Connected</Badge>
+        </div>
+        <CardDescription>Shopify webhook and API are configured via environment variables</CardDescription>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleBulkLink}
+            disabled={isLinking}
+          >
+            {isLinking ? (
+              <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Linking...</>
+            ) : (
+              <><Link2 className="h-3.5 w-3.5 mr-1.5" />Link Customers to Shopify</>
+            )}
+          </Button>
+        </div>
+        {linkResult && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Linked {linkResult.linked} of {linkResult.total} unlinked customers
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Settings Page
 // ═══════════════════════════════════════════════════════════════════
 
@@ -1608,15 +1669,7 @@ export default function SettingsPage() {
 
       {/* Integration status cards */}
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Shopify Integration</CardTitle>
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Connected</Badge>
-            </div>
-            <CardDescription>Shopify webhook and API are configured via environment variables</CardDescription>
-          </CardHeader>
-        </Card>
+        <ShopifyIntegrationCard />
 
         <Card>
           <CardHeader>

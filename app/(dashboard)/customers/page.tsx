@@ -55,6 +55,8 @@ import { CustomerKanban } from '@/components/customers/customer-kanban'
 import { CreateCustomerDialog } from '@/components/customers/create-customer-dialog'
 import { PaginationControls } from '@/components/ui/pagination-controls'
 import { generateCSV, downloadCSV, exportFilename, type CSVColumn } from '@/lib/utils/csv-export'
+import { scoreCustomerHealth } from '@/lib/utils/health-scoring'
+import { HealthDot } from '@/components/custom/health-badge'
 
 interface Customer {
   id: string
@@ -594,6 +596,7 @@ function CustomersPageContent() {
                                 </Badge>
                               )}
                               <ResponseBadge customer={customer} />
+                              {(() => { const h = scoreCustomerHealth(customer as any); return <HealthDot level={h.level} reason={h.reason} /> })()}
                             </div>
                           </Link>
                         </TableCell>
@@ -759,6 +762,7 @@ function CustomersPageContent() {
                                 {customer.project_count || 0} projects
                               </Badge>
                               <ResponseBadge customer={customer} />
+                              {(() => { const h = scoreCustomerHealth(customer as any); return <HealthDot level={h.level} reason={h.reason} /> })()}
                               {(customer as any).estimated_value && (
                                 <Badge variant="outline" className="text-xs">
                                   <DollarSign className="h-3 w-3 mr-1" />

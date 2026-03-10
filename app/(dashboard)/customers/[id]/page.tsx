@@ -10,6 +10,8 @@ import {
   useCustomerProfile,
 } from '@/lib/hooks/use-customer-profile'
 import { logger } from '@/lib/logger'
+import { scoreCustomerHealth } from '@/lib/utils/health-scoring'
+import { HealthBadge } from '@/components/custom/health-badge'
 import {
   User,
   Mail,
@@ -1021,6 +1023,7 @@ export default function CustomerProfilePage() {
 
             {/* Badges row — separated from h1 for clean alignment */}
             <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+              {(() => { const h = scoreCustomerHealth(customer as any); return <HealthBadge level={h.level} reason={h.reason} showLabel /> })()}
               {customer.customer_type === 'retailer' && (
                 <Badge variant="outline" className="text-blue-600 border-blue-300 text-xs">Retailer</Badge>
               )}

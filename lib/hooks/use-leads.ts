@@ -35,7 +35,7 @@ export interface Lead {
 
 export interface LeadsFilters {
   assignedTo?: 'me' | 'all' | 'unassigned' | string
-  status?: LeadStatus | 'all'
+  status?: LeadStatus | 'all' | 'stale'
   leadSource?: string | 'all'
   search?: string
   page?: number
@@ -84,8 +84,8 @@ export function useLeads(filters: LeadsFilters = {}) {
         query = query.eq('assigned_to_user_id', filters.assignedTo)
       }
 
-      // Filter by status
-      if (filters.status && filters.status !== 'all') {
+      // Filter by status (skip 'stale' — handled client-side)
+      if (filters.status && filters.status !== 'all' && filters.status !== 'stale') {
         query = query.eq('status', filters.status)
       }
 

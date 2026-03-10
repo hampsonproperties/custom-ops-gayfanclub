@@ -38,6 +38,8 @@ import {
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
+import { scoreCustomerHealth, scoreLeadHealth } from '@/lib/utils/health-scoring'
+import { HealthDot } from '@/components/custom/health-badge'
 
 // Hook: fetch customers needing my reply (last_inbound_at > last_outbound_at)
 // Note: PostgREST can't compare two columns, so we fetch candidates and filter client-side
@@ -311,6 +313,85 @@ function useDormantCustomers() {
   })
 }
 
+// Hook: lost deal analytics — close reasons from last 90 days
+function useLostDealAnalytics() {
+  return useQuery({
+    queryKey: ['dashboard', 'lost-deals'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+
+      const { data, error } = await supabase
+        .from('work_items')
+        .select('close_reason, estimated_value, closed_at')
+        .not('closed_at', 'is', null)
+        .gte('closed_at', ninetyDaysAgo)
+        .not('close_reason', 'is', null)
+        .neq('close_reason', 'won')
+        .neq('close_reason', 'spam')
+
+      if (error) throw error
+      if (!data || data.length === 0) return { reasons: [], totalLost: 0, count: 0 }
+
+      // Group by reason
+      const reasonMap = new Map<string, { count: number; value: number }>()
+      let totalLost = 0
+      for (const item of data) {
+        const reason = item.close_reason || 'other'
+        const existing = reasonMap.get(reason) || { count: 0, value: 0 }
+        existing.count++
+        existing.value += item.estimated_value || 0
+        totalLost += item.estimated_value || 0
+        reasonMap.set(reason, existing)
+      }
+
+      const reasons = Array.from(reasonMap.entries())
+        .map(([reason, stats]) => ({ reason, ...stats }))
+        .sort((a, b) => b.count - a.count)
+
+      return { reasons, totalLost, count: data.length }
+    },
+    refetchInterval: 30 * 60 * 1000,
+  })
+}
+
+// Hook: revenue overview from shopify_orders
+function useRevenueOverview() {
+  return useQuery({
+    queryKey: ['dashboard', 'revenue-overview'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+
+      // Get all orders
+      const { data: allOrders, error } = await supabase
+        .from('shopify_orders')
+        .select('total_price, created_at, customer_email, financial_status')
+
+      if (error) throw error
+      if (!allOrders || allOrders.length === 0) {
+        return { totalRevenue: 0, recentRevenue: 0, orderCount: 0, recentCount: 0, avgOrderValue: 0, uniqueCustomers: 0 }
+      }
+
+      const paidOrders = allOrders.filter(o => o.financial_status === 'paid' || o.financial_status === 'partially_paid')
+      const recentOrders = paidOrders.filter(o => o.created_at && o.created_at >= thirtyDaysAgo)
+      const totalRevenue = paidOrders.reduce((sum, o) => sum + (o.total_price || 0), 0)
+      const recentRevenue = recentOrders.reduce((sum, o) => sum + (o.total_price || 0), 0)
+      const uniqueEmails = new Set(paidOrders.map(o => o.customer_email?.toLowerCase()).filter(Boolean))
+
+      return {
+        totalRevenue,
+        recentRevenue,
+        orderCount: paidOrders.length,
+        recentCount: recentOrders.length,
+        avgOrderValue: paidOrders.length > 0 ? totalRevenue / paidOrders.length : 0,
+        uniqueCustomers: uniqueEmails.size,
+      }
+    },
+    refetchInterval: 30 * 60 * 1000,
+  })
+}
+
 function getCustomerDisplayName(c: any): string {
   return c.display_name ||
     (c.organization_name && (c.customer_type === 'retailer' || c.customer_type === 'organization') ? c.organization_name : null) ||
@@ -337,6 +418,8 @@ export default function DashboardPage() {
   const { data: dormantCustomers } = useDormantCustomers()
   const { data: retailReorders } = useRetailReorders()
   const { data: seasonalOutreach } = useSeasonalOutreach()
+  const { data: lostDeals } = useLostDealAnalytics()
+  const { data: revenue } = useRevenueOverview()
   const queryClient = useQueryClient()
 
   const handleAcknowledge = async (customerId: string, e: React.MouseEvent) => {
@@ -352,6 +435,45 @@ export default function DashboardPage() {
       return
     }
     toast.success('Marked as no reply needed')
+    queryClient.invalidateQueries({ queryKey: ['morning-briefing'] })
+  }
+
+  // Quick action: snooze a follow-up by 3 days
+  const handleSnoozeFollowUp = async (workItemId: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const supabase = createClient()
+    const newDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+    const { error } = await supabase
+      .from('work_items')
+      .update({ next_follow_up_at: newDate })
+      .eq('id', workItemId)
+    if (error) {
+      toast.error('Failed to snooze')
+      return
+    }
+    toast.success('Snoozed for 3 days')
+    queryClient.invalidateQueries({ queryKey: ['morning-briefing'] })
+  }
+
+  // Quick action: complete a customer check-in (clear follow-up date)
+  const handleCompleteCheckIn = async (customerId: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('customers')
+      .update({
+        next_follow_up_at: null,
+        follow_up_reason: null,
+        last_outbound_at: new Date().toISOString(),
+      })
+      .eq('id', customerId)
+    if (error) {
+      toast.error('Failed to complete check-in')
+      return
+    }
+    toast.success('Check-in completed')
     queryClient.invalidateQueries({ queryKey: ['morning-briefing'] })
   }
 
@@ -503,7 +625,10 @@ export default function DashboardPage() {
                     <Link key={item.id} href={`/work-items/${item.id}`}>
                       <div className="p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm">{item.customer_name || item.customer_email}</div>
+                          <div className="font-medium text-sm flex items-center gap-1.5">
+                            {(() => { const h = scoreLeadHealth(item as any); return <HealthDot level={h.level} reason={h.reason} /> })()}
+                            {item.customer_name || item.customer_email}
+                          </div>
                           <div className="text-xs text-muted-foreground truncate">{item.title}</div>
                         </div>
                         <div className="flex items-center gap-1.5 ml-2 shrink-0">
@@ -515,6 +640,15 @@ export default function DashboardPage() {
                           <span className={`text-xs ${isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
                             {formatDate(item.next_follow_up_at)}
                           </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 text-muted-foreground hover:text-blue-600"
+                            onClick={(e) => handleSnoozeFollowUp(item.id, e)}
+                            title="Snooze 3 days"
+                          >
+                            <Clock className="h-3 w-3" />
+                          </Button>
                         </div>
                       </div>
                     </Link>
@@ -556,7 +690,10 @@ export default function DashboardPage() {
                     <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
                       <div className="p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium text-sm truncate">{getCustomerDisplayName(c)}</div>
+                          <div className="font-medium text-sm truncate flex items-center gap-1.5">
+                            {(() => { const h = scoreCustomerHealth(c as any); return <HealthDot level={h.level} reason={h.reason} /> })()}
+                            {getCustomerDisplayName(c)}
+                          </div>
                           {reasonLabel && (
                             <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
                               {c.follow_up_reason === 'post-delivery' && <PackageCheck className="h-3 w-3" />}
@@ -565,10 +702,21 @@ export default function DashboardPage() {
                             </div>
                           )}
                         </div>
-                        <Badge variant="outline" className={`text-[11px] gap-0.5 px-1.5 py-0 ml-2 shrink-0 ${isOverdue ? 'text-red-600 border-red-300' : 'text-blue-600 border-blue-300'}`}>
-                          <Calendar className="h-2.5 w-2.5" />
-                          {isOverdue ? `${daysAgo(c.next_follow_up_at!)}d overdue` : 'Today'}
-                        </Badge>
+                        <div className="flex items-center gap-1 ml-2 shrink-0">
+                          <Badge variant="outline" className={`text-[11px] gap-0.5 px-1.5 py-0 ${isOverdue ? 'text-red-600 border-red-300' : 'text-blue-600 border-blue-300'}`}>
+                            <Calendar className="h-2.5 w-2.5" />
+                            {isOverdue ? `${daysAgo(c.next_follow_up_at!)}d overdue` : 'Today'}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-5 w-5 p-0 text-muted-foreground hover:text-green-600"
+                            onClick={(e) => handleCompleteCheckIn(c.id, e)}
+                            title="Mark check-in done"
+                          >
+                            <CheckCircle2 className="h-3 w-3" />
+                          </Button>
+                        </div>
                       </div>
                     </Link>
                   )
@@ -1072,6 +1220,102 @@ export default function DashboardPage() {
             </Card>
           )}
         </div>
+      </div>
+
+      {/* Revenue Overview + Lost Deal Analytics */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue Overview */}
+        {revenue && revenue.orderCount > 0 && (
+          <Card>
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-green-600" />
+                Revenue Overview
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-lg bg-green-50 dark:bg-green-950/20">
+                  <div className="text-xs text-muted-foreground">Total Revenue</div>
+                  <div className="text-lg font-bold text-green-700 dark:text-green-400">
+                    {formatCurrency(revenue.totalRevenue)}
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20">
+                  <div className="text-xs text-muted-foreground">Last 30 Days</div>
+                  <div className="text-lg font-bold text-blue-700 dark:text-blue-400">
+                    {formatCurrency(revenue.recentRevenue)}
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/30">
+                  <div className="text-xs text-muted-foreground">Avg Order</div>
+                  <div className="text-base font-semibold">
+                    {formatCurrency(revenue.avgOrderValue)}
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-muted/30">
+                  <div className="text-xs text-muted-foreground">Customers</div>
+                  <div className="text-base font-semibold">
+                    {revenue.uniqueCustomers}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2 text-xs text-muted-foreground text-center">
+                {revenue.orderCount} total orders ({revenue.recentCount} in last 30 days)
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Lost Deal Analytics */}
+        {lostDeals && lostDeals.count > 0 && (
+          <Card>
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-orange-600" />
+                Lost Deals (Last 90 Days)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <div className="flex items-center gap-4 mb-3">
+                <div className="p-3 rounded-lg bg-orange-50 dark:bg-orange-950/20 flex-1">
+                  <div className="text-xs text-muted-foreground">Deals Lost</div>
+                  <div className="text-lg font-bold text-orange-700 dark:text-orange-400">{lostDeals.count}</div>
+                </div>
+                {lostDeals.totalLost > 0 && (
+                  <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/20 flex-1">
+                    <div className="text-xs text-muted-foreground">Est. Lost Revenue</div>
+                    <div className="text-lg font-bold text-red-700 dark:text-red-400">
+                      {formatCurrency(lostDeals.totalLost)}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                {lostDeals.reasons.map(({ reason, count, value }) => {
+                  const label: Record<string, string> = {
+                    missed_deadline: 'Missed deadline',
+                    too_expensive: 'Too expensive',
+                    ghosted: 'Ghosted',
+                    went_with_competitor: 'Went with competitor',
+                    not_ready_yet: 'Not ready yet',
+                    cancelled: 'Event cancelled',
+                    other: 'Other',
+                  }
+                  return (
+                    <div key={reason} className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">{label[reason] || reason}</span>
+                      <div className="flex items-center gap-2">
+                        {value > 0 && <span className="text-xs text-muted-foreground">{formatCurrency(value)}</span>}
+                        <Badge variant="outline" className="text-xs px-1.5 py-0">{count}</Badge>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   )

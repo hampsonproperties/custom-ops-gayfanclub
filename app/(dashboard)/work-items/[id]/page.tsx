@@ -79,6 +79,9 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
   const createNote = useCreateNote()
   const toggleStar = useToggleTimelineStar()
 
+  // Prefer linked customer's display name over work item's customer_name (which may be stale/email-only)
+  const customer = (workItem as any)?.customer
+  const displayName = customer?.display_name || workItem?.customer_name || workItem?.customer_email || 'Unknown Customer'
 
   const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [uploadForm, setUploadForm] = useState({
@@ -168,7 +171,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <Breadcrumbs
               items={[{ label: 'Projects', href: '/work-items' }]}
-              current={workItem.customer_name || workItem.customer_email || 'Unknown Customer'}
+              current={displayName}
             />
 
             <div className="flex items-center gap-2">
@@ -197,10 +200,10 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
                 <h1 className="text-2xl sm:text-3xl font-bold">
                   {workItem.customer_id ? (
                     <Link href={`/customers/${workItem.customer_id}?tab=activity`} className="hover:underline decoration-1 underline-offset-4">
-                      {workItem.customer_name || workItem.customer_email || 'Unknown Customer'}
+                      {displayName}
                     </Link>
                   ) : (
-                    workItem.customer_name || workItem.customer_email || 'Unknown Customer'
+                    displayName
                   )}
                 </h1>
                 <div className="flex items-center gap-2 sm:gap-4 mt-2 text-sm text-muted-foreground flex-wrap">
@@ -598,7 +601,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
         isOpen={showCloseDialog}
         onOpenChange={setShowCloseDialog}
         workItemId={id}
-        workItemName={workItem.customer_name || workItem.customer_email || 'Unknown Customer'}
+        workItemName={displayName}
         customerId={workItem.customer_id}
       />
 
