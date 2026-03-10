@@ -23,6 +23,7 @@ import { formatDistanceToNow, format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { cleanEmailContent, getEmailPreview } from '@/lib/utils/email-content-cleaner'
+import DOMPurify from 'dompurify'
 import { logger } from '@/lib/logger'
 import { TaskForm } from '@/components/tasks/task-form'
 import { TaskList } from '@/components/tasks/task-list'
@@ -63,6 +64,7 @@ interface ActivityItem {
   id: string
   type: ActivityType
   content: string
+  fullHtml?: string // Full HTML body for emails (rendered on expand)
   subject?: string // For emails
   created_at: string
   starred?: boolean
@@ -169,7 +171,8 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
           id: email.id,
           type: 'email' as ActivityType,
           subject: email.subject,
-          content: cleanEmailContent(email.body_preview || email.body_html || ''),
+          content: getEmailPreview(email.body_preview || email.body_html || '', 200),
+          fullHtml: email.body_html || undefined,
           created_at: email.received_at,
           user: {
             id: '',
@@ -599,15 +602,17 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
           filteredActivities.map((activity) => {
             const isExpanded = expandedItems.has(activity.id)
             const shouldTruncate = activity.content.length > 300
+            const hasFullEmail = activity.type === 'email' && !!activity.fullHtml
 
             return (
               <Card
                 key={activity.id}
                 className={cn(
                   'p-4',
-                  activity.type === 'email' && 'bg-blue-50/50',
+                  activity.type === 'email' && 'bg-blue-50/50 cursor-pointer hover:shadow-sm transition-shadow',
                   activity.type === 'note' && 'bg-gray-50',
                 )}
+                onClick={hasFullEmail ? () => toggleExpanded(activity.id) : undefined}
               >
                 {/* Header */}
                 <div className="flex items-start justify-between mb-3">
@@ -616,7 +621,7 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
                     {activity.type === 'note' && <FileText className="h-5 w-5 text-gray-600" />}
 
                     <span className="text-sm font-medium">
-                      {activity.type === 'email' && 'Email sent by'}
+                      {activity.type === 'email' && 'Email from'}
                       {activity.type === 'note' && 'Note from'}
                     </span>
 
@@ -637,11 +642,14 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
                       variant="ghost"
                       size="sm"
                       className="h-6 w-6 p-0"
-                      onClick={() => toggleStarMutation.mutate({
-                        id: activity.id,
-                        type: activity.type,
-                        starred: activity.starred || false
-                      })}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleStarMutation.mutate({
+                          id: activity.id,
+                          type: activity.type,
+                          starred: activity.starred || false
+                        })
+                      }}
                     >
                       <Star
                         className={cn(
@@ -653,7 +661,7 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
                   </div>
                 </div>
 
-                {/* Email Content - Compact Design */}
+                {/* Email Content */}
                 {activity.type === 'email' ? (
                   <div className="space-y-2">
                     {/* Subject Line */}
@@ -661,23 +669,30 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
                       <div className="font-medium text-base">{activity.subject}</div>
                     )}
 
-                    {/* Email Preview */}
-                    <div className="text-sm text-muted-foreground">
-                      {shouldTruncate && !isExpanded
-                        ? activity.content.substring(0, 150).trim() + '...'
-                        : activity.content}
-                    </div>
+                    {/* Email Preview / Full Content */}
+                    {isExpanded && activity.fullHtml ? (
+                      <div
+                        className="text-sm prose prose-sm max-w-none [&_img]:max-w-full [&_table]:text-sm overflow-x-auto"
+                        onClick={(e) => e.stopPropagation()}
+                        dangerouslySetInnerHTML={{
+                          __html: DOMPurify.sanitize(activity.fullHtml, {
+                            ALLOWED_TAGS: ['p', 'br', 'b', 'i', 'u', 'strong', 'em', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'div', 'span', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'img', 'hr', 'pre', 'code'],
+                            ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'width', 'height', 'style', 'class'],
+                          })
+                        }}
+                      />
+                    ) : (
+                      <div className="text-sm text-muted-foreground">
+                        {activity.content}{hasFullEmail && !isExpanded ? '...' : ''}
+                      </div>
+                    )}
 
-                    {/* Read More Toggle */}
-                    {shouldTruncate && (
-                      <Button
-                        variant="link"
-                        size="sm"
-                        onClick={() => toggleExpanded(activity.id)}
-                        className="p-0 h-auto text-primary"
-                      >
-                        {isExpanded ? '↑ Show less' : '↓ Read more'}
-                      </Button>
+                    {/* Expand hint */}
+                    {hasFullEmail && !isExpanded && (
+                      <span className="text-xs text-primary font-medium">Click to read full email</span>
+                    )}
+                    {hasFullEmail && isExpanded && (
+                      <span className="text-xs text-muted-foreground font-medium">Click to collapse</span>
                     )}
                   </div>
                 ) : (
@@ -695,7 +710,8 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation()
                         setActiveTab('email')
                         setEmailSubject(activity.subject ? `Re: ${activity.subject}` : 'Re: ')
                         setEmailContent(`\n\n---\nOn ${format(new Date(activity.created_at), 'MMM d, yyyy')} ${activity.user.full_name} wrote:\n\n${activity.content}`)

@@ -2,8 +2,10 @@
  * Shopify Customer Processor
  *
  * Handles customers/create and customers/update webhook events.
- * Upserts customer master records and syncs notes to linked work items.
- * Uses batch operations instead of per-work-item queries (N+1 fix).
+ * Only UPDATES existing customer records — does NOT create new ones.
+ * Customers are created via order processing (findOrCreateCustomer),
+ * not from the customer webhook, to avoid polluting the CRM with
+ * browse-only Shopify accounts that never placed an order.
  */
 
 import { SupabaseClient } from '@supabase/supabase-js'
@@ -13,7 +15,8 @@ const log = logger('shopify-customer-processor')
 
 /**
  * Process a Shopify customer webhook.
- * Upserts the customer record and syncs their note to any linked work items.
+ * Updates existing customer records and syncs notes to linked work items.
+ * Skips creation of new customers — those are created during order processing.
  */
 export async function processCustomer(
   supabase: SupabaseClient,
@@ -23,43 +26,54 @@ export async function processCustomer(
   log.info('Processing customer', { customerId: customer.id })
 
   try {
-    // Upsert customer master record
-    const { data: existingCustomer } = await supabase
-      .from('customers')
-      .select('id')
-      .eq('email', customer.email?.toLowerCase())
-      .maybeSingle()
+    // Look for existing customer by email or shopify_customer_id
+    let existingCustomer = null
 
-    const customerData = {
-      email: customer.email?.toLowerCase(),
-      first_name: customer.first_name,
-      last_name: customer.last_name,
-      phone: customer.phone,
-      shopify_customer_id: customer.id?.toString(),
-      tags: customer.tags?.split(',').map((t: string) => t.trim()).filter(Boolean) || [],
-      metadata: {
-        accepts_marketing: customer.accepts_marketing,
-        email_marketing_consent: customer.email_marketing_consent,
-        sms_marketing_consent: customer.sms_marketing_consent,
-        default_address: customer.default_address,
-        shopify_created_at: customer.created_at,
-        shopify_updated_at: customer.updated_at,
-      },
+    if (customer.email) {
+      const { data } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('email', customer.email.toLowerCase())
+        .maybeSingle()
+      existingCustomer = data
+    }
+
+    if (!existingCustomer && customer.id) {
+      const { data } = await supabase
+        .from('customers')
+        .select('id')
+        .eq('shopify_customer_id', customer.id.toString())
+        .maybeSingle()
+      existingCustomer = data
     }
 
     if (existingCustomer) {
+      // Update existing customer with latest Shopify data
       await supabase
         .from('customers')
-        .update(customerData)
+        .update({
+          first_name: customer.first_name,
+          last_name: customer.last_name,
+          phone: customer.phone,
+          shopify_customer_id: customer.id?.toString(),
+          tags: customer.tags?.split(',').map((t: string) => t.trim()).filter(Boolean) || [],
+          metadata: {
+            accepts_marketing: customer.accepts_marketing,
+            email_marketing_consent: customer.email_marketing_consent,
+            sms_marketing_consent: customer.sms_marketing_consent,
+            default_address: customer.default_address,
+            shopify_created_at: customer.created_at,
+            shopify_updated_at: customer.updated_at,
+          },
+        })
         .eq('id', existingCustomer.id)
       log.info('Updated customer', { customerId: existingCustomer.id })
     } else {
-      const { data: newCustomer } = await supabase
-        .from('customers')
-        .insert(customerData)
-        .select('id')
-        .single()
-      log.info('Created new customer', { customerId: newCustomer?.id })
+      // Skip creation — customers are created during order processing
+      log.info('Skipped customer creation (no existing record, will be created when they order)', {
+        shopifyCustomerId: customer.id,
+        email: customer.email,
+      })
     }
 
     // Sync customer note to linked work items (batch N+1 fix)
