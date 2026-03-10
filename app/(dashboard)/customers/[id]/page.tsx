@@ -772,63 +772,61 @@ export default function CustomerProfilePage() {
           </div>
 
           {/* Quick Actions */}
-          <div className="flex flex-wrap items-center gap-2">
-            <EmailComposer
-              recipientEmail={customer.email}
-              recipientName={customer.display_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || customer.email}
-              customerId={customerId}
-              alternativeContacts={alternativeContacts || []}
-              trigger={
-                <Button className="gap-2 h-10 flex-1 sm:flex-none">
-                  <Mail className="h-4 w-4" />
-                  <span className="hidden xs:inline">Email Customer</span>
-                  <span className="xs:hidden">Email</span>
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <EmailComposer
+                recipientEmail={customer.email}
+                recipientName={customer.display_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || customer.email}
+                customerId={customerId}
+                alternativeContacts={alternativeContacts || []}
+                trigger={
+                  <Button className="gap-2 h-9">
+                    <Mail className="h-4 w-4" />
+                    Email
+                  </Button>
+                }
+              />
+              <CreateProjectDialog
+                customerId={customerId}
+                onProjectCreated={(projectId) => {
+                  queryClient.invalidateQueries({ queryKey: ['customer-profile', customerId] })
+                }}
+                trigger={
+                  <Button variant="outline" className="gap-2 h-9">
+                    <Plus className="h-4 w-4" />
+                    Project
+                  </Button>
+                }
+              />
+              {customer.shopify_customer_id && (
+                <Button variant="outline" className="gap-2 h-9" size="sm" asChild>
+                  <a
+                    href={`https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/customers/${customer.shopify_customer_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Shopify
+                  </a>
                 </Button>
-              }
-            />
-            <CreateProjectDialog
-              customerId={customerId}
-              onProjectCreated={(projectId) => {
-                queryClient.invalidateQueries({ queryKey: ['customer-profile', customerId] })
-              }}
-              trigger={
-                <Button variant="outline" className="gap-2 h-10 w-full flex-1 sm:flex-none">
-                  <Plus className="h-4 w-4" />
-                  <span className="hidden xs:inline">Create Project</span>
-                  <span className="xs:hidden">Project</span>
-                </Button>
-              }
-            />
-            {customer.shopify_customer_id && (
-              <Button variant="outline" className="gap-2 h-10" asChild>
-                <a
-                  href={`https://${process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN}/admin/customers/${customer.shopify_customer_id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Shopify
-                </a>
-              </Button>
-            )}
+              )}
+            </div>
             {/* Customer Type Actions */}
-            {(customer as any).customer_type !== 'retailer' && (
-              <Button variant="outline" className="gap-2 h-10" onClick={() => handleSetCustomerType('retailer')}>
-                <Building2 className="h-4 w-4" />
-                Mark as Retailer
-              </Button>
-            )}
-            {(customer as any).customer_type !== 'organization' && (
-              <Button variant="outline" className="gap-2 h-10" onClick={() => handleSetCustomerType('organization')}>
-                <Tag className="h-4 w-4" />
-                Mark as Organization
-              </Button>
-            )}
-            {(customer as any).customer_type !== 'individual' && (
-              <Button variant="ghost" size="sm" className="gap-1 h-10 text-muted-foreground" onClick={() => handleSetCustomerType('individual')}>
-                Mark as Individual
-              </Button>
-            )}
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground mr-1">Type:</span>
+              {(['individual', 'retailer', 'organization'] as const).map((type) => (
+                <Button
+                  key={type}
+                  variant={(customer as any).customer_type === type ? 'default' : 'ghost'}
+                  size="sm"
+                  className={`h-7 text-xs px-2.5 ${(customer as any).customer_type === type ? '' : 'text-muted-foreground'}`}
+                  onClick={() => handleSetCustomerType(type)}
+                  disabled={(customer as any).customer_type === type}
+                >
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </Button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
