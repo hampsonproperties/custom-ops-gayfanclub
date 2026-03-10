@@ -577,6 +577,20 @@ export default function CustomerProfilePage() {
     queryClient.invalidateQueries({ queryKey: ['customer-profile', customerId] })
   }
 
+  const handleSetCustomerType = async (type: 'individual' | 'retailer' | 'organization') => {
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('customers')
+      .update({ customer_type: type })
+      .eq('id', customerId)
+    if (error) {
+      toast.error('Failed to update customer type')
+      return
+    }
+    toast.success(`Customer marked as ${type}`)
+    queryClient.invalidateQueries({ queryKey: ['customer-profile', customerId] })
+  }
+
   // Fetch alternative contacts
   const { data: alternativeContacts } = useQuery({
     queryKey: ['customer-alternative-contacts', customerId],
@@ -657,6 +671,13 @@ export default function CustomerProfilePage() {
                    ? `${customer.first_name} ${customer.last_name}`
                    : customer.first_name || customer.last_name || customer.email)}
               </h1>
+              {/* Customer Type Badge */}
+              {(customer as any).customer_type === 'retailer' && (
+                <Badge variant="outline" className="text-blue-600 border-blue-300 text-xs sm:text-sm flex-shrink-0">Retailer</Badge>
+              )}
+              {(customer as any).customer_type === 'organization' && (
+                <Badge variant="outline" className="text-purple-600 border-purple-300 text-xs sm:text-sm flex-shrink-0">Organization</Badge>
+              )}
               {/* Status Badge */}
               {(customer as any).status && (
                 <Badge variant="outline" className="text-xs sm:text-sm flex-shrink-0">
@@ -788,6 +809,24 @@ export default function CustomerProfilePage() {
                   <ExternalLink className="h-4 w-4" />
                   Shopify
                 </a>
+              </Button>
+            )}
+            {/* Customer Type Actions */}
+            {(customer as any).customer_type !== 'retailer' && (
+              <Button variant="outline" className="gap-2 h-10" onClick={() => handleSetCustomerType('retailer')}>
+                <Building2 className="h-4 w-4" />
+                Mark as Retailer
+              </Button>
+            )}
+            {(customer as any).customer_type !== 'organization' && (
+              <Button variant="outline" className="gap-2 h-10" onClick={() => handleSetCustomerType('organization')}>
+                <Tag className="h-4 w-4" />
+                Mark as Organization
+              </Button>
+            )}
+            {(customer as any).customer_type !== 'individual' && (
+              <Button variant="ghost" size="sm" className="gap-1 h-10 text-muted-foreground" onClick={() => handleSetCustomerType('individual')}>
+                Mark as Individual
               </Button>
             )}
           </div>

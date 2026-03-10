@@ -117,6 +117,15 @@ async function handleStockOrder(
     // Retail account match — log order against the account
     const customerId = await findOrCreateCustomer(supabase, order.customer)
 
+    // Link customer to retail account and mark as retailer
+    if (customerId) {
+      await supabase
+        .from('customers')
+        .update({ customer_type: 'retailer', retail_account_id: retailAccountId })
+        .eq('id', customerId)
+        .is('retail_account_id', null) // Only set if not already linked
+    }
+
     const orderTags = order.tags
       ?.split(',')
       .map((t: string) => t.trim())

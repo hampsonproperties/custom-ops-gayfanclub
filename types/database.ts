@@ -768,6 +768,7 @@ export type Database = {
         Row: {
           assigned_to_user_id: string | null
           created_at: string | null
+          customer_type: string
           display_name: string | null
           email: string | null
           estimated_value: number | null
@@ -781,6 +782,7 @@ export type Database = {
           notes: string | null
           organization_name: string | null
           phone: string | null
+          retail_account_id: string | null
           sales_stage: Database["public"]["Enums"]["sales_stage_enum"]
           shopify_customer_id: string | null
           shopify_last_sync_at: string | null
@@ -793,6 +795,7 @@ export type Database = {
         Insert: {
           assigned_to_user_id?: string | null
           created_at?: string | null
+          customer_type?: string
           display_name?: string | null
           email?: string | null
           estimated_value?: number | null
@@ -806,6 +809,7 @@ export type Database = {
           notes?: string | null
           organization_name?: string | null
           phone?: string | null
+          retail_account_id?: string | null
           sales_stage?: Database["public"]["Enums"]["sales_stage_enum"]
           shopify_customer_id?: string | null
           shopify_last_sync_at?: string | null
@@ -818,6 +822,7 @@ export type Database = {
         Update: {
           assigned_to_user_id?: string | null
           created_at?: string | null
+          customer_type?: string
           display_name?: string | null
           email?: string | null
           estimated_value?: number | null
@@ -831,6 +836,7 @@ export type Database = {
           notes?: string | null
           organization_name?: string | null
           phone?: string | null
+          retail_account_id?: string | null
           sales_stage?: Database["public"]["Enums"]["sales_stage_enum"]
           shopify_customer_id?: string | null
           shopify_last_sync_at?: string | null
@@ -846,6 +852,13 @@ export type Database = {
             columns: ["assigned_to_user_id"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customers_retail_account_id_fkey"
+            columns: ["retail_account_id"]
+            isOneToOne: false
+            referencedRelation: "retail_accounts"
             referencedColumns: ["id"]
           },
         ]

@@ -63,6 +63,7 @@ interface Customer {
   display_name: string | null
   phone: string | null
   shopify_customer_id: string | null
+  customer_type: string
   created_at: string
   updated_at: string
   // Computed fields
@@ -94,6 +95,7 @@ function CustomersPageContent() {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'with_projects' | 'no_projects'>('all')
   const [sourceFilter, setSourceFilter] = useState<'all' | 'shopify' | 'email_import' | 'unclaimed'>('all')
+  const [typeFilter, setTypeFilter] = useState<'all' | 'individual' | 'retailer' | 'organization'>('all')
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
@@ -120,6 +122,10 @@ function CustomersPageContent() {
   }
   const handleSourceFilterChange = (value: 'all' | 'shopify' | 'email_import' | 'unclaimed') => {
     setSourceFilter(value)
+    setPage(1)
+  }
+  const handleTypeFilterChange = (value: 'all' | 'individual' | 'retailer' | 'organization') => {
+    setTypeFilter(value)
     setPage(1)
   }
 
@@ -186,7 +192,7 @@ function CustomersPageContent() {
 
   // Fetch customers with stats
   const { data: customersData, isLoading, refetch } = useQuery({
-    queryKey: ['customers', searchQuery, filterStatus, sourceFilter, isPaginated ? page : 'all', isPaginated ? PAGE_SIZE : 'all'],
+    queryKey: ['customers', searchQuery, filterStatus, sourceFilter, typeFilter, isPaginated ? page : 'all', isPaginated ? PAGE_SIZE : 'all'],
     queryFn: async () => {
       const supabase = createClient()
 
@@ -217,6 +223,11 @@ function CustomersPageContent() {
         query = query.is('shopify_customer_id', null)
       } else if (sourceFilter === 'unclaimed') {
         query = query.is('assigned_to_user_id', null)
+      }
+
+      // Apply type filter
+      if (typeFilter !== 'all') {
+        query = query.eq('customer_type', typeFilter)
       }
 
       // Apply search filter
@@ -432,6 +443,18 @@ function CustomersPageContent() {
                     <SelectItem value="unclaimed">Unclaimed</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select value={typeFilter} onValueChange={(value: any) => handleTypeFilterChange(value)}>
+                  <SelectTrigger className="w-full sm:w-[180px]">
+                    <Building2 className="mr-2 h-4 w-4" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="individual">Individual</SelectItem>
+                    <SelectItem value="retailer">Retailer</SelectItem>
+                    <SelectItem value="organization">Organization</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting} className="h-9 gap-2">
                   {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                   Export CSV
@@ -522,6 +545,12 @@ function CustomersPageContent() {
                               <div className="font-medium">
                                 {customer.display_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || customer.email}
                               </div>
+                              {customer.customer_type === 'retailer' && (
+                                <Badge variant="outline" className="text-blue-600 border-blue-300 text-xs">Retailer</Badge>
+                              )}
+                              {customer.customer_type === 'organization' && (
+                                <Badge variant="outline" className="text-purple-600 border-purple-300 text-xs">Org</Badge>
+                              )}
                               {hasNoName && (
                                 <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs gap-1">
                                   <AlertTriangle className="h-3 w-3" />
@@ -653,6 +682,12 @@ function CustomersPageContent() {
                             {/* Name */}
                             <div className="font-medium text-base mb-1 flex items-center gap-2">
                               <span>{customer.display_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || customer.email}</span>
+                              {customer.customer_type === 'retailer' && (
+                                <Badge variant="outline" className="text-blue-600 border-blue-300 text-xs shrink-0">Retailer</Badge>
+                              )}
+                              {customer.customer_type === 'organization' && (
+                                <Badge variant="outline" className="text-purple-600 border-purple-300 text-xs shrink-0">Org</Badge>
+                              )}
                               {hasNoName && (
                                 <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs gap-1 shrink-0">
                                   <AlertTriangle className="h-3 w-3" />
