@@ -840,6 +840,24 @@ export default function CustomerProfilePage() {
     queryClient.invalidateQueries({ queryKey: ['customer-profile', customerId] })
   }
 
+  const [showFollowUpPicker, setShowFollowUpPicker] = useState(false)
+
+  const handleSetFollowUp = async (daysFromNow: number | null) => {
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('customers')
+      .update({ next_follow_up_at: daysFromNow !== null ? new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000).toISOString() : null })
+      .eq('id', customerId)
+    if (error) {
+      toast.error('Failed to set follow-up')
+      return
+    }
+    toast.success(daysFromNow !== null ? `Follow-up set for ${daysFromNow} days from now` : 'Follow-up cleared')
+    setShowFollowUpPicker(false)
+    queryClient.invalidateQueries({ queryKey: ['customer-profile', customerId] })
+    queryClient.invalidateQueries({ queryKey: ['morning-briefing'] })
+  }
+
   const handleAcknowledgeReply = async () => {
     const supabase = createClient()
     const { error } = await supabase
@@ -1048,6 +1066,58 @@ export default function CustomerProfilePage() {
                   </Button>
                 </>
               )}
+            </div>
+
+            {/* Follow-Up Reminder */}
+            <div className="flex items-center gap-2 mt-2 text-sm">
+              <Bell className="h-4 w-4 text-muted-foreground" />
+              {customer.next_follow_up_at ? (
+                <>
+                  <span className="text-muted-foreground">Follow-up:</span>
+                  <span className={`font-medium ${new Date(customer.next_follow_up_at) <= new Date() ? 'text-red-600' : ''}`}>
+                    {format(new Date(customer.next_follow_up_at), 'MMM d, yyyy')}
+                    {new Date(customer.next_follow_up_at) <= new Date() && ' (overdue)'}
+                  </span>
+                  <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs text-muted-foreground" onClick={() => handleSetFollowUp(null)}>
+                    Clear
+                  </Button>
+                </>
+              ) : (
+                <span className="text-muted-foreground">No follow-up set</span>
+              )}
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-6 px-2 text-xs gap-1"
+                  onClick={() => setShowFollowUpPicker(!showFollowUpPicker)}
+                >
+                  <Calendar className="h-3 w-3" />
+                  Set
+                </Button>
+                {showFollowUpPicker && (
+                  <div className="absolute top-8 left-0 z-50 bg-popover border rounded-lg shadow-lg p-2 space-y-1 min-w-[160px]">
+                    {[
+                      { label: '1 week', days: 7 },
+                      { label: '2 weeks', days: 14 },
+                      { label: '1 month', days: 30 },
+                      { label: '2 months', days: 60 },
+                      { label: '3 months', days: 90 },
+                      { label: '6 months', days: 180 },
+                    ].map((opt) => (
+                      <Button
+                        key={opt.days}
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-start text-xs h-7"
+                        onClick={() => handleSetFollowUp(opt.days)}
+                      >
+                        {opt.label}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Key Contacts */}

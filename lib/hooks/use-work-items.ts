@@ -585,28 +585,50 @@ export function useMarkCommunicationActioned() {
   })
 }
 
-// Close work item (archive/cancel)
+// Close work item (archive/cancel) with auto-sync to customer sales stage
 export function useCloseWorkItem() {
   const queryClient = useQueryClient()
   const supabase = createClient()
 
   // Map close reasons to valid workflow statuses
   const reasonToStatus: Record<string, string> = {
+    won: 'closed_won',
     completed: 'closed_won',
+    missed_deadline: 'closed_lost',
+    too_expensive: 'closed_lost',
+    ghosted: 'closed_lost',
+    went_with_competitor: 'closed_lost',
+    not_ready_yet: 'closed_lost',
     not_interested: 'closed_lost',
     cancelled: 'closed_event_cancelled',
     spam: 'closed',
     other: 'closed',
   }
 
+  // Map close reasons to customer sales stages
+  const reasonToCustomerStage: Record<string, string> = {
+    won: 'active_customer',
+    completed: 'active_customer',
+    missed_deadline: 'lost',
+    too_expensive: 'lost',
+    ghosted: 'lost',
+    went_with_competitor: 'lost',
+    not_ready_yet: 'lost',
+    not_interested: 'lost',
+    cancelled: 'lost',
+  }
+
   return useMutation({
     mutationFn: async ({
       workItemId,
-      reason
+      reason,
+      customerId,
     }: {
       workItemId: string
-      reason: 'not_interested' | 'spam' | 'cancelled' | 'completed' | 'other'
+      reason: string
+      customerId?: string
     }) => {
+      // Close the work item
       const { error } = await supabase
         .from('work_items')
         .update({
@@ -617,9 +639,42 @@ export function useCloseWorkItem() {
         .eq('id', workItemId)
 
       if (error) throw error
+
+      // Auto-sync customer sales stage if we have a customerId and a mapped stage
+      const customerStage = reasonToCustomerStage[reason]
+      if (customerId && customerStage) {
+        // Only update if customer doesn't have a "better" stage already
+        // (don't downgrade active_customer to lost if they have other open projects)
+        if (customerStage === 'lost') {
+          // Check if customer has other open work items
+          const { data: openItems } = await supabase
+            .from('work_items')
+            .select('id')
+            .eq('customer_id', customerId)
+            .is('closed_at', null)
+            .neq('id', workItemId)
+            .limit(1)
+
+          // Only set to lost if no other open projects
+          if (!openItems || openItems.length === 0) {
+            await supabase
+              .from('customers')
+              .update({ sales_stage: customerStage })
+              .eq('id', customerId)
+          }
+        } else {
+          // Won — always upgrade to active_customer
+          await supabase
+            .from('customers')
+            .update({ sales_stage: customerStage })
+            .eq('id', customerId)
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['work-items'] })
+      queryClient.invalidateQueries({ queryKey: ['customer-profile'] })
+      queryClient.invalidateQueries({ queryKey: ['morning-briefing'] })
     },
   })
 }

@@ -22,9 +22,33 @@ import { useCloseWorkItem } from '@/lib/hooks/use-work-items'
 import { toast } from 'sonner'
 import { useRouter } from 'next/navigation'
 
+export type CloseReason =
+  | 'won'
+  | 'missed_deadline'
+  | 'too_expensive'
+  | 'ghosted'
+  | 'went_with_competitor'
+  | 'not_ready_yet'
+  | 'spam'
+  | 'cancelled'
+  | 'other'
+
+const CLOSE_REASONS: { value: CloseReason; label: string; description: string }[] = [
+  { value: 'won', label: 'Won', description: 'Successfully completed or fulfilled' },
+  { value: 'missed_deadline', label: 'Missed deadline', description: "Couldn't meet their timeline" },
+  { value: 'too_expensive', label: 'Too expensive', description: 'Price was out of their budget' },
+  { value: 'ghosted', label: 'Ghosted', description: 'Customer stopped responding' },
+  { value: 'went_with_competitor', label: 'Went with competitor', description: 'Chose another vendor' },
+  { value: 'not_ready_yet', label: 'Not ready yet', description: 'Interested but not ready to proceed' },
+  { value: 'cancelled', label: 'Event cancelled', description: 'Their event was cancelled or postponed' },
+  { value: 'spam', label: 'Spam / Not a real lead', description: 'Vendor pitch, junk, or irrelevant' },
+  { value: 'other', label: 'Other', description: 'Different reason' },
+]
+
 interface CloseLeadDialogProps {
   workItemId: string
   workItemName: string
+  customerId?: string | null
   isOpen: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -32,16 +56,17 @@ interface CloseLeadDialogProps {
 export function CloseLeadDialog({
   workItemId,
   workItemName,
+  customerId,
   isOpen,
   onOpenChange,
 }: CloseLeadDialogProps) {
-  const [reason, setReason] = useState<'not_interested' | 'spam' | 'cancelled' | 'completed' | 'other'>('not_interested')
+  const [reason, setReason] = useState<CloseReason>('ghosted')
   const closeWorkItem = useCloseWorkItem()
   const router = useRouter()
 
   const handleClose = async () => {
     try {
-      await closeWorkItem.mutateAsync({ workItemId, reason })
+      await closeWorkItem.mutateAsync({ workItemId, reason, customerId: customerId || undefined })
       toast.success('Lead closed successfully')
       onOpenChange(false)
 
@@ -58,33 +83,26 @@ export function CloseLeadDialog({
         <DialogHeader>
           <DialogTitle>Close Lead</DialogTitle>
           <DialogDescription>
-            Close "{workItemName}" and remove it from your leads list. This won't delete the record, just archive it.
+            Close &ldquo;{workItemName}&rdquo; and archive it. This won&apos;t delete the record.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Reason for closing</Label>
-            <Select value={reason} onValueChange={(value) => setReason(value as any)}>
+            <Label>Why are you closing this?</Label>
+            <Select value={reason} onValueChange={(value) => setReason(value as CloseReason)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="not_interested">
-                  Not interested - Customer declined or not pursuing
-                </SelectItem>
-                <SelectItem value="spam">
-                  Spam - Sales pitch, vendor solicitation, junk
-                </SelectItem>
-                <SelectItem value="cancelled">
-                  Cancelled - Event cancelled or project dropped
-                </SelectItem>
-                <SelectItem value="completed">
-                  Completed - Already fulfilled elsewhere
-                </SelectItem>
-                <SelectItem value="other">
-                  Other reason
-                </SelectItem>
+                {CLOSE_REASONS.map((r) => (
+                  <SelectItem key={r.value} value={r.value}>
+                    <div>
+                      <span className="font-medium">{r.label}</span>
+                      <span className="text-muted-foreground ml-2 text-xs">— {r.description}</span>
+                    </div>
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

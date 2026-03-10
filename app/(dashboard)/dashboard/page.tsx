@@ -28,6 +28,8 @@ import {
   Inbox,
   Send,
   CheckCircle2,
+  UserCheck,
+  AlertTriangle,
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
@@ -109,6 +111,92 @@ function useFollowUpsBriefing() {
   })
 }
 
+// Hook: fetch customers with follow-up dates due today or overdue
+function useCustomerCheckIns() {
+  return useQuery({
+    queryKey: ['morning-briefing', 'customer-check-ins'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const endOfToday = new Date()
+      endOfToday.setHours(23, 59, 59, 999)
+
+      const { data, error } = await supabase
+        .from('customers')
+        .select('id, email, first_name, last_name, display_name, organization_name, customer_type, next_follow_up_at')
+        .not('next_follow_up_at', 'is', null)
+        .lte('next_follow_up_at', endOfToday.toISOString())
+        .order('next_follow_up_at', { ascending: true })
+        .limit(20)
+
+      if (error) throw error
+      return data || []
+    },
+    refetchInterval: 5 * 60 * 1000,
+  })
+}
+
+// Hook: fetch dormant customers (no activity in 90+ days)
+// Only include: retailers, organizations, customers with assisted_project work items, or sales_stage beyond new_lead
+function useDormantCustomers() {
+  return useQuery({
+    queryKey: ['morning-briefing', 'dormant-customers'],
+    queryFn: async () => {
+      const supabase = createClient()
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+
+      // Fetch candidate dormant customers
+      const { data: candidates, error } = await supabase
+        .from('customers')
+        .select('id, email, first_name, last_name, display_name, organization_name, customer_type, sales_stage, updated_at, last_inbound_at, last_outbound_at')
+        .lt('updated_at', ninetyDaysAgo)
+        .limit(200)
+
+      if (error) throw error
+      if (!candidates || candidates.length === 0) return []
+
+      // Filter: only include meaningful customers
+      const meaningful = candidates.filter(c => {
+        // Include retailers and organizations
+        if (c.customer_type === 'retailer' || c.customer_type === 'organization') return true
+        // Include customers with sales_stage beyond new_lead
+        if (c.sales_stage && c.sales_stage !== 'new_lead') return true
+        return false
+      })
+
+      // Also check for customers with assisted_project work items
+      const remainingIds = candidates
+        .filter(c => c.customer_type === 'individual' && (!c.sales_stage || c.sales_stage === 'new_lead'))
+        .map(c => c.id)
+
+      if (remainingIds.length > 0) {
+        const { data: withProjects } = await supabase
+          .from('work_items')
+          .select('customer_id')
+          .in('customer_id', remainingIds)
+          .eq('type', 'assisted_project')
+
+        if (withProjects) {
+          const projectCustomerIds = new Set(withProjects.map(w => w.customer_id))
+          const additionalCustomers = candidates.filter(c => projectCustomerIds.has(c.id))
+          meaningful.push(...additionalCustomers)
+        }
+      }
+
+      // Deduplicate and sort by staleness
+      const seen = new Set<string>()
+      return meaningful
+        .filter(c => {
+          if (seen.has(c.id)) return false
+          seen.add(c.id)
+          return true
+        })
+        .sort((a, b) => new Date(a.updated_at!).getTime() - new Date(b.updated_at!).getTime())
+        .slice(0, 10)
+    },
+    refetchInterval: 10 * 60 * 1000,
+  })
+}
+
 function getCustomerDisplayName(c: any): string {
   return c.display_name ||
     (c.organization_name && (c.customer_type === 'retailer' || c.customer_type === 'organization') ? c.organization_name : null) ||
@@ -131,6 +219,8 @@ export default function DashboardPage() {
   const { data: needsReply } = useNeedsMyReply()
   const { data: waitingOn } = useWaitingOnCustomer()
   const { data: followUps } = useFollowUpsBriefing()
+  const { data: customerCheckIns } = useCustomerCheckIns()
+  const { data: dormantCustomers } = useDormantCustomers()
   const queryClient = useQueryClient()
 
   const handleAcknowledge = async (customerId: string, e: React.MouseEvent) => {
@@ -175,7 +265,9 @@ export default function DashboardPage() {
 
   const hasMorningItems = (needsReply && needsReply.length > 0) ||
     (waitingOn && waitingOn.length > 0) ||
-    (followUps && followUps.length > 0)
+    (followUps && followUps.length > 0) ||
+    (customerCheckIns && customerCheckIns.length > 0) ||
+    (dormantCustomers && dormantCustomers.length > 0)
 
   return (
     <div className="p-6 space-y-5">
@@ -315,6 +407,86 @@ export default function DashboardPage() {
               <Link href="/follow-ups">
                 <div className="text-sm text-center font-medium text-red-600/70 hover:text-red-600 py-2 hover:underline">
                   +{followUps.length - 5} more follow-ups &rarr;
+                </div>
+              </Link>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Customer Check-ins */}
+      {customerCheckIns && customerCheckIns.length > 0 && (
+        <Card className="border-l-2 border-l-blue-400">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-blue-700">
+              <UserCheck className="h-4 w-4" />
+              Customer Check-ins ({customerCheckIns.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-3 space-y-1">
+            {customerCheckIns.slice(0, 5).map((c) => {
+              const isOverdue = new Date(c.next_follow_up_at!) < new Date()
+              return (
+                <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
+                  <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium">{getCustomerDisplayName(c)}</div>
+                      <div className="text-sm text-muted-foreground truncate">{c.email}</div>
+                    </div>
+                    <Badge variant="outline" className={`text-xs gap-1 ml-2 shrink-0 ${isOverdue ? 'text-red-600 border-red-300' : 'text-blue-600 border-blue-300'}`}>
+                      <Calendar className="h-3 w-3" />
+                      {isOverdue ? `${daysAgo(c.next_follow_up_at!)}d overdue` : 'Today'}
+                    </Badge>
+                  </div>
+                </Link>
+              )
+            })}
+            {customerCheckIns.length > 5 && (
+              <Link href="/customers">
+                <div className="text-sm text-center font-medium text-blue-600/70 hover:text-blue-600 py-2 hover:underline">
+                  +{customerCheckIns.length - 5} more check-ins &rarr;
+                </div>
+              </Link>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Dormant Customers */}
+      {dormantCustomers && dormantCustomers.length > 0 && (
+        <Card className="border-l-2 border-l-orange-300">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-orange-600">
+              <AlertTriangle className="h-4 w-4" />
+              Dormant Customers ({dormantCustomers.length})
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">No activity in 90+ days — consider reaching out</p>
+          </CardHeader>
+          <CardContent className="px-4 pb-3 space-y-1">
+            {dormantCustomers.slice(0, 5).map((c) => {
+              const lastActivity = c.last_inbound_at || c.last_outbound_at || c.updated_at
+              return (
+                <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
+                  <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium">{getCustomerDisplayName(c)}</div>
+                      <div className="text-sm text-muted-foreground truncate">
+                        {c.customer_type !== 'individual' && <span className="capitalize">{c.customer_type} · </span>}
+                        {c.email}
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs gap-1 ml-2 shrink-0">
+                      <Clock className="h-3 w-3" />
+                      {lastActivity ? `${daysAgo(lastActivity)}d` : '90d+'}
+                    </Badge>
+                  </div>
+                </Link>
+              )
+            })}
+            {dormantCustomers.length > 5 && (
+              <Link href="/customers">
+                <div className="text-sm text-center font-medium text-orange-600/70 hover:text-orange-600 py-2 hover:underline">
+                  +{dormantCustomers.length - 5} more dormant &rarr;
                 </div>
               </Link>
             )}

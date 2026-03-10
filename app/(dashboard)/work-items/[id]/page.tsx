@@ -593,6 +593,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
         onOpenChange={setShowCloseDialog}
         workItemId={id}
         workItemName={workItem.customer_name || workItem.customer_email || 'Unknown Customer'}
+        customerId={workItem.customer_id}
       />
 
       <SendApprovalDialog
