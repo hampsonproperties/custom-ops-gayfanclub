@@ -9,7 +9,7 @@ import {
 } from '@/lib/hooks/use-pipelines'
 import { useUntriagedEmails } from '@/lib/hooks/use-communications'
 import { useMyTasks, useToggleTask, type Task } from '@/lib/hooks/use-tasks'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import {
   AlertCircle,
@@ -27,9 +27,11 @@ import {
   ArrowRight,
   Inbox,
   Send,
+  CheckCircle2,
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
+import { toast } from 'sonner'
 
 // Hook: fetch customers needing my reply (last_inbound_at > last_outbound_at)
 // Note: PostgREST can't compare two columns, so we fetch candidates and filter client-side
@@ -129,6 +131,23 @@ export default function DashboardPage() {
   const { data: needsReply } = useNeedsMyReply()
   const { data: waitingOn } = useWaitingOnCustomer()
   const { data: followUps } = useFollowUpsBriefing()
+  const queryClient = useQueryClient()
+
+  const handleAcknowledge = async (customerId: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('customers')
+      .update({ last_outbound_at: new Date().toISOString() })
+      .eq('id', customerId)
+    if (error) {
+      toast.error('Failed to acknowledge')
+      return
+    }
+    toast.success('Marked as no reply needed')
+    queryClient.invalidateQueries({ queryKey: ['morning-briefing'] })
+  }
 
   const formatCurrency = (value: number | null) => {
     if (value === null || value === undefined) return ''
@@ -194,18 +213,27 @@ export default function DashboardPage() {
             {needsReply.map((c) => {
               const days = daysAgo(c.last_inbound_at!)
               return (
-                <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
-                  <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium">{getCustomerDisplayName(c)}</div>
-                      <div className="text-sm text-muted-foreground truncate">{c.email}</div>
-                    </div>
-                    <Badge variant="outline" className="text-amber-600 border-amber-300 text-xs gap-1 ml-2 shrink-0">
+                <div key={c.id} className="p-2.5 rounded-lg hover:bg-muted transition-colors flex items-center justify-between gap-2">
+                  <Link href={`/customers/${c.id}?tab=activity`} className="flex-1 min-w-0 cursor-pointer">
+                    <div className="font-medium">{getCustomerDisplayName(c)}</div>
+                    <div className="text-sm text-muted-foreground truncate">{c.email}</div>
+                  </Link>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Badge variant="outline" className="text-amber-600 border-amber-300 text-xs gap-1">
                       <Clock className="h-3 w-3" />
                       {days === 0 ? 'Today' : `${days}d ago`}
                     </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-muted-foreground hover:text-green-600"
+                      onClick={(e) => handleAcknowledge(c.id, e)}
+                      title="No reply needed"
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
-                </Link>
+                </div>
               )
             })}
           </CardContent>

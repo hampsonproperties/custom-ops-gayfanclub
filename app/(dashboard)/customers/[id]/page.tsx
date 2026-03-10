@@ -840,6 +840,21 @@ export default function CustomerProfilePage() {
     queryClient.invalidateQueries({ queryKey: ['customer-profile', customerId] })
   }
 
+  const handleAcknowledgeReply = async () => {
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('customers')
+      .update({ last_outbound_at: new Date().toISOString() })
+      .eq('id', customerId)
+    if (error) {
+      toast.error('Failed to acknowledge')
+      return
+    }
+    toast.success('Marked as no reply needed')
+    queryClient.invalidateQueries({ queryKey: ['customer-profile', customerId] })
+    queryClient.invalidateQueries({ queryKey: ['morning-briefing'] })
+  }
+
   // Fetch alternative contacts
   const { data: alternativeContacts } = useQuery({
     queryKey: ['customer-alternative-contacts', customerId],
@@ -943,10 +958,21 @@ export default function CustomerProfilePage() {
                 if (lastIn && (!lastOut || lastIn > lastOut)) {
                   const days = Math.floor((Date.now() - lastIn.getTime()) / (1000 * 60 * 60 * 24))
                   if (days >= 1) return (
-                    <Badge variant="outline" className="text-amber-600 border-amber-300 text-xs sm:text-sm flex-shrink-0 gap-1">
-                      <Clock className="h-3 w-3" />
-                      Needs reply {days}d
-                    </Badge>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <Badge variant="outline" className="text-amber-600 border-amber-300 text-xs sm:text-sm gap-1">
+                        <Clock className="h-3 w-3" />
+                        Needs reply {days}d
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={handleAcknowledgeReply}
+                      >
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        No reply needed
+                      </Button>
+                    </div>
                   )
                 }
                 if (lastOut && (!lastIn || lastOut > lastIn)) {

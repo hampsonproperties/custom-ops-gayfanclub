@@ -15,6 +15,7 @@ import {
   TrendingUp,
   AlertTriangle,
   Inbox,
+  Store,
 } from 'lucide-react'
 
 export function SidebarNavigation() {
@@ -28,7 +29,7 @@ export function SidebarNavigation() {
   }
 
   // Auto-open sections when a child is active
-  const isSalesChildActive = isActive('/sales-leads') || isActive('/follow-ups')
+  const isSalesChildActive = isActive('/sales-leads') || isActive('/follow-ups') || (pathname === '/customers' && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('type') === 'retailer')
   const isEmailChildActive = isActive('/inbox') || isActive('/support-queue')
 
   return (
@@ -141,7 +142,17 @@ export function SidebarNavigation() {
                 size="sm"
                 className="w-full justify-start text-sm"
               >
-                Follow-up Queue
+                Action Items
+              </Button>
+            </Link>
+            <Link href="/customers?type=retailer">
+              <Button
+                variant={'ghost'}
+                size="sm"
+                className="w-full justify-start text-sm gap-2"
+              >
+                <Store className="h-3.5 w-3.5" />
+                Retailers
               </Button>
             </Link>
           </div>
