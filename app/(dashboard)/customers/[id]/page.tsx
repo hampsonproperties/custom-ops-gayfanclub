@@ -642,7 +642,16 @@ export default function CustomerProfilePage() {
     )
   }
 
-  const { customer, projects, conversations, stats } = profileData
+  const { customer, retail_account, projects, conversations, stats } = profileData
+
+  // Derive display names based on customer type
+  const isBusinessCustomer = customer.customer_type === 'retailer' || customer.customer_type === 'organization'
+  const businessName = customer.organization_name || retail_account?.account_name || null
+  const personName = customer.display_name ||
+    (customer.first_name && customer.last_name
+      ? `${customer.first_name} ${customer.last_name}`
+      : customer.first_name || customer.last_name || null)
+  const headerName = (isBusinessCustomer && businessName) ? businessName : (personName || customer.email)
 
   // Show Shopify tab only if customer has a Shopify connection
   const hasShopifyConnection = !!customer.shopify_customer_id ||
@@ -655,47 +664,50 @@ export default function CustomerProfilePage() {
         {/* Breadcrumb */}
         <Breadcrumbs
           items={[{ label: 'Customers', href: '/customers' }]}
-          current={customer.display_name ||
-            (customer.first_name && customer.last_name
-              ? `${customer.first_name} ${customer.last_name}`
-              : customer.first_name || customer.last_name || customer.email)}
+          current={headerName}
         />
 
         {/* Customer Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 sm:gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-start gap-2 sm:gap-3 mb-2">
               <h1 className="text-2xl sm:text-3xl font-bold truncate flex-1">
-                {customer.display_name ||
-                 (customer.first_name && customer.last_name
-                   ? `${customer.first_name} ${customer.last_name}`
-                   : customer.first_name || customer.last_name || customer.email)}
+                {headerName}
               </h1>
               {/* Customer Type Badge */}
-              {(customer as any).customer_type === 'retailer' && (
+              {customer.customer_type === 'retailer' && (
                 <Badge variant="outline" className="text-blue-600 border-blue-300 text-xs sm:text-sm flex-shrink-0">Retailer</Badge>
               )}
-              {(customer as any).customer_type === 'organization' && (
+              {customer.customer_type === 'organization' && (
                 <Badge variant="outline" className="text-purple-600 border-purple-300 text-xs sm:text-sm flex-shrink-0">Organization</Badge>
               )}
               {/* Status Badge */}
-              {(customer as any).status && (
+              {customer.status && (
                 <Badge variant="outline" className="text-xs sm:text-sm flex-shrink-0">
-                  {(customer as any).status}
+                  {customer.status}
                 </Badge>
               )}
             </div>
 
-            {/* Contact Info and Organization */}
+            {/* Contact Info — layout differs for business vs individual */}
             <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
-              {(customer as any).organization_name && (
+              {/* Business customers: show primary contact person */}
+              {isBusinessCustomer && personName && (
                 <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 flex-shrink-0" />
-                  <span className="truncate">{(customer as any).organization_name}</span>
+                  <User className="h-4 w-4 flex-shrink-0" />
+                  <span className="font-medium text-foreground">{personName}</span>
+                  <span className="text-muted-foreground">· Primary Contact</span>
                 </div>
               )}
-              {/* Only show email if it's not being used as the name */}
-              {(customer.display_name || customer.first_name || customer.last_name) && (
+              {/* Individual customers: show org name if present */}
+              {!isBusinessCustomer && customer.organization_name && (
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">{customer.organization_name}</span>
+                </div>
+              )}
+              {/* Email — always show unless it IS the header name */}
+              {customer.email && headerName !== customer.email && (
                 <div className="flex items-center gap-2 min-w-0">
                   <Mail className="h-4 w-4 flex-shrink-0" />
                   <span className="truncate">{customer.email}</span>
@@ -712,15 +724,15 @@ export default function CustomerProfilePage() {
             {/* Assigned To */}
             <div className="flex items-center gap-2 mt-2 text-sm">
               <UserCircle className="h-4 w-4 text-muted-foreground" />
-              {(customer as any).assigned_to_user_id ? (
+              {customer.assigned_to_user_id ? (
                 <>
                   <span className="text-muted-foreground">Assigned to:</span>
                   <span className="font-medium">
-                    {allUsers?.find((u) => u.id === (customer as any).assigned_to_user_id)?.full_name || 'Unknown'}
+                    {allUsers?.find((u) => u.id === customer.assigned_to_user_id)?.full_name || 'Unknown'}
                   </span>
                   <select
                     className="ml-2 text-xs border rounded px-1.5 py-0.5 bg-background text-foreground"
-                    value={(customer as any).assigned_to_user_id}
+                    value={customer.assigned_to_user_id}
                     onChange={(e) => handleReassignCustomer(e.target.value)}
                   >
                     {allUsers?.map((u) => (
@@ -739,11 +751,11 @@ export default function CustomerProfilePage() {
               )}
             </div>
 
-            {/* Alternative Contacts */}
+            {/* Key Contacts */}
             {alternativeContacts && alternativeContacts.length > 0 && (
-              <div className="mt-3 pt-3 border-t">
+              <div className={isBusinessCustomer ? 'mt-3' : 'mt-3 pt-3 border-t'}>
                 <div className="text-xs sm:text-sm font-medium text-muted-foreground mb-2">
-                  Additional Contacts:
+                  {isBusinessCustomer ? 'Key Contacts:' : 'Additional Contacts:'}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {alternativeContacts.map((contact) => (
@@ -755,7 +767,7 @@ export default function CustomerProfilePage() {
                       <span className="font-medium truncate max-w-[120px] sm:max-w-none">{contact.full_name}</span>
                       {contact.role && (
                         <>
-                          <span className="text-muted-foreground hidden sm:inline">•</span>
+                          <span className="text-muted-foreground hidden sm:inline">·</span>
                           <span className="text-muted-foreground hidden sm:inline truncate">{contact.role}</span>
                         </>
                       )}
@@ -767,6 +779,42 @@ export default function CustomerProfilePage() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* B2B Details Bar — only for retailers/orgs with linked retail account */}
+            {isBusinessCustomer && retail_account && (
+              <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground bg-muted/30 rounded-md px-3 py-2">
+                {retail_account.business_address && (
+                  <div className="flex items-center gap-1.5">
+                    <Building2 className="h-3.5 w-3.5" />
+                    <span>
+                      {retail_account.business_address}
+                      {retail_account.city && `, ${retail_account.city}`}
+                      {retail_account.state && `, ${retail_account.state}`}
+                      {retail_account.zip_code && ` ${retail_account.zip_code}`}
+                    </span>
+                  </div>
+                )}
+                {retail_account.payment_terms && (
+                  <div className="flex items-center gap-1.5">
+                    <DollarSign className="h-3.5 w-3.5" />
+                    <span>{retail_account.payment_terms}</span>
+                  </div>
+                )}
+                {retail_account.credit_limit && (
+                  <div className="flex items-center gap-1.5">
+                    <DollarSign className="h-3.5 w-3.5" />
+                    <span>Credit: ${retail_account.credit_limit.toLocaleString()}</span>
+                  </div>
+                )}
+                {retail_account.website_url && (
+                  <a href={retail_account.website_url} target="_blank" rel="noopener noreferrer"
+                     className="flex items-center gap-1.5 text-primary hover:underline">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    <span>Website</span>
+                  </a>
+                )}
               </div>
             )}
           </div>
@@ -817,11 +865,11 @@ export default function CustomerProfilePage() {
               {(['individual', 'retailer', 'organization'] as const).map((type) => (
                 <Button
                   key={type}
-                  variant={(customer as any).customer_type === type ? 'default' : 'ghost'}
+                  variant={customer.customer_type === type ? 'default' : 'ghost'}
                   size="sm"
-                  className={`h-7 text-xs px-2.5 ${(customer as any).customer_type === type ? '' : 'text-muted-foreground'}`}
+                  className={`h-7 text-xs px-2.5 ${customer.customer_type === type ? '' : 'text-muted-foreground'}`}
                   onClick={() => handleSetCustomerType(type)}
-                  disabled={(customer as any).customer_type === type}
+                  disabled={customer.customer_type === type}
                 >
                   {type.charAt(0).toUpperCase() + type.slice(1)}
                 </Button>

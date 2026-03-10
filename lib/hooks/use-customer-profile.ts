@@ -28,6 +28,18 @@ export interface CustomerConversation {
   created_at: string
 }
 
+export interface RetailAccountData {
+  account_name: string
+  business_address: string | null
+  city: string | null
+  state: string | null
+  zip_code: string | null
+  payment_terms: string | null
+  credit_limit: number | null
+  website_url: string | null
+  status: string | null
+}
+
 export interface CustomerProfileData {
   customer: {
     id: string
@@ -37,8 +49,19 @@ export interface CustomerProfileData {
     display_name: string | null
     phone: string | null
     shopify_customer_id: string | null
+    customer_type: string
+    organization_name: string | null
+    assigned_to_user_id: string | null
+    retail_account_id: string | null
+    tags: string[] | null
+    notes: string | null
+    total_spent: number | null
+    estimated_value: number | null
+    next_follow_up_at: string | null
+    status?: string | null
     created_at: string
   }
+  retail_account: RetailAccountData | null
   projects: CustomerProject[]
   conversations: CustomerConversation[]
   stats: {
@@ -63,14 +86,16 @@ export function useCustomerProfile(customerId: string | null) {
     queryFn: async () => {
       if (!customerId) return null
 
-      // Fetch customer data
-      const { data: customer, error: customerError } = await supabase
+      // Fetch customer data with linked retail account
+      const { data: customerRow, error: customerError } = await supabase
         .from('customers')
-        .select('*')
+        .select('*, retail_account:retail_accounts(account_name, business_address, city, state, zip_code, payment_terms, credit_limit, website_url, status)')
         .eq('id', customerId)
         .single()
 
       if (customerError) throw customerError
+
+      const { retail_account: retailAccount, ...customer } = customerRow as any
 
       // Fetch all projects (work items) including closed for stats calculation
       const { data: allProjects, error: projectsError } = await supabase
@@ -102,6 +127,7 @@ export function useCustomerProfile(customerId: string | null) {
 
       return {
         customer,
+        retail_account: retailAccount || null,
         projects: allProjects || [],
         conversations: conversations || [],
         stats,
