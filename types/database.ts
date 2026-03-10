@@ -775,8 +775,10 @@ export type Database = {
           first_name: string | null
           first_order_date: string | null
           id: string
+          last_inbound_at: string | null
           last_name: string | null
           last_order_date: string | null
+          last_outbound_at: string | null
           metadata: Json | null
           next_follow_up_at: string | null
           notes: string | null
@@ -802,8 +804,10 @@ export type Database = {
           first_name?: string | null
           first_order_date?: string | null
           id?: string
+          last_inbound_at?: string | null
           last_name?: string | null
           last_order_date?: string | null
+          last_outbound_at?: string | null
           metadata?: Json | null
           next_follow_up_at?: string | null
           notes?: string | null
@@ -829,8 +833,10 @@ export type Database = {
           first_name?: string | null
           first_order_date?: string | null
           id?: string
+          last_inbound_at?: string | null
           last_name?: string | null
           last_order_date?: string | null
+          last_outbound_at?: string | null
           metadata?: Json | null
           next_follow_up_at?: string | null
           notes?: string | null

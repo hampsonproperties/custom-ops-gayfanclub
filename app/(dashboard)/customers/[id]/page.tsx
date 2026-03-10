@@ -32,6 +32,15 @@ import {
   Tag,
   Bell,
   CheckCircle2,
+  Clock,
+  CreditCard,
+  MapPin,
+  Globe,
+  Package,
+  Edit,
+  Save,
+  Lock,
+  Loader2,
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow, format } from 'date-fns'
@@ -49,6 +58,23 @@ import { CreateProjectDialog } from '@/components/projects/create-project-dialog
 import { ShopifyOrdersTab } from '@/components/shopify/shopify-orders-tab'
 import { useAllUsers } from '@/lib/hooks/use-users'
 import { SummaryPanel } from '@/components/ai/summary-panel'
+import { useRetailAccount, useUpdateRetailAccount } from '@/lib/hooks/use-retail-accounts'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 
 const log = logger('customer-detail')
 
@@ -532,6 +558,371 @@ function NotesTab({ customerId }: { customerId: string }) {
   )
 }
 
+// B2B Account Tab — shows retail account details for retailer/org customers
+function B2BAccountTab({ retailAccountId }: { retailAccountId: string }) {
+  const { data: account, isLoading } = useRetailAccount(retailAccountId)
+  const updateAccount = useUpdateRetailAccount()
+  const [editOpen, setEditOpen] = useState(false)
+  const [editForm, setEditForm] = useState({
+    account_name: '', account_type: 'retailer', primary_contact_name: '',
+    primary_contact_email: '', primary_contact_phone: '', billing_email: '',
+    business_address: '', city: '', state: '', zip_code: '', website_url: '',
+    tax_id: '', credit_limit: '', payment_terms: '', industry: '', internal_notes: '',
+  })
+  const [isEditingNotes, setIsEditingNotes] = useState(false)
+  const [notesValue, setNotesValue] = useState('')
+
+  useEffect(() => {
+    if (account && editOpen) {
+      setEditForm({
+        account_name: account.account_name || '', account_type: account.account_type || 'retailer',
+        primary_contact_name: account.primary_contact_name || '',
+        primary_contact_email: account.primary_contact_email || '',
+        primary_contact_phone: account.primary_contact_phone || '',
+        billing_email: account.billing_email || '', business_address: account.business_address || '',
+        city: account.city || '', state: account.state || '', zip_code: account.zip_code || '',
+        website_url: account.website_url || '', tax_id: account.tax_id || '',
+        credit_limit: account.credit_limit ? String(account.credit_limit) : '',
+        payment_terms: account.payment_terms || '', industry: account.industry || '',
+        internal_notes: account.internal_notes || '',
+      })
+    }
+  }, [account, editOpen])
+
+  // Stock orders linked to this retail account
+  const { data: stockOrders } = useQuery({
+    queryKey: ['retail-account-stock-orders', retailAccountId],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('customer_orders')
+        .select('id, shopify_order_number, total_price, financial_status, fulfillment_status, line_items, shopify_created_at')
+        .eq('retail_account_id', retailAccountId)
+        .order('shopify_created_at', { ascending: false })
+        .limit(50)
+      if (error) throw error
+      return data
+    },
+    enabled: !!retailAccountId,
+  })
+
+  // Work items linked to this retail account
+  const { data: workItemOrders } = useQuery({
+    queryKey: ['retail-account-work-items', retailAccountId],
+    queryFn: async () => {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('work_items')
+        .select('id, title, status, shopify_order_number, customer_name, created_at, order_total')
+        .eq('retail_account_id', retailAccountId)
+        .order('created_at', { ascending: false })
+        .limit(50)
+      if (error) throw error
+      return data
+    },
+    enabled: !!retailAccountId,
+  })
+
+  const handleEditChange = (field: string, value: string) => setEditForm(prev => ({ ...prev, [field]: value }))
+
+  const handleEditSave = async () => {
+    if (!editForm.account_name.trim()) { toast.error('Account name is required'); return }
+    try {
+      await updateAccount.mutateAsync({
+        id: retailAccountId,
+        updates: {
+          account_name: editForm.account_name, account_type: editForm.account_type as any,
+          primary_contact_name: editForm.primary_contact_name || null,
+          primary_contact_email: editForm.primary_contact_email || null,
+          primary_contact_phone: editForm.primary_contact_phone || null,
+          billing_email: editForm.billing_email || null,
+          business_address: editForm.business_address || null, city: editForm.city || null,
+          state: editForm.state || null, zip_code: editForm.zip_code || null,
+          website_url: editForm.website_url || null, tax_id: editForm.tax_id || null,
+          credit_limit: editForm.credit_limit ? Number(editForm.credit_limit) : null,
+          payment_terms: editForm.payment_terms || null, industry: editForm.industry || null,
+          internal_notes: editForm.internal_notes || null,
+        },
+      })
+      toast.success('Account updated')
+      setEditOpen(false)
+    } catch { toast.error('Failed to update account') }
+  }
+
+  const handleSaveNotes = async () => {
+    try {
+      await updateAccount.mutateAsync({ id: retailAccountId, updates: { internal_notes: notesValue || null } })
+      toast.success('Notes saved')
+      setIsEditingNotes(false)
+    } catch { toast.error('Failed to save notes') }
+  }
+
+  const handleStatusChange = async (newStatus: string) => {
+    try {
+      await updateAccount.mutateAsync({ id: retailAccountId, updates: { status: newStatus as any } })
+      toast.success(`Status changed to ${newStatus}`)
+    } catch { toast.error('Failed to update status') }
+  }
+
+  if (isLoading) return <div className="py-8 text-center text-muted-foreground">Loading account...</div>
+  if (!account) return (
+    <Card><CardContent className="py-8 text-center text-muted-foreground">
+      <Building2 className="h-10 w-10 mx-auto mb-3 opacity-50" />
+      <p>No B2B account linked</p>
+    </CardContent></Card>
+  )
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'active': return 'bg-green-100 text-green-800'
+      case 'inactive': return 'bg-gray-100 text-gray-800'
+      case 'on_hold': return 'bg-red-100 text-red-800'
+      case 'prospect': return 'bg-blue-100 text-blue-800'
+      default: return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Account Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Badge className={getStatusColor(account.status)} variant="secondary">{account.status}</Badge>
+          {account.payment_terms && (
+            <Badge variant="outline" className="gap-1"><CreditCard className="h-3 w-3" />{account.payment_terms}</Badge>
+          )}
+          {account.industry && <Badge variant="outline">{account.industry}</Badge>}
+        </div>
+        <Button variant="outline" size="sm" className="gap-2" onClick={() => setEditOpen(true)}>
+          <Edit className="h-4 w-4" />Edit Account
+        </Button>
+      </div>
+
+      {/* Status Quick Actions */}
+      <div className="flex items-center gap-2">
+        <span className="text-sm text-muted-foreground">Status:</span>
+        {(['prospect', 'active', 'on_hold', 'inactive'] as const).map((s) => (
+          <Button key={s} size="sm" variant={account.status === s ? 'default' : 'outline'}
+            onClick={() => handleStatusChange(s)} className="h-7 text-xs capitalize">
+            {s.replace(/_/g, ' ')}
+          </Button>
+        ))}
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="border-muted/40">
+          <CardContent className="p-3">
+            <div className="text-xs text-muted-foreground">Revenue</div>
+            <div className="text-lg font-bold text-green-600">${Number(account.total_revenue || 0).toLocaleString()}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-muted/40">
+          <CardContent className="p-3">
+            <div className="text-xs text-muted-foreground">Orders</div>
+            <div className="text-lg font-bold">{account.total_orders || 0}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-muted/40">
+          <CardContent className="p-3">
+            <div className="text-xs text-muted-foreground">Credit Limit</div>
+            <div className="text-lg font-bold">{account.credit_limit ? `$${Number(account.credit_limit).toLocaleString()}` : '-'}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-muted/40">
+          <CardContent className="p-3">
+            <div className="text-xs text-muted-foreground">Last Order</div>
+            <div className="text-lg font-bold">
+              {account.last_order_date ? formatDistanceToNow(new Date(account.last_order_date), { addSuffix: false }) : '-'}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Contact & Business Details */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="border-muted/40">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex items-center gap-2"><User className="h-4 w-4" />Contact</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {account.primary_contact_name && <div className="flex items-center gap-2"><User className="h-3.5 w-3.5 text-muted-foreground" />{account.primary_contact_name}</div>}
+            {account.primary_contact_email && <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5 text-muted-foreground" /><a href={`mailto:${account.primary_contact_email}`} className="text-primary hover:underline">{account.primary_contact_email}</a></div>}
+            {account.primary_contact_phone && <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-muted-foreground" />{account.primary_contact_phone}</div>}
+            {account.billing_email && <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5 text-muted-foreground" /><span className="text-muted-foreground">Billing:</span> {account.billing_email}</div>}
+            {account.website_url && <div className="flex items-center gap-2"><Globe className="h-3.5 w-3.5 text-muted-foreground" /><a href={account.website_url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{account.website_url}</a></div>}
+          </CardContent>
+        </Card>
+        <Card className="border-muted/40">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium flex items-center gap-2"><Building2 className="h-4 w-4" />Business</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            {account.business_address && <div className="flex items-start gap-2"><MapPin className="h-3.5 w-3.5 text-muted-foreground mt-0.5" /><span>{account.business_address}{account.city && `, ${account.city}`}{account.state && `, ${account.state}`}{account.zip_code && ` ${account.zip_code}`}</span></div>}
+            {account.tax_id && <div><span className="text-muted-foreground">Tax ID:</span> {account.tax_id}</div>}
+            {account.credit_limit && <div><span className="text-muted-foreground">Credit:</span> ${Number(account.credit_limit).toLocaleString()}</div>}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Orders */}
+      {(stockOrders && stockOrders.length > 0) && (
+        <Card className="border-muted/40">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Stock Purchases ({stockOrders.length})</CardTitle></CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b text-left text-muted-foreground text-xs">
+                  <th className="pb-2 pr-3 font-medium">Order</th><th className="pb-2 pr-3 font-medium">Items</th>
+                  <th className="pb-2 pr-3 font-medium">Payment</th><th className="pb-2 pr-3 font-medium text-right">Total</th>
+                  <th className="pb-2 font-medium">Date</th>
+                </tr></thead>
+                <tbody>
+                  {stockOrders.map((order: any) => {
+                    const itemCount = Array.isArray(order.line_items) ? order.line_items.reduce((s: number, li: any) => s + (li.quantity || 1), 0) : 0
+                    return (
+                      <tr key={order.id} className="border-b last:border-0">
+                        <td className="py-2 pr-3 font-medium">{order.shopify_order_number || '-'}</td>
+                        <td className="py-2 pr-3 text-muted-foreground">{itemCount} item{itemCount !== 1 ? 's' : ''}</td>
+                        <td className="py-2 pr-3"><Badge variant="outline" className="text-xs">{(order.financial_status || 'unknown').replace(/_/g, ' ')}</Badge></td>
+                        <td className="py-2 pr-3 text-right font-medium">{order.total_price ? `$${Number(order.total_price).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '-'}</td>
+                        <td className="py-2 text-muted-foreground">{order.shopify_created_at ? format(new Date(order.shopify_created_at), 'MMM d, yyyy') : '-'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {(workItemOrders && workItemOrders.length > 0) && (
+        <Card className="border-muted/40">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Custom Projects ({workItemOrders.length})</CardTitle></CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead><tr className="border-b text-left text-muted-foreground text-xs">
+                  <th className="pb-2 pr-3 font-medium">Order</th><th className="pb-2 pr-3 font-medium">Title</th>
+                  <th className="pb-2 pr-3 font-medium">Status</th><th className="pb-2 pr-3 font-medium text-right">Total</th>
+                  <th className="pb-2 font-medium">Date</th>
+                </tr></thead>
+                <tbody>
+                  {workItemOrders.map((order: any) => (
+                    <tr key={order.id} className="border-b last:border-0">
+                      <td className="py-2 pr-3"><Link href={`/work-items/${order.id}`} className="text-primary hover:underline font-medium">{order.shopify_order_number || 'View'}</Link></td>
+                      <td className="py-2 pr-3 max-w-[200px] truncate">{order.title || '-'}</td>
+                      <td className="py-2 pr-3"><Badge variant="outline" className="text-xs">{(order.status || '').replace(/_/g, ' ')}</Badge></td>
+                      <td className="py-2 pr-3 text-right">{order.order_total ? `$${Number(order.order_total).toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '-'}</td>
+                      <td className="py-2 text-muted-foreground">{order.created_at ? format(new Date(order.created_at), 'MMM d, yyyy') : '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Internal Notes */}
+      <Card className="border-muted/40">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium flex items-center gap-2"><Lock className="h-4 w-4" />Internal Notes</CardTitle>
+            {!isEditingNotes && (
+              <Button size="sm" variant="outline" className="h-7 text-xs gap-1"
+                onClick={() => { setNotesValue(account.internal_notes || ''); setIsEditingNotes(true) }}>
+                <Edit className="h-3 w-3" />{account.internal_notes ? 'Edit' : 'Add'}
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isEditingNotes ? (
+            <div className="space-y-2">
+              <Textarea value={notesValue} onChange={(e) => setNotesValue(e.target.value)} rows={4} placeholder="Private notes about this account..." />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleSaveNotes} disabled={updateAccount.isPending} className="gap-1">
+                  {updateAccount.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}Save
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setIsEditingNotes(false)}>Cancel</Button>
+              </div>
+            </div>
+          ) : account.internal_notes ? (
+            <div className="whitespace-pre-wrap text-sm">{account.internal_notes}</div>
+          ) : (
+            <div className="text-sm text-muted-foreground py-4 text-center">No internal notes yet</div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Edit Account Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Account</DialogTitle>
+            <DialogDescription>Update B2B account details for {account.account_name}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 pt-2">
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">Basic Information</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Account Name <span className="text-red-500">*</span></Label><Input value={editForm.account_name} onChange={(e) => handleEditChange('account_name', e.target.value)} /></div>
+                <div className="space-y-2"><Label>Account Type</Label>
+                  <Select value={editForm.account_type} onValueChange={(v) => handleEditChange('account_type', v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="retailer">Retailer</SelectItem><SelectItem value="corporate">Corporate</SelectItem><SelectItem value="venue">Venue</SelectItem><SelectItem value="other">Other</SelectItem></SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2"><Label>Industry</Label><Input value={editForm.industry} onChange={(e) => handleEditChange('industry', e.target.value)} placeholder="Retail, Events, etc." /></div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">Contact</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Contact Name</Label><Input value={editForm.primary_contact_name} onChange={(e) => handleEditChange('primary_contact_name', e.target.value)} /></div>
+                <div className="space-y-2"><Label>Contact Email</Label><Input type="email" value={editForm.primary_contact_email} onChange={(e) => handleEditChange('primary_contact_email', e.target.value)} /></div>
+                <div className="space-y-2"><Label>Contact Phone</Label><Input type="tel" value={editForm.primary_contact_phone} onChange={(e) => handleEditChange('primary_contact_phone', e.target.value)} /></div>
+                <div className="space-y-2"><Label>Billing Email</Label><Input type="email" value={editForm.billing_email} onChange={(e) => handleEditChange('billing_email', e.target.value)} /></div>
+                <div className="space-y-2 col-span-2"><Label>Website</Label><Input type="url" value={editForm.website_url} onChange={(e) => handleEditChange('website_url', e.target.value)} placeholder="https://..." /></div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">Address</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2 col-span-2"><Label>Street Address</Label><Input value={editForm.business_address} onChange={(e) => handleEditChange('business_address', e.target.value)} /></div>
+                <div className="space-y-2"><Label>City</Label><Input value={editForm.city} onChange={(e) => handleEditChange('city', e.target.value)} /></div>
+                <div className="space-y-2"><Label>State</Label><Input value={editForm.state} onChange={(e) => handleEditChange('state', e.target.value)} /></div>
+                <div className="space-y-2"><Label>Zip</Label><Input value={editForm.zip_code} onChange={(e) => handleEditChange('zip_code', e.target.value)} /></div>
+                <div className="space-y-2"><Label>Tax ID</Label><Input value={editForm.tax_id} onChange={(e) => handleEditChange('tax_id', e.target.value)} /></div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">Payment</h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Credit Limit ($)</Label><Input type="number" value={editForm.credit_limit} onChange={(e) => handleEditChange('credit_limit', e.target.value)} /></div>
+                <div className="space-y-2"><Label>Payment Terms</Label>
+                  <Select value={editForm.payment_terms} onValueChange={(v) => handleEditChange('payment_terms', v)}>
+                    <SelectTrigger><SelectValue placeholder="Select terms" /></SelectTrigger>
+                    <SelectContent><SelectItem value="Due on Receipt">Due on Receipt</SelectItem><SelectItem value="Net 15">Net 15</SelectItem><SelectItem value="Net 30">Net 30</SelectItem><SelectItem value="Net 60">Net 60</SelectItem><SelectItem value="Net 90">Net 90</SelectItem></SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm text-muted-foreground uppercase tracking-wide">Notes</h4>
+              <Textarea value={editForm.internal_notes} onChange={(e) => handleEditChange('internal_notes', e.target.value)} rows={3} placeholder="Private notes..." />
+            </div>
+            <div className="flex justify-end gap-3 pt-2 border-t">
+              <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
+              <Button onClick={handleEditSave} disabled={updateAccount.isPending} className="gap-2">
+                {updateAccount.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}Save Changes
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
 // Main Customer Profile Page
 export default function CustomerProfilePage() {
   const params = useParams()
@@ -687,6 +1078,30 @@ export default function CustomerProfilePage() {
                   {customer.status}
                 </Badge>
               )}
+              {/* Response Tracking Badge */}
+              {(() => {
+                const lastIn = customer.last_inbound_at ? new Date(customer.last_inbound_at) : null
+                const lastOut = customer.last_outbound_at ? new Date(customer.last_outbound_at) : null
+                if (lastIn && (!lastOut || lastIn > lastOut)) {
+                  const days = Math.floor((Date.now() - lastIn.getTime()) / (1000 * 60 * 60 * 24))
+                  if (days >= 1) return (
+                    <Badge variant="outline" className="text-amber-600 border-amber-300 text-xs sm:text-sm flex-shrink-0 gap-1">
+                      <Clock className="h-3 w-3" />
+                      Needs reply {days}d
+                    </Badge>
+                  )
+                }
+                if (lastOut && (!lastIn || lastOut > lastIn)) {
+                  const days = Math.floor((Date.now() - lastOut.getTime()) / (1000 * 60 * 60 * 24))
+                  if (days >= 2) return (
+                    <Badge variant="outline" className="text-muted-foreground border-muted text-xs sm:text-sm flex-shrink-0 gap-1">
+                      <Clock className="h-3 w-3" />
+                      Waiting {days}d
+                    </Badge>
+                  )
+                }
+                return null
+              })()}
             </div>
 
             {/* Contact Info — layout differs for business vs individual */}
@@ -955,6 +1370,12 @@ export default function CustomerProfilePage() {
                 <FileText className="h-4 w-4 flex-shrink-0" />
                 <span className="truncate">Files</span>
               </TabsTrigger>
+              {isBusinessCustomer && customer.retail_account_id && (
+                <TabsTrigger value="b2b" className="gap-1.5 sm:gap-2 flex-1 min-w-[85px] sm:min-w-[100px] h-10 sm:h-11 text-sm">
+                  <Package className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">B2B Account</span>
+                </TabsTrigger>
+              )}
             </TabsList>
 
             {/* Projects Tab */}
@@ -1116,6 +1537,13 @@ export default function CustomerProfilePage() {
             <TabsContent value="files">
               <FilesTab customerId={customerId} />
             </TabsContent>
+
+            {/* B2B Account Tab — only for retailer/org with linked retail account */}
+            {isBusinessCustomer && customer.retail_account_id && (
+              <TabsContent value="b2b">
+                <B2BAccountTab retailAccountId={customer.retail_account_id} />
+              </TabsContent>
+            )}
 
             {/* Notes Tab - Now part of Activity tab */}
           </Tabs>

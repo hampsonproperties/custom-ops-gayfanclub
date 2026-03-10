@@ -42,6 +42,7 @@ import {
   Loader2,
   Trash2,
   AlertTriangle,
+  Clock,
 } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useQueryClient } from '@tanstack/react-query'
@@ -64,12 +65,47 @@ interface Customer {
   phone: string | null
   shopify_customer_id: string | null
   customer_type: string
+  last_inbound_at: string | null
+  last_outbound_at: string | null
   created_at: string
   updated_at: string
   // Computed fields
   project_count?: number
   last_contact?: string
   total_spent?: number
+}
+
+function ResponseBadge({ customer }: { customer: Customer }) {
+  if (!customer.last_inbound_at && !customer.last_outbound_at) return null
+
+  const lastIn = customer.last_inbound_at ? new Date(customer.last_inbound_at) : null
+  const lastOut = customer.last_outbound_at ? new Date(customer.last_outbound_at) : null
+
+  if (lastIn && (!lastOut || lastIn > lastOut)) {
+    // They replied, we haven't — needs our reply
+    const days = Math.floor((Date.now() - lastIn.getTime()) / (1000 * 60 * 60 * 24))
+    if (days < 1) return null
+    return (
+      <Badge variant="outline" className="text-amber-600 border-amber-300 text-xs gap-1 shrink-0">
+        <Clock className="h-3 w-3" />
+        Needs reply {days}d
+      </Badge>
+    )
+  }
+
+  if (lastOut && (!lastIn || lastOut > lastIn)) {
+    // We replied, they haven't — waiting on them
+    const days = Math.floor((Date.now() - lastOut.getTime()) / (1000 * 60 * 60 * 24))
+    if (days < 2) return null
+    return (
+      <Badge variant="outline" className="text-muted-foreground border-muted text-xs gap-1 shrink-0">
+        <Clock className="h-3 w-3" />
+        Waiting {days}d
+      </Badge>
+    )
+  }
+
+  return null
 }
 
 interface CustomerStats {
@@ -557,6 +593,7 @@ function CustomersPageContent() {
                                   No name
                                 </Badge>
                               )}
+                              <ResponseBadge customer={customer} />
                             </div>
                           </Link>
                         </TableCell>
@@ -721,6 +758,7 @@ function CustomersPageContent() {
                               <Badge variant={customer.project_count ? 'default' : 'secondary'} className="text-xs">
                                 {customer.project_count || 0} projects
                               </Badge>
+                              <ResponseBadge customer={customer} />
                               {(customer as any).estimated_value && (
                                 <Badge variant="outline" className="text-xs">
                                   <DollarSign className="h-3 w-3 mr-1" />

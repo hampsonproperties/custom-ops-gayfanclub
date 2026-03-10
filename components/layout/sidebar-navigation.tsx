@@ -28,7 +28,7 @@ export function SidebarNavigation() {
   }
 
   // Auto-open sections when a child is active
-  const isSalesChildActive = isActive('/sales-leads') || isActive('/follow-ups') || isActive('/retail-accounts')
+  const isSalesChildActive = isActive('/sales-leads') || isActive('/follow-ups')
   const isEmailChildActive = isActive('/inbox') || isActive('/support-queue')
 
   return (
@@ -204,15 +204,6 @@ export function SidebarNavigation() {
                 className="w-full justify-start text-sm"
               >
                 Follow-up Queue
-              </Button>
-            </Link>
-            <Link href="/retail-accounts">
-              <Button
-                variant={isActive('/retail-accounts') ? 'secondary' : 'ghost'}
-                size="sm"
-                className="w-full justify-start text-sm"
-              >
-                Retail Accounts
               </Button>
             </Link>
           </div>

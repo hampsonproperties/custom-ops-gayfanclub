@@ -53,6 +53,8 @@ export interface CustomerProfileData {
     organization_name: string | null
     assigned_to_user_id: string | null
     retail_account_id: string | null
+    last_inbound_at: string | null
+    last_outbound_at: string | null
     tags: string[] | null
     notes: string | null
     total_spent: number | null
