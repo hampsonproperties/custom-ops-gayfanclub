@@ -41,23 +41,38 @@ import { toast } from 'sonner'
 import { scoreCustomerHealth, scoreLeadHealth } from '@/lib/utils/health-scoring'
 import { HealthDot } from '@/components/custom/health-badge'
 
+// Helper: fetch IDs of customers with at least one open work item (not closed)
+// This filters out fulfilled orders, Customify-only auto-orders, and inactive customers
+async function getCustomersWithOpenProjects(supabase: any): Promise<Set<string>> {
+  const { data } = await supabase
+    .from('work_items')
+    .select('customer_id')
+    .is('closed_at', null)
+    .not('customer_id', 'is', null)
+  return new Set((data || []).map((w: any) => w.customer_id))
+}
+
 // Hook: fetch customers needing my reply (last_inbound_at > last_outbound_at)
-// Note: PostgREST can't compare two columns, so we fetch candidates and filter client-side
+// Only shows customers with open projects — excludes fulfilled/Customify-only
 function useNeedsMyReply() {
   return useQuery({
     queryKey: ['morning-briefing', 'needs-my-reply'],
     queryFn: async () => {
       const supabase = createClient()
-      const { data, error } = await supabase
-        .from('customers')
-        .select('id, email, first_name, last_name, display_name, organization_name, customer_type, last_inbound_at, last_outbound_at')
-        .not('last_inbound_at', 'is', null)
-        .order('last_inbound_at', { ascending: true })
-        .limit(200)
+      const [{ data, error }, activeCustomerIds] = await Promise.all([
+        supabase
+          .from('customers')
+          .select('id, email, first_name, last_name, display_name, organization_name, customer_type, last_inbound_at, last_outbound_at')
+          .not('last_inbound_at', 'is', null)
+          .order('last_inbound_at', { ascending: true })
+          .limit(200),
+        getCustomersWithOpenProjects(supabase),
+      ])
 
       if (error) throw error
-      // Filter client-side: inbound is more recent than outbound (or no outbound at all)
+      // Filter: inbound is more recent than outbound, and customer has open projects
       return (data || []).filter(c => {
+        if (!activeCustomerIds.has(c.id)) return false
         if (!c.last_outbound_at) return true
         return new Date(c.last_inbound_at!) > new Date(c.last_outbound_at)
       }).slice(0, 10)
@@ -67,23 +82,28 @@ function useNeedsMyReply() {
 }
 
 // Hook: fetch customers waiting on response (last_outbound_at > last_inbound_at, 2+ days)
+// Only shows customers with open projects — excludes fulfilled/Customify-only
 function useWaitingOnCustomer() {
   return useQuery({
     queryKey: ['morning-briefing', 'waiting-on-customer'],
     queryFn: async () => {
       const supabase = createClient()
       const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-      const { data, error } = await supabase
-        .from('customers')
-        .select('id, email, first_name, last_name, display_name, organization_name, customer_type, last_inbound_at, last_outbound_at')
-        .not('last_outbound_at', 'is', null)
-        .lt('last_outbound_at', twoDaysAgo)
-        .order('last_outbound_at', { ascending: true })
-        .limit(200)
+      const [{ data, error }, activeCustomerIds] = await Promise.all([
+        supabase
+          .from('customers')
+          .select('id, email, first_name, last_name, display_name, organization_name, customer_type, last_inbound_at, last_outbound_at')
+          .not('last_outbound_at', 'is', null)
+          .lt('last_outbound_at', twoDaysAgo)
+          .order('last_outbound_at', { ascending: true })
+          .limit(200),
+        getCustomersWithOpenProjects(supabase),
+      ])
 
       if (error) throw error
-      // Filter client-side: outbound is more recent than inbound (or no inbound at all)
+      // Filter: outbound is more recent than inbound, and customer has open projects
       return (data || []).filter(c => {
+        if (!activeCustomerIds.has(c.id)) return false
         if (!c.last_inbound_at) return true
         return new Date(c.last_outbound_at!) > new Date(c.last_inbound_at)
       }).slice(0, 10)
