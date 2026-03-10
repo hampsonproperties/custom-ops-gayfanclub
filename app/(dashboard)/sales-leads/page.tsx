@@ -269,7 +269,7 @@ export default function SalesLeadsPage() {
                     <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground">Name</th>
                     <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground">Company</th>
                     <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground">Email</th>
-                    <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground">Phone</th>
+                    <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground whitespace-nowrap">Event Date</th>
                     <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground whitespace-nowrap">Days</th>
                     <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground whitespace-nowrap">Est. Value</th>
                     <th className="text-left px-4 py-3 font-medium text-xs text-muted-foreground whitespace-nowrap">Next Follow-Up</th>
@@ -325,14 +325,21 @@ export default function SalesLeadsPage() {
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <span className="text-sm">
-                              {lead.phone_number || '-'}
+                            <span className="text-sm text-muted-foreground whitespace-nowrap">
+                              {(lead as any).event_date
+                                ? new Date((lead as any).event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                                : '-'}
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <span className={`text-sm ${Math.floor((Date.now() - new Date(lead.updated_at || lead.created_at).getTime()) / (1000 * 60 * 60 * 24)) >= 14 ? 'text-red-600 font-medium' : Math.floor((Date.now() - new Date(lead.updated_at || lead.created_at).getTime()) / (1000 * 60 * 60 * 24)) >= 7 ? 'text-amber-600' : 'text-muted-foreground'}`}>
-                              {Math.floor((Date.now() - new Date(lead.updated_at || lead.created_at).getTime()) / (1000 * 60 * 60 * 24))}d
-                            </span>
+                            {(() => {
+                              const days = Math.floor((Date.now() - new Date(lead.updated_at || lead.created_at).getTime()) / (1000 * 60 * 60 * 24))
+                              return (
+                                <span className={`text-sm ${days >= 14 ? 'text-red-600 font-medium' : days >= 7 ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                                  {days}d
+                                </span>
+                              )
+                            })()}
                           </td>
                           <td className="px-4 py-3">
                             <span className="text-sm">

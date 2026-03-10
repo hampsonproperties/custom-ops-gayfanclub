@@ -552,9 +552,7 @@ function CustomersPageContent() {
                       </TableHead>
                       <TableHead>Customer</TableHead>
                       <TableHead>Assigned To</TableHead>
-                      <TableHead>Company</TableHead>
                       <TableHead>Email</TableHead>
-                      <TableHead>Phone</TableHead>
                       <TableHead className="text-center">Projects</TableHead>
                       <TableHead>Est. Value</TableHead>
                       <TableHead>Next Follow-Up</TableHead>
@@ -576,27 +574,34 @@ function CustomersPageContent() {
                         {/* Customer Name */}
                         <TableCell>
                           <Link href={`/customers/${customer.id}`} className="flex items-center gap-3">
-                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white font-semibold">
+                            <div className="h-10 w-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white font-semibold shrink-0">
                               {(customer.display_name || customer.email || 'U').charAt(0).toUpperCase()}
                             </div>
-                            <div className="flex items-center gap-2">
-                              <div className="font-medium">
-                                {customer.display_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || customer.email}
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                {(() => { const h = scoreCustomerHealth(customer as any); return <HealthDot level={h.level} reason={h.reason} /> })()}
+                                <span className="font-medium truncate">
+                                  {customer.display_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || customer.email}
+                                </span>
+                                {customer.customer_type === 'retailer' && (
+                                  <Badge variant="outline" className="text-blue-600 border-blue-300 text-[10px] px-1 py-0">Retailer</Badge>
+                                )}
+                                {customer.customer_type === 'organization' && (
+                                  <Badge variant="outline" className="text-purple-600 border-purple-300 text-[10px] px-1 py-0">Org</Badge>
+                                )}
                               </div>
-                              {customer.customer_type === 'retailer' && (
-                                <Badge variant="outline" className="text-blue-600 border-blue-300 text-xs">Retailer</Badge>
-                              )}
-                              {customer.customer_type === 'organization' && (
-                                <Badge variant="outline" className="text-purple-600 border-purple-300 text-xs">Org</Badge>
-                              )}
-                              {hasNoName && (
-                                <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs gap-1">
-                                  <AlertTriangle className="h-3 w-3" />
-                                  No name
-                                </Badge>
-                              )}
-                              <ResponseBadge customer={customer} />
-                              {(() => { const h = scoreCustomerHealth(customer as any); return <HealthDot level={h.level} reason={h.reason} /> })()}
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                {(customer as any).organization_name && (
+                                  <span className="text-xs text-muted-foreground truncate max-w-[150px]">{(customer as any).organization_name}</span>
+                                )}
+                                <ResponseBadge customer={customer} />
+                                {hasNoName && (
+                                  <Badge variant="outline" className="text-orange-600 border-orange-300 text-[10px] px-1 py-0 gap-0.5">
+                                    <AlertTriangle className="h-2.5 w-2.5" />
+                                    No name
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
                           </Link>
                         </TableCell>
@@ -621,36 +626,12 @@ function CustomersPageContent() {
                           )}
                         </TableCell>
 
-                        {/* Company */}
-                        <TableCell>
-                          {(customer as any).organization_name ? (
-                            <div className="flex items-center gap-2 text-sm">
-                              <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
-                              <span>{(customer as any).organization_name}</span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">-</span>
-                          )}
-                        </TableCell>
-
                         {/* Email */}
                         <TableCell>
                           <div className="flex items-center gap-2 text-sm">
                             <Mail className="h-3.5 w-3.5 text-muted-foreground" />
                             <span className="truncate max-w-[200px]">{customer.email}</span>
                           </div>
-                        </TableCell>
-
-                        {/* Phone */}
-                        <TableCell>
-                          {customer.phone ? (
-                            <div className="flex items-center gap-2 text-sm">
-                              <Phone className="h-3.5 w-3.5 text-muted-foreground" />
-                              <span>{customer.phone}</span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">-</span>
-                          )}
                         </TableCell>
 
                         {/* Projects Count */}

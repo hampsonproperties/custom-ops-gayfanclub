@@ -121,14 +121,28 @@ export function useCustomerProfile(customerId: string | null) {
 
       if (conversationsError) throw conversationsError
 
+      // Fetch Shopify order revenue for this customer (ground truth for actual payments)
+      let shopifyRevenue = 0
+      if (customer.email) {
+        const { data: shopifyOrders } = await supabase
+          .from('shopify_orders')
+          .select('total_price, financial_status')
+          .eq('customer_email', customer.email.toLowerCase())
+          .in('financial_status', ['paid', 'partially_paid'])
+        if (shopifyOrders && shopifyOrders.length > 0) {
+          shopifyRevenue = shopifyOrders.reduce((sum: number, o: any) => sum + (o.total_price || 0), 0)
+        }
+      }
+
       // Calculate stats using all projects
+      // Use the higher of customer_orders aggregate vs shopify_orders total
       const stats = {
         total_projects: allProjects?.length || 0,
         active_projects: allProjects?.filter((p) => !p.closed_at).length || 0,
         completed_projects: allProjects?.filter((p) => p.closed_at && p.status === 'closed_won').length || 0,
         total_conversations: conversations?.length || 0,
         unread_conversations: conversations?.filter((c) => c.has_unread).length || 0,
-        total_spent: customer.total_spent ?? 0,
+        total_spent: Math.max(customer.total_spent ?? 0, shopifyRevenue),
       }
 
       return {

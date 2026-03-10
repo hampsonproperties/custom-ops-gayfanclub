@@ -321,14 +321,14 @@ function useLostDealAnalytics() {
       const supabase = createClient()
       const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
 
+      // Only include real lost deal reasons (exclude won, spam, and system/cleanup reasons)
+      const validLostReasons = ['missed_deadline', 'too_expensive', 'ghosted', 'went_with_competitor', 'not_ready_yet', 'cancelled', 'other']
       const { data, error } = await supabase
         .from('work_items')
         .select('close_reason, estimated_value, closed_at')
         .not('closed_at', 'is', null)
         .gte('closed_at', ninetyDaysAgo)
-        .not('close_reason', 'is', null)
-        .neq('close_reason', 'won')
-        .neq('close_reason', 'spam')
+        .in('close_reason', validLostReasons)
 
       if (error) throw error
       if (!data || data.length === 0) return { reasons: [], totalLost: 0, count: 0 }
