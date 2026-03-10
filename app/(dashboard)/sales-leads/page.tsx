@@ -18,6 +18,7 @@ import Link from 'next/link'
 import { useLeads, useLeadStats, type LeadsFilters } from '@/lib/hooks/use-leads'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { formatDistanceToNow } from 'date-fns'
+import { setQueue } from '@/lib/hooks/use-queue-navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { generateCSV, downloadCSV, exportFilename, type CSVColumn } from '@/lib/utils/csv-export'
@@ -295,7 +296,7 @@ export default function SalesLeadsPage() {
                       return (
                         <tr key={lead.id} className="border-b hover:bg-muted/30 transition-colors">
                           <td className="px-4 py-3">
-                            <Link href={`/work-items/${lead.id}`}>
+                            <Link href={`/work-items/${lead.id}`} onClick={() => setQueue({ source: 'Sales Leads', type: 'work-item', ids: activeLeads.map(x => x.id) })}>
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-9 w-9">
                                   <AvatarFallback className="text-xs bg-muted">
@@ -401,7 +402,7 @@ export default function SalesLeadsPage() {
                 activeLeads.map((lead) => {
                   const extendedLead = lead as any
                   return (
-                    <Link key={lead.id} href={`/work-items/${lead.id}`}>
+                    <Link key={lead.id} href={`/work-items/${lead.id}`} onClick={() => setQueue({ source: 'Sales Leads', type: 'work-item', ids: activeLeads.map(x => x.id) })}>
                       <Card className="hover:shadow-md transition-shadow">
                         <CardContent className="p-4">
                           <div className="flex items-start gap-3">

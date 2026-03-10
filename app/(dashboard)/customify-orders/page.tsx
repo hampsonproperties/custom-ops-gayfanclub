@@ -224,7 +224,11 @@ export default function CustomifyOrdersPage() {
                             {order.customer_name || order.title || 'Unknown Customer'}
                           </h3>
                           <p className="text-sm text-muted-foreground">
-                            {order.shopify_order_number ? `Order #${order.shopify_order_number}` : order.customer_email}
+                            {order.shopify_order_number ? (
+                              <Link href={`/work-items/${order.id}`} className="hover:underline hover:text-foreground transition-colors">
+                                Order #{order.shopify_order_number}
+                              </Link>
+                            ) : order.customer_email}
                           </p>
                         </div>
                         <SLAIndicator

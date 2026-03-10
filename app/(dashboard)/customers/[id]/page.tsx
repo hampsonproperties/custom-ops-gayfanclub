@@ -51,6 +51,8 @@ import { toast } from 'sonner'
 import { EmailComposer } from '@/components/email/email-composer'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { Breadcrumbs } from '@/components/ui/breadcrumbs'
+import { QueueNavigator } from '@/components/ui/queue-navigator'
+import { useQueueNavigation } from '@/lib/hooks/use-queue-navigation'
 import { AlternativeContactsManager } from '@/components/customers/alternative-contacts-manager'
 import { CustomerActivityFeed } from '@/components/activity/customer-activity-feed'
 import { CreateProjectDialog } from '@/components/projects/create-project-dialog'
@@ -788,6 +790,7 @@ export default function CustomerProfilePage() {
   const params = useParams()
   const searchParams = useSearchParams()
   const customerId = params.id as string
+  const queue = useQueueNavigation(customerId, 'customer')
   const queryClient = useQueryClient()
   const initialTab = searchParams.get('tab') || 'projects'
   const { data: profileData, isLoading } = useCustomerProfile(customerId)
@@ -1007,11 +1010,21 @@ export default function CustomerProfilePage() {
     <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
       {/* Header - PDR v3 Spec */}
       <div className="space-y-3 sm:space-y-4">
-        {/* Breadcrumb */}
+        {/* Breadcrumb + Queue Navigation */}
         <Breadcrumbs
           items={[{ label: 'Customers', href: '/customers' }]}
           current={headerName}
         />
+        {queue.hasQueue && (
+          <QueueNavigator
+            source={queue.source!}
+            position={queue.position!}
+            total={queue.total!}
+            onPrevious={queue.goToPrevious}
+            onNext={queue.goToNext}
+            onClose={queue.clearQueue}
+          />
+        )}
 
         {/* Customer Header */}
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 sm:gap-4">

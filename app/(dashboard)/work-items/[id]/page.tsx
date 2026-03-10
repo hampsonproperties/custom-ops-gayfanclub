@@ -33,6 +33,8 @@ import { ShopifyInfo } from '@/components/work-items/shopify-info'
 import { InvoiceManager } from '@/components/work-items/invoice-manager'
 import { EnhancedTimeline } from '@/components/timeline/enhanced-timeline'
 import { Breadcrumbs } from '@/components/ui/breadcrumbs'
+import { QueueNavigator } from '@/components/ui/queue-navigator'
+import { useQueueNavigation } from '@/lib/hooks/use-queue-navigation'
 import { SummaryPanel } from '@/components/ai/summary-panel'
 import {
   Select,
@@ -68,6 +70,7 @@ type WorkItemWithExtras = Database['public']['Tables']['work_items']['Row'] & {
 
 export default function WorkItemDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
+  const queue = useQueueNavigation(id, 'work-item')
   const { data: workItemData, isLoading } = useWorkItem(id)
   const workItem = workItemData as WorkItemWithExtras | undefined
   const { data: communications } = useCommunications(id)
@@ -169,10 +172,22 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
         <div className="p-4">
           {/* Top Bar - Back + Actions */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
-            <Breadcrumbs
-              items={[{ label: 'Projects', href: '/work-items' }]}
-              current={displayName}
-            />
+            <div className="flex-1 min-w-0 space-y-2">
+              <Breadcrumbs
+                items={[{ label: 'Projects', href: '/work-items' }]}
+                current={displayName}
+              />
+              {queue.hasQueue && (
+                <QueueNavigator
+                  source={queue.source!}
+                  position={queue.position!}
+                  total={queue.total!}
+                  onPrevious={queue.goToPrevious}
+                  onNext={queue.goToNext}
+                  onClose={queue.clearQueue}
+                />
+              )}
+            </div>
 
             <div className="flex items-center gap-2">
               <Button
@@ -299,24 +314,24 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
               <Separator orientation="vertical" className="h-4 hidden sm:block" />
               <div className="flex items-center gap-2">
                 <Switch
-                  id="suppress-drip-status-bar"
-                  checked={workItem.suppress_drip_emails ?? false}
+                  id="send-drip-status-bar"
+                  checked={!(workItem.suppress_drip_emails ?? true)}
                   onCheckedChange={async (checked) => {
                     const supabase = createClient()
                     const { error } = await supabase
                       .from('work_items')
-                      .update({ suppress_drip_emails: checked })
+                      .update({ suppress_drip_emails: !checked })
                       .eq('id', id)
                     if (error) {
                       toast.error('Failed to update drip email setting')
                       return
                     }
-                    toast.success(checked ? 'Drip emails suppressed' : 'Drip emails enabled')
+                    toast.success(checked ? 'Drip emails enabled' : 'Drip emails disabled')
                     queryClient.invalidateQueries({ queryKey: ['work-item', id] })
                   }}
                 />
-                <label htmlFor="suppress-drip-status-bar" className="text-sm text-muted-foreground cursor-pointer">
-                  Suppress emails
+                <label htmlFor="send-drip-status-bar" className="text-sm text-muted-foreground cursor-pointer">
+                  Send drip emails
                 </label>
               </div>
             </div>
@@ -481,22 +496,22 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
 
                 <div className="flex items-center justify-between">
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground block">Suppress Drip Emails</label>
-                    <p className="text-xs text-muted-foreground mt-0.5">When on, automated drip emails are skipped for this project</p>
+                    <label className="text-sm font-medium text-muted-foreground block">Send Drip Emails</label>
+                    <p className="text-xs text-muted-foreground mt-0.5">When on, automated production update emails are sent to this customer</p>
                   </div>
                   <Switch
-                    checked={workItem.suppress_drip_emails ?? false}
+                    checked={!(workItem.suppress_drip_emails ?? true)}
                     onCheckedChange={async (checked) => {
                       const supabase = createClient()
                       const { error } = await supabase
                         .from('work_items')
-                        .update({ suppress_drip_emails: checked })
+                        .update({ suppress_drip_emails: !checked })
                         .eq('id', id)
                       if (error) {
                         toast.error('Failed to update drip email setting')
                         return
                       }
-                      toast.success(checked ? 'Drip emails suppressed' : 'Drip emails enabled')
+                      toast.success(checked ? 'Drip emails enabled' : 'Drip emails disabled')
                       queryClient.invalidateQueries({ queryKey: ['work-item', id] })
                     }}
                   />

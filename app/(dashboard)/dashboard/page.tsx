@@ -39,6 +39,7 @@ import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import { scoreCustomerHealth, scoreLeadHealth } from '@/lib/utils/health-scoring'
+import { setQueue } from '@/lib/hooks/use-queue-navigation'
 import { HealthDot } from '@/components/custom/health-badge'
 
 // Helper: fetch IDs of customers with at least one open work item (not closed)
@@ -569,7 +570,7 @@ export default function DashboardPage() {
                   const days = daysAgo(c.last_inbound_at!)
                   return (
                     <div key={c.id} className="p-2 rounded-lg hover:bg-muted transition-colors flex items-center justify-between gap-2">
-                      <Link href={`/customers/${c.id}?tab=activity`} className="flex-1 min-w-0 cursor-pointer">
+                      <Link href={`/customers/${c.id}?tab=activity`} className="flex-1 min-w-0 cursor-pointer" onClick={() => setQueue({ source: 'Needs My Reply', type: 'customer', ids: needsReply.map(x => x.id) })}>
                         <div className="font-medium text-sm">{getCustomerDisplayName(c)}</div>
                       </Link>
                       <div className="flex items-center gap-1 shrink-0">
@@ -607,7 +608,7 @@ export default function DashboardPage() {
                 {waitingOn.map((c) => {
                   const days = daysAgo(c.last_outbound_at!)
                   return (
-                    <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
+                    <Link key={c.id} href={`/customers/${c.id}?tab=activity`} onClick={() => setQueue({ source: 'Waiting on Customer', type: 'customer', ids: waitingOn!.map(x => x.id) })}>
                       <div className="p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
                         <div className="font-medium text-sm truncate">{getCustomerDisplayName(c)}</div>
                         <Badge variant="outline" className="text-muted-foreground border-muted text-[11px] gap-0.5 px-1.5 py-0 ml-2 shrink-0">
@@ -642,7 +643,7 @@ export default function DashboardPage() {
                 {followUps.slice(0, 5).map((item) => {
                   const isOverdue = item.next_follow_up_at && new Date(item.next_follow_up_at) < new Date()
                   return (
-                    <Link key={item.id} href={`/work-items/${item.id}`}>
+                    <Link key={item.id} href={`/work-items/${item.id}`} onClick={() => setQueue({ source: 'Follow-Ups Due', type: 'work-item', ids: followUps!.slice(0, 5).map(x => x.id) })}>
                       <div className="p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-sm flex items-center gap-1.5">
@@ -707,7 +708,7 @@ export default function DashboardPage() {
                       : c.follow_up_reason === 'reorder-prompt' ? 'Reorder prompt'
                       : null
                   return (
-                    <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
+                    <Link key={c.id} href={`/customers/${c.id}?tab=activity`} onClick={() => setQueue({ source: 'Customer Check-ins', type: 'customer', ids: customerCheckIns!.slice(0, 5).map(x => x.id) })}>
                       <div className="p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-sm truncate flex items-center gap-1.5">
@@ -766,7 +767,7 @@ export default function DashboardPage() {
                 {dormantCustomers.slice(0, 5).map((c) => {
                   const lastActivity = c.last_inbound_at || c.last_outbound_at || c.updated_at
                   return (
-                    <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
+                    <Link key={c.id} href={`/customers/${c.id}?tab=activity`} onClick={() => setQueue({ source: 'Dormant Customers', type: 'customer', ids: dormantCustomers!.slice(0, 5).map(x => x.id) })}>
                       <div className="p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-sm">{getCustomerDisplayName(c)}</div>
@@ -805,7 +806,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent className="px-4 pb-3 space-y-1">
                 {retailReorders.slice(0, 5).map((c) => (
-                  <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
+                  <Link key={c.id} href={`/customers/${c.id}?tab=activity`} onClick={() => setQueue({ source: 'Retail Reorders', type: 'customer', ids: retailReorders!.slice(0, 5).map(x => x.id) })}>
                     <div className="p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-sm">{getCustomerDisplayName(c)}</div>
@@ -848,7 +849,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent className="px-4 pb-3 space-y-1">
                 {seasonalOutreach.slice(0, 5).map((c) => (
-                  <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
+                  <Link key={c.id} href={`/customers/${c.id}?tab=activity`} onClick={() => setQueue({ source: 'Seasonal Outreach', type: 'customer', ids: seasonalOutreach!.slice(0, 5).map(x => x.id) })}>
                     <div className="p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-sm">{getCustomerDisplayName(c)}</div>

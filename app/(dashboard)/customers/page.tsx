@@ -48,6 +48,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { formatDistanceToNow, format } from 'date-fns'
+import { setQueue } from '@/lib/hooks/use-queue-navigation'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
@@ -573,7 +574,7 @@ function CustomersPageContent() {
                         </TableCell>
                         {/* Customer Name */}
                         <TableCell>
-                          <Link href={`/customers/${customer.id}`} className="flex items-center gap-3">
+                          <Link href={`/customers/${customer.id}`} className="flex items-center gap-3" onClick={() => setQueue({ source: 'Customers', type: 'customer', ids: customers.map(x => x.id) })}>
                             <div className="h-10 w-10 rounded-full bg-gradient-to-br from-pink-500 to-purple-600 flex items-center justify-center text-white font-semibold shrink-0">
                               {(customer.display_name || customer.email || 'U').charAt(0).toUpperCase()}
                             </div>
@@ -667,7 +668,7 @@ function CustomersPageContent() {
 
                         {/* Actions */}
                         <TableCell>
-                          <Link href={`/customers/${customer.id}`}>
+                          <Link href={`/customers/${customer.id}`} onClick={() => setQueue({ source: 'Customers', type: 'customer', ids: customers.map(x => x.id) })}>
                             <Button variant="ghost" size="sm">
                               <ArrowRight className="h-4 w-4" />
                             </Button>
@@ -692,7 +693,7 @@ function CustomersPageContent() {
                         onCheckedChange={() => handleSelectItem(customer.id)}
                       />
                     </div>
-                    <Link href={`/customers/${customer.id}`} className="flex-1">
+                    <Link href={`/customers/${customer.id}`} className="flex-1" onClick={() => setQueue({ source: 'Customers', type: 'customer', ids: customers.map(x => x.id) })}>
                     <Card className="hover:shadow-md transition-shadow overflow-hidden">
                       <CardContent className="p-4">
                         <div className="flex items-start gap-3">

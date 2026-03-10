@@ -39,6 +39,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow, format } from 'date-fns'
+import { setQueue } from '@/lib/hooks/use-queue-navigation'
 import { toast } from 'sonner'
 
 type WorkItem = any
@@ -354,7 +355,7 @@ export default function LeadsPage() {
                             <Check className="h-4 w-4 mr-1.5" />
                             Done
                           </Button>
-                          <Link href={`/work-items/${item.id}`}>
+                          <Link href={`/work-items/${item.id}`} onClick={() => setQueue({ source: 'Action Items', type: 'work-item', ids: paginatedLeads.map(x => x.id) })}>
                             <Button size="sm" className="h-9 text-sm">
                               View
                             </Button>
@@ -418,7 +419,7 @@ export default function LeadsPage() {
                         <Check className="h-4 w-4 mr-1.5" />
                         Done
                       </Button>
-                      <Link href={`/work-items/${item.id}`} className="flex-1">
+                      <Link href={`/work-items/${item.id}`} className="flex-1" onClick={() => setQueue({ source: 'Action Items', type: 'work-item', ids: paginatedLeads.map(x => x.id) })}>
                         <Button size="sm" className="h-9 w-full">
                           View
                         </Button>
