@@ -12,7 +12,7 @@ import { useWorkItems, useUpdateWorkItemStatus, type PaginatedResult } from '@/l
 import { PaginationControls } from '@/components/ui/pagination-controls'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { KanbanBoard } from '@/components/work-items/kanban-board'
-import { Search, Filter, LayoutList, LayoutGrid, Mail, Phone, MoreHorizontal, Building2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, User, Users, Plus, Palette, Loader2, UserPlus, XCircle, Download, MailX } from 'lucide-react'
+import { Search, Filter, LayoutList, LayoutGrid, Mail, Phone, MoreHorizontal, Building2, DollarSign, ArrowUpDown, ArrowUp, ArrowDown, User, Users, Plus, Palette, Loader2, UserPlus, XCircle, Download } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -357,19 +357,19 @@ function WorkItemsPageContent() {
     queryClient.invalidateQueries({ queryKey: ['work-items'] })
   }
 
-  const handleBulkSuppressEmails = async () => {
+  const handleBulkEnableDripEmails = async () => {
     setBulkLoading(true)
     const supabase = createClient()
     const ids = [...selectedItems]
     const { error } = await supabase
       .from('work_items')
-      .update({ suppress_drip_emails: true })
+      .update({ suppress_drip_emails: false })
       .in('id', ids)
 
     if (error) {
-      toast.error('Failed to suppress emails')
+      toast.error('Failed to enable drip emails')
     } else {
-      toast.success(`Suppressed batch emails for ${ids.length} project${ids.length !== 1 ? 's' : ''}`)
+      toast.success(`Enabled drip emails for ${ids.length} project${ids.length !== 1 ? 's' : ''}`)
     }
     setSelectedItems(new Set())
     setBulkLoading(false)
@@ -675,11 +675,11 @@ function WorkItemsPageContent() {
                   variant="outline"
                   size="sm"
                   disabled={bulkLoading}
-                  onClick={handleBulkSuppressEmails}
+                  onClick={handleBulkEnableDripEmails}
                   className="h-9"
                 >
-                  <MailX className="h-4 w-4 mr-1" />
-                  Suppress Emails
+                  <Mail className="h-4 w-4 mr-1" />
+                  Enable Drip Emails
                 </Button>
 
                 {bulkLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
