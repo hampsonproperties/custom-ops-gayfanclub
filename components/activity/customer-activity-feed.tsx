@@ -18,6 +18,7 @@ import {
   Sparkles,
   Loader2,
   CheckSquare,
+  FolderKanban,
 } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -30,7 +31,7 @@ import { TaskList } from '@/components/tasks/task-list'
 
 const log = logger('customer-activity-feed')
 
-type ActivityType = 'note' | 'email' | 'task'
+type ActivityType = 'note' | 'email' | 'task' | 'project_event'
 type FilterType = 'all' | 'starred' | 'note' | 'email' | 'task'
 
 const SHOPIFY_DOMAIN = process.env.NEXT_PUBLIC_SHOPIFY_SHOP_DOMAIN || ''
@@ -151,6 +152,13 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
         tasks = []
       }
 
+      // Fetch work item events (creation + close)
+      const { data: workItems } = await supabase
+        .from('work_items')
+        .select('id, title, type, status, close_reason, created_at, closed_at')
+        .eq('customer_id', customerId)
+        .order('created_at', { ascending: false })
+
       // Helper to extract user object
       const getUserObject = (user: any) => {
         if (!user) return { id: '', full_name: 'System', email: '' }
@@ -190,6 +198,36 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
           user: getUserObject(task.created_by_user),
           assigned_to: getUserObject(task.assigned_to),
         })),
+        // Work item creation events
+        ...(workItems || []).map(wi => ({
+          id: `wi-created-${wi.id}`,
+          type: 'project_event' as ActivityType,
+          content: `${wi.type === 'assisted_project' ? 'Custom design project' : 'Customify order'} created from ${wi.type === 'assisted_project' ? 'email' : 'Shopify'}`,
+          subject: wi.title,
+          created_at: wi.created_at,
+          user: { id: '', full_name: 'System', email: '' },
+        })),
+        // Work item close events
+        ...(workItems || []).filter(wi => wi.closed_at).map(wi => {
+          const reasonLabels: Record<string, string> = {
+            won: 'Won', missed_deadline: 'Missed deadline', too_expensive: 'Too expensive',
+            ghosted: 'Ghosted', went_with_competitor: 'Went with competitor',
+            not_ready_yet: 'Not ready yet', cancelled: 'Event cancelled',
+            spam: 'Spam', completed: 'Completed', not_interested: 'Not interested', other: 'Other',
+          }
+          const statusLabels: Record<string, string> = {
+            closed_won: 'Closed Won', closed_lost: 'Closed Lost',
+            closed_event_cancelled: 'Closed (Event Cancelled)', closed: 'Closed',
+          }
+          return {
+            id: `wi-closed-${wi.id}`,
+            type: 'project_event' as ActivityType,
+            content: `Project ${statusLabels[wi.status] || 'closed'}${wi.close_reason ? ` — ${reasonLabels[wi.close_reason] || wi.close_reason}` : ''}`,
+            subject: wi.title,
+            created_at: wi.closed_at!,
+            user: { id: '', full_name: 'System', email: '' },
+          }
+        }),
       ]
 
       // Sort by created_at descending
@@ -611,6 +649,7 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
                   'p-4',
                   activity.type === 'email' && 'bg-blue-50/50 cursor-pointer hover:shadow-sm transition-shadow',
                   activity.type === 'note' && 'bg-gray-50',
+                  activity.type === 'project_event' && 'bg-purple-50/50',
                 )}
                 onClick={hasFullEmail ? () => toggleExpanded(activity.id) : undefined}
               >
@@ -619,10 +658,12 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
                   <div className="flex items-center gap-3">
                     {activity.type === 'email' && <Mail className="h-5 w-5 text-blue-600" />}
                     {activity.type === 'note' && <FileText className="h-5 w-5 text-gray-600" />}
+                    {activity.type === 'project_event' && <FolderKanban className="h-5 w-5 text-purple-600" />}
 
                     <span className="text-sm font-medium">
                       {activity.type === 'email' && 'Email from'}
                       {activity.type === 'note' && 'Note from'}
+                      {activity.type === 'project_event' && ''}
                     </span>
 
                     <Avatar className="h-6 w-6">

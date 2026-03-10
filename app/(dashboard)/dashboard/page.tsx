@@ -290,209 +290,263 @@ export default function DashboardPage() {
         </Link>
       )}
 
-      {/* ===================== MORNING BRIEFING ===================== */}
+      {/* ===================== MORNING BRIEFING — 2-col grid ===================== */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-      {/* Needs My Reply */}
-      {needsReply && needsReply.length > 0 && (
-        <Card className="border-l-2 border-l-amber-400">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-amber-700">
-              <Inbox className="h-4 w-4" />
-              Needs My Reply ({needsReply.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-3 space-y-1">
-            {needsReply.map((c) => {
-              const days = daysAgo(c.last_inbound_at!)
-              return (
-                <div key={c.id} className="p-2.5 rounded-lg hover:bg-muted transition-colors flex items-center justify-between gap-2">
-                  <Link href={`/customers/${c.id}?tab=activity`} className="flex-1 min-w-0 cursor-pointer">
-                    <div className="font-medium">{getCustomerDisplayName(c)}</div>
-                    <div className="text-sm text-muted-foreground truncate">{c.email}</div>
-                  </Link>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Badge variant="outline" className="text-amber-600 border-amber-300 text-xs gap-1">
-                      <Clock className="h-3 w-3" />
-                      {days === 0 ? 'Today' : `${days}d ago`}
-                    </Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 text-muted-foreground hover:text-green-600"
-                      onClick={(e) => handleAcknowledge(c.id, e)}
-                      title="No reply needed"
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              )
-            })}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Waiting on Customer */}
-      {waitingOn && waitingOn.length > 0 && (
-        <Card className="border-l-2 border-l-slate-300">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-muted-foreground">
-              <Send className="h-4 w-4" />
-              Waiting on Customer ({waitingOn.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-3 space-y-1">
-            {waitingOn.map((c) => {
-              const days = daysAgo(c.last_outbound_at!)
-              return (
-                <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
-                  <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium">{getCustomerDisplayName(c)}</div>
-                      <div className="text-sm text-muted-foreground truncate">{c.email}</div>
-                    </div>
-                    <Badge variant="outline" className="text-muted-foreground border-muted text-xs gap-1 ml-2 shrink-0">
-                      <Clock className="h-3 w-3" />
-                      {days}d waiting
-                    </Badge>
-                  </div>
-                </Link>
-              )
-            })}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Follow-Ups Due */}
-      {followUps && followUps.length > 0 && (
-        <Card className="border-l-2 border-l-red-400">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2 text-red-600">
-                <AlertCircle className="h-4 w-4" />
-                Follow-Ups Due ({followUps.length})
-              </CardTitle>
-              <Link href="/follow-ups">
-                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">
-                  View All <ArrowRight className="h-3 w-3" />
-                </Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="px-4 pb-3 space-y-1">
-            {followUps.slice(0, 5).map((item) => {
-              const isOverdue = item.next_follow_up_at && new Date(item.next_follow_up_at) < new Date()
-              return (
-                <Link key={item.id} href={`/work-items/${item.id}`}>
-                  <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium">{item.customer_name || item.customer_email}</div>
-                      <div className="text-sm text-muted-foreground truncate">{item.title}</div>
-                    </div>
-                    <div className="flex items-center gap-2 ml-2 shrink-0">
-                      {item.estimated_value && (
-                        <Badge variant="outline" className="text-xs">
-                          {formatCurrency(item.estimated_value)}
+        {/* LEFT COLUMN: Reply-related + Follow-ups */}
+        <div className="space-y-4">
+          {/* Needs My Reply */}
+          {needsReply && needsReply.length > 0 && (
+            <Card className="border-l-2 border-l-amber-400">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-amber-700">
+                  <Inbox className="h-4 w-4" />
+                  Needs My Reply ({needsReply.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-3 space-y-1">
+                {needsReply.map((c) => {
+                  const days = daysAgo(c.last_inbound_at!)
+                  return (
+                    <div key={c.id} className="p-2 rounded-lg hover:bg-muted transition-colors flex items-center justify-between gap-2">
+                      <Link href={`/customers/${c.id}?tab=activity`} className="flex-1 min-w-0 cursor-pointer">
+                        <div className="font-medium text-sm">{getCustomerDisplayName(c)}</div>
+                      </Link>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Badge variant="outline" className="text-amber-600 border-amber-300 text-[11px] gap-0.5 px-1.5 py-0">
+                          <Clock className="h-2.5 w-2.5" />
+                          {days === 0 ? 'Today' : `${days}d`}
                         </Badge>
-                      )}
-                      <span className={`text-xs ${isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
-                        {formatDate(item.next_follow_up_at)}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              )
-            })}
-            {followUps.length > 5 && (
-              <Link href="/follow-ups">
-                <div className="text-sm text-center font-medium text-red-600/70 hover:text-red-600 py-2 hover:underline">
-                  +{followUps.length - 5} more follow-ups &rarr;
-                </div>
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Customer Check-ins */}
-      {customerCheckIns && customerCheckIns.length > 0 && (
-        <Card className="border-l-2 border-l-blue-400">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-blue-700">
-              <UserCheck className="h-4 w-4" />
-              Customer Check-ins ({customerCheckIns.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-3 space-y-1">
-            {customerCheckIns.slice(0, 5).map((c) => {
-              const isOverdue = new Date(c.next_follow_up_at!) < new Date()
-              return (
-                <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
-                  <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium">{getCustomerDisplayName(c)}</div>
-                      <div className="text-sm text-muted-foreground truncate">{c.email}</div>
-                    </div>
-                    <Badge variant="outline" className={`text-xs gap-1 ml-2 shrink-0 ${isOverdue ? 'text-red-600 border-red-300' : 'text-blue-600 border-blue-300'}`}>
-                      <Calendar className="h-3 w-3" />
-                      {isOverdue ? `${daysAgo(c.next_follow_up_at!)}d overdue` : 'Today'}
-                    </Badge>
-                  </div>
-                </Link>
-              )
-            })}
-            {customerCheckIns.length > 5 && (
-              <Link href="/customers">
-                <div className="text-sm text-center font-medium text-blue-600/70 hover:text-blue-600 py-2 hover:underline">
-                  +{customerCheckIns.length - 5} more check-ins &rarr;
-                </div>
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Dormant Customers */}
-      {dormantCustomers && dormantCustomers.length > 0 && (
-        <Card className="border-l-2 border-l-orange-300">
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-orange-600">
-              <AlertTriangle className="h-4 w-4" />
-              Dormant Customers ({dormantCustomers.length})
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">No activity in 90+ days — consider reaching out</p>
-          </CardHeader>
-          <CardContent className="px-4 pb-3 space-y-1">
-            {dormantCustomers.slice(0, 5).map((c) => {
-              const lastActivity = c.last_inbound_at || c.last_outbound_at || c.updated_at
-              return (
-                <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
-                  <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium">{getCustomerDisplayName(c)}</div>
-                      <div className="text-sm text-muted-foreground truncate">
-                        {c.customer_type !== 'individual' && <span className="capitalize">{c.customer_type} · </span>}
-                        {c.email}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 w-5 p-0 text-muted-foreground hover:text-green-600"
+                          onClick={(e) => handleAcknowledge(c.id, e)}
+                          title="No reply needed"
+                        >
+                          <CheckCircle2 className="h-3 w-3" />
+                        </Button>
                       </div>
                     </div>
-                    <Badge variant="outline" className="text-orange-600 border-orange-300 text-xs gap-1 ml-2 shrink-0">
-                      <Clock className="h-3 w-3" />
-                      {lastActivity ? `${daysAgo(lastActivity)}d` : '90d+'}
-                    </Badge>
-                  </div>
-                </Link>
-              )
-            })}
-            {dormantCustomers.length > 5 && (
-              <Link href="/customers">
-                <div className="text-sm text-center font-medium text-orange-600/70 hover:text-orange-600 py-2 hover:underline">
-                  +{dormantCustomers.length - 5} more dormant &rarr;
+                  )
+                })}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Waiting on Customer */}
+          {waitingOn && waitingOn.length > 0 && (
+            <Card className="border-l-2 border-l-slate-300">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-muted-foreground">
+                  <Send className="h-4 w-4" />
+                  Waiting on Customer ({waitingOn.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-3 space-y-1">
+                {waitingOn.map((c) => {
+                  const days = daysAgo(c.last_outbound_at!)
+                  return (
+                    <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
+                      <div className="p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
+                        <div className="font-medium text-sm truncate">{getCustomerDisplayName(c)}</div>
+                        <Badge variant="outline" className="text-muted-foreground border-muted text-[11px] gap-0.5 px-1.5 py-0 ml-2 shrink-0">
+                          <Clock className="h-2.5 w-2.5" />
+                          {days}d
+                        </Badge>
+                      </div>
+                    </Link>
+                  )
+                })}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Follow-Ups Due */}
+          {followUps && followUps.length > 0 && (
+            <Card className="border-l-2 border-l-red-400">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-semibold flex items-center gap-2 text-red-600">
+                    <AlertCircle className="h-4 w-4" />
+                    Follow-Ups Due ({followUps.length})
+                  </CardTitle>
+                  <Link href="/follow-ups">
+                    <Button variant="ghost" size="sm" className="h-6 text-xs gap-1">
+                      View All <ArrowRight className="h-3 w-3" />
+                    </Button>
+                  </Link>
                 </div>
-              </Link>
-            )}
-          </CardContent>
-        </Card>
-      )}
+              </CardHeader>
+              <CardContent className="px-4 pb-3 space-y-1">
+                {followUps.slice(0, 5).map((item) => {
+                  const isOverdue = item.next_follow_up_at && new Date(item.next_follow_up_at) < new Date()
+                  return (
+                    <Link key={item.id} href={`/work-items/${item.id}`}>
+                      <div className="p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm">{item.customer_name || item.customer_email}</div>
+                          <div className="text-xs text-muted-foreground truncate">{item.title}</div>
+                        </div>
+                        <div className="flex items-center gap-1.5 ml-2 shrink-0">
+                          {item.estimated_value && (
+                            <Badge variant="outline" className="text-[11px] px-1.5 py-0">
+                              {formatCurrency(item.estimated_value)}
+                            </Badge>
+                          )}
+                          <span className={`text-xs ${isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
+                            {formatDate(item.next_follow_up_at)}
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  )
+                })}
+                {followUps.length > 5 && (
+                  <Link href="/follow-ups">
+                    <div className="text-xs text-center font-medium text-red-600/70 hover:text-red-600 py-1 hover:underline">
+                      +{followUps.length - 5} more &rarr;
+                    </div>
+                  </Link>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* RIGHT COLUMN: Check-ins + Dormant + Tasks */}
+        <div className="space-y-4">
+          {/* Customer Check-ins */}
+          {customerCheckIns && customerCheckIns.length > 0 && (
+            <Card className="border-l-2 border-l-blue-400">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-blue-700">
+                  <UserCheck className="h-4 w-4" />
+                  Customer Check-ins ({customerCheckIns.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-4 pb-3 space-y-1">
+                {customerCheckIns.slice(0, 5).map((c) => {
+                  const isOverdue = new Date(c.next_follow_up_at!) < new Date()
+                  return (
+                    <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
+                      <div className="p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
+                        <div className="font-medium text-sm truncate">{getCustomerDisplayName(c)}</div>
+                        <Badge variant="outline" className={`text-[11px] gap-0.5 px-1.5 py-0 ml-2 shrink-0 ${isOverdue ? 'text-red-600 border-red-300' : 'text-blue-600 border-blue-300'}`}>
+                          <Calendar className="h-2.5 w-2.5" />
+                          {isOverdue ? `${daysAgo(c.next_follow_up_at!)}d overdue` : 'Today'}
+                        </Badge>
+                      </div>
+                    </Link>
+                  )
+                })}
+                {customerCheckIns.length > 5 && (
+                  <Link href="/customers">
+                    <div className="text-xs text-center font-medium text-blue-600/70 hover:text-blue-600 py-1 hover:underline">
+                      +{customerCheckIns.length - 5} more &rarr;
+                    </div>
+                  </Link>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Dormant Customers */}
+          {dormantCustomers && dormantCustomers.length > 0 && (
+            <Card className="border-l-2 border-l-orange-300">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-orange-600">
+                  <AlertTriangle className="h-4 w-4" />
+                  Dormant ({dormantCustomers.length})
+                </CardTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">No activity in 90+ days</p>
+              </CardHeader>
+              <CardContent className="px-4 pb-3 space-y-1">
+                {dormantCustomers.slice(0, 5).map((c) => {
+                  const lastActivity = c.last_inbound_at || c.last_outbound_at || c.updated_at
+                  return (
+                    <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
+                      <div className="p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-sm">{getCustomerDisplayName(c)}</div>
+                          {c.customer_type !== 'individual' && (
+                            <div className="text-xs text-muted-foreground capitalize">{c.customer_type}</div>
+                          )}
+                        </div>
+                        <Badge variant="outline" className="text-orange-600 border-orange-300 text-[11px] gap-0.5 px-1.5 py-0 ml-2 shrink-0">
+                          <Clock className="h-2.5 w-2.5" />
+                          {lastActivity ? `${daysAgo(lastActivity)}d` : '90d+'}
+                        </Badge>
+                      </div>
+                    </Link>
+                  )
+                })}
+                {dormantCustomers.length > 5 && (
+                  <Link href="/customers">
+                    <div className="text-xs text-center font-medium text-orange-600/70 hover:text-orange-600 py-1 hover:underline">
+                      +{dormantCustomers.length - 5} more &rarr;
+                    </div>
+                  </Link>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* My Tasks */}
+          <Card>
+            <CardHeader className="pb-2 pt-4 px-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <ListTodo className="h-4 w-4" />
+                  My Tasks {myTasks && myTasks.length > 0 ? `(${myTasks.length})` : ''}
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="px-4 pb-3 space-y-1">
+              {!myTasks || myTasks.length === 0 ? (
+                <div className="text-center py-4 text-sm text-muted-foreground">
+                  <CheckCircle className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  No tasks right now
+                </div>
+              ) : (
+                myTasks.map((task) => {
+                  const isOverdue = task.due_date && new Date(task.due_date) < new Date()
+                  return (
+                    <div key={task.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => toggleTask.mutate({ taskId: task.id, completed: true })}
+                        className="shrink-0 text-muted-foreground hover:text-primary"
+                      >
+                        <Circle className="h-4 w-4" />
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{task.title}</div>
+                        {task.due_date && (
+                          <div className={`text-xs ${isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
+                            Due {formatDate(task.due_date)}
+                          </div>
+                        )}
+                      </div>
+                      {task.work_item_id && (
+                        <Link href={`/work-items/${task.work_item_id}`} className="text-xs text-primary hover:underline shrink-0">
+                          View
+                        </Link>
+                      )}
+                      {!task.work_item_id && task.customer_id && (
+                        <Link href={`/customers/${task.customer_id}`} className="text-xs text-primary hover:underline shrink-0">
+                          View
+                        </Link>
+                      )}
+                    </div>
+                  )
+                })
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+      </div>
 
       {/* All clear state */}
       {!hasMorningItems && (
@@ -504,59 +558,6 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       )}
-
-      {/* My Tasks */}
-      <Card>
-        <CardHeader className="pb-2 pt-4 px-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <ListTodo className="h-4 w-4" />
-              My Tasks {myTasks && myTasks.length > 0 ? `(${myTasks.length})` : ''}
-            </CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="px-4 pb-3 space-y-1">
-          {!myTasks || myTasks.length === 0 ? (
-            <div className="text-center py-4 text-sm text-muted-foreground">
-              <CheckCircle className="h-8 w-8 mx-auto mb-2 opacity-40" />
-              No tasks assigned to you right now
-            </div>
-          ) : (
-            myTasks.map((task) => {
-              const isOverdue = task.due_date && new Date(task.due_date) < new Date()
-              return (
-                <div key={task.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors">
-                  <button
-                    type="button"
-                    onClick={() => toggleTask.mutate({ taskId: task.id, completed: true })}
-                    className="shrink-0 text-muted-foreground hover:text-primary"
-                  >
-                    <Circle className="h-4 w-4" />
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{task.title}</div>
-                    {task.due_date && (
-                      <div className={`text-xs ${isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
-                        Due {formatDate(task.due_date)}
-                      </div>
-                    )}
-                  </div>
-                  {task.work_item_id && (
-                    <Link href={`/work-items/${task.work_item_id}`} className="text-xs text-primary hover:underline shrink-0">
-                      View
-                    </Link>
-                  )}
-                  {!task.work_item_id && task.customer_id && (
-                    <Link href={`/customers/${task.customer_id}`} className="text-xs text-primary hover:underline shrink-0">
-                      View
-                    </Link>
-                  )}
-                </div>
-              )
-            })
-          )}
-        </CardContent>
-      </Card>
 
       {/* Split View: Sales + Production */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

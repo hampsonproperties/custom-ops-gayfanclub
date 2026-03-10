@@ -842,17 +842,23 @@ export default function CustomerProfilePage() {
 
   const [showFollowUpPicker, setShowFollowUpPicker] = useState(false)
 
-  const handleSetFollowUp = async (daysFromNow: number | null) => {
+  const handleSetFollowUp = async (daysFromNow: number | null, specificDate?: string) => {
     const supabase = createClient()
+    let followUpDate: string | null = null
+    if (specificDate) {
+      followUpDate = new Date(specificDate + 'T09:00:00').toISOString()
+    } else if (daysFromNow !== null) {
+      followUpDate = new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000).toISOString()
+    }
     const { error } = await supabase
       .from('customers')
-      .update({ next_follow_up_at: daysFromNow !== null ? new Date(Date.now() + daysFromNow * 24 * 60 * 60 * 1000).toISOString() : null })
+      .update({ next_follow_up_at: followUpDate })
       .eq('id', customerId)
     if (error) {
       toast.error('Failed to set follow-up')
       return
     }
-    toast.success(daysFromNow !== null ? `Follow-up set for ${daysFromNow} days from now` : 'Follow-up cleared')
+    toast.success(followUpDate ? 'Follow-up set' : 'Follow-up cleared')
     setShowFollowUpPicker(false)
     queryClient.invalidateQueries({ queryKey: ['customer-profile', customerId] })
     queryClient.invalidateQueries({ queryKey: ['morning-briefing'] })
@@ -952,20 +958,21 @@ export default function CustomerProfilePage() {
         {/* Customer Header */}
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 sm:gap-4">
           <div className="flex-1 min-w-0">
-            <div className="flex items-start gap-2 sm:gap-3 mb-2">
-              <h1 className="text-2xl sm:text-3xl font-bold truncate flex-1">
-                {headerName}
-              </h1>
-              {/* Customer Type Badge */}
+            {/* Name + Type badges */}
+            <h1 className="text-2xl sm:text-3xl font-bold truncate">
+              {headerName}
+            </h1>
+
+            {/* Badges row — separated from h1 for clean alignment */}
+            <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
               {customer.customer_type === 'retailer' && (
-                <Badge variant="outline" className="text-blue-600 border-blue-300 text-xs sm:text-sm flex-shrink-0">Retailer</Badge>
+                <Badge variant="outline" className="text-blue-600 border-blue-300 text-xs">Retailer</Badge>
               )}
               {customer.customer_type === 'organization' && (
-                <Badge variant="outline" className="text-purple-600 border-purple-300 text-xs sm:text-sm flex-shrink-0">Organization</Badge>
+                <Badge variant="outline" className="text-purple-600 border-purple-300 text-xs">Organization</Badge>
               )}
-              {/* Status Badge */}
               {customer.status && (
-                <Badge variant="outline" className="text-xs sm:text-sm flex-shrink-0">
+                <Badge variant="outline" className="text-xs">
                   {customer.status}
                 </Badge>
               )}
@@ -976,27 +983,27 @@ export default function CustomerProfilePage() {
                 if (lastIn && (!lastOut || lastIn > lastOut)) {
                   const days = Math.floor((Date.now() - lastIn.getTime()) / (1000 * 60 * 60 * 24))
                   if (days >= 1) return (
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <Badge variant="outline" className="text-amber-600 border-amber-300 text-xs sm:text-sm gap-1">
+                    <>
+                      <Badge variant="outline" className="text-amber-600 border-amber-300 text-xs gap-1">
                         <Clock className="h-3 w-3" />
                         Needs reply {days}d
                       </Badge>
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        className="h-5 px-1.5 text-[11px] text-muted-foreground hover:text-foreground"
                         onClick={handleAcknowledgeReply}
                       >
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        No reply needed
+                        <CheckCircle2 className="h-3 w-3 mr-0.5" />
+                        Dismiss
                       </Button>
-                    </div>
+                    </>
                   )
                 }
                 if (lastOut && (!lastIn || lastOut > lastIn)) {
                   const days = Math.floor((Date.now() - lastOut.getTime()) / (1000 * 60 * 60 * 24))
                   if (days >= 2) return (
-                    <Badge variant="outline" className="text-muted-foreground border-muted text-xs sm:text-sm flex-shrink-0 gap-1">
+                    <Badge variant="outline" className="text-muted-foreground border-muted text-xs gap-1">
                       <Clock className="h-3 w-3" />
                       Waiting {days}d
                     </Badge>
@@ -1007,32 +1014,32 @@ export default function CustomerProfilePage() {
             </div>
 
             {/* Contact Info — layout differs for business vs individual */}
-            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-4 text-sm text-muted-foreground">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-1.5 sm:gap-3 text-sm text-muted-foreground mt-2">
               {/* Business customers: show primary contact person */}
-              {isBusinessCustomer && personName && (
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 flex-shrink-0" />
+              {isBusinessCustomer && personName && personName !== customer.email && (
+                <div className="flex items-center gap-1.5">
+                  <User className="h-3.5 w-3.5 flex-shrink-0" />
                   <span className="font-medium text-foreground">{personName}</span>
-                  <span className="text-muted-foreground">· Primary Contact</span>
+                  <span className="text-muted-foreground text-xs">· Primary Contact</span>
                 </div>
               )}
               {/* Individual customers: show org name if present */}
               {!isBusinessCustomer && customer.organization_name && (
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4 flex-shrink-0" />
+                <div className="flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
                   <span className="truncate">{customer.organization_name}</span>
                 </div>
               )}
-              {/* Email — always show unless it IS the header name */}
-              {customer.email && headerName !== customer.email && (
-                <div className="flex items-center gap-2 min-w-0">
-                  <Mail className="h-4 w-4 flex-shrink-0" />
+              {/* Email — hide if it's already showing as headerName or personName */}
+              {customer.email && headerName !== customer.email && personName !== customer.email && (
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <Mail className="h-3.5 w-3.5 flex-shrink-0" />
                   <span className="truncate">{customer.email}</span>
                 </div>
               )}
               {customer.phone && (
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 flex-shrink-0" />
+                <div className="flex items-center gap-1.5">
+                  <Phone className="h-3.5 w-3.5 flex-shrink-0" />
                   <span>{customer.phone}</span>
                 </div>
               )}
@@ -1096,7 +1103,7 @@ export default function CustomerProfilePage() {
                   Set
                 </Button>
                 {showFollowUpPicker && (
-                  <div className="absolute top-8 left-0 z-50 bg-popover border rounded-lg shadow-lg p-2 space-y-1 min-w-[160px]">
+                  <div className="absolute top-8 left-0 z-50 bg-popover border rounded-lg shadow-lg p-2 space-y-1 min-w-[180px]">
                     {[
                       { label: '1 week', days: 7 },
                       { label: '2 weeks', days: 14 },
@@ -1115,6 +1122,16 @@ export default function CustomerProfilePage() {
                         {opt.label}
                       </Button>
                     ))}
+                    <div className="border-t pt-1 mt-1">
+                      <input
+                        type="date"
+                        className="w-full text-xs px-2 py-1.5 border rounded bg-background text-foreground cursor-pointer"
+                        min={new Date().toISOString().split('T')[0]}
+                        onChange={(e) => {
+                          if (e.target.value) handleSetFollowUp(null, e.target.value)
+                        }}
+                      />
+                    </div>
                   </div>
                 )}
               </div>

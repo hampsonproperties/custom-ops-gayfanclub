@@ -195,7 +195,13 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
             <div className="flex items-start justify-between">
               <div>
                 <h1 className="text-2xl sm:text-3xl font-bold">
-                  {workItem.customer_name || workItem.customer_email || 'Unknown Customer'}
+                  {workItem.customer_id ? (
+                    <Link href={`/customers/${workItem.customer_id}?tab=activity`} className="hover:underline decoration-1 underline-offset-4">
+                      {workItem.customer_name || workItem.customer_email || 'Unknown Customer'}
+                    </Link>
+                  ) : (
+                    workItem.customer_name || workItem.customer_email || 'Unknown Customer'
+                  )}
                 </h1>
                 <div className="flex items-center gap-2 sm:gap-4 mt-2 text-sm text-muted-foreground flex-wrap">
                   {workItem.customer_email && (
