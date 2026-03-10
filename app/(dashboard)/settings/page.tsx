@@ -55,6 +55,7 @@ import {
   useUploadSignatureLogo,
   buildSignatureHtml,
 } from '@/lib/hooks/use-email-signature'
+import { DataHealthSection } from '@/components/data-health/data-health-section'
 import { toast } from 'sonner'
 import {
   Loader2, Check, Clock, Pause, CalendarDays,
@@ -1740,6 +1741,9 @@ export default function SettingsPage() {
 
       {/* Auto email toggle */}
       <AutoEmailsCard />
+
+      {/* Data Health */}
+      <DataHealthSection />
 
       {/* Email Signature */}
       <EmailSignatureSection />

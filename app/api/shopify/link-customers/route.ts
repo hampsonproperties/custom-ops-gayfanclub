@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     // 1. Fetch customers from our DB who are missing shopify_customer_id
     const { data: unlinked, error: dbError } = await supabase
       .from('customers')
-      .select('id, email, first_name, last_name, display_name, shopify_customer_id')
+      .select('id, email, first_name, last_name, display_name, phone, shopify_customer_id')
       .is('shopify_customer_id', null)
       .not('email', 'is', null)
       .neq('email', '')
@@ -113,6 +113,9 @@ export async function POST(request: NextRequest) {
       }
       if (!customer.display_name && (shopifyCustomer.first_name || shopifyCustomer.last_name)) {
         updates.display_name = [shopifyCustomer.first_name, shopifyCustomer.last_name].filter(Boolean).join(' ')
+      }
+      if (!customer.phone && shopifyCustomer.phone) {
+        updates.phone = shopifyCustomer.phone
       }
 
       const { error } = await supabase
