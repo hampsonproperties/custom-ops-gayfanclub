@@ -107,6 +107,47 @@ export function SidebarNavigation() {
         )}
       </div>
 
+      {/* Sales Section */}
+      <div className="pt-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+          onClick={() => setSalesOpen(!salesOpen)}
+        >
+          {salesOpen || isSalesChildActive ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+          <TrendingUp className="h-4 w-4" />
+          <span className="font-semibold">Sales</span>
+        </Button>
+
+        {(salesOpen || isSalesChildActive) && (
+          <div className="ml-6 mt-1 space-y-1">
+            <Link href="/sales-leads">
+              <Button
+                variant={isActive('/sales-leads') ? 'secondary' : 'ghost'}
+                size="sm"
+                className="w-full justify-start text-sm"
+              >
+                Sales Leads
+              </Button>
+            </Link>
+            <Link href="/follow-ups">
+              <Button
+                variant={isActive('/follow-ups') ? 'secondary' : 'ghost'}
+                size="sm"
+                className="w-full justify-start text-sm"
+              >
+                Follow-up Queue
+              </Button>
+            </Link>
+          </div>
+        )}
+      </div>
+
       {/* Projects Section */}
       <div className="pt-2">
         <Button
@@ -168,47 +209,6 @@ export function SidebarNavigation() {
           Batches
         </Button>
       </Link>
-
-      {/* Sales Section */}
-      <div className="pt-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
-          onClick={() => setSalesOpen(!salesOpen)}
-        >
-          {salesOpen || isSalesChildActive ? (
-            <ChevronDown className="h-4 w-4" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
-          )}
-          <TrendingUp className="h-4 w-4" />
-          <span className="font-semibold">Sales</span>
-        </Button>
-
-        {(salesOpen || isSalesChildActive) && (
-          <div className="ml-6 mt-1 space-y-1">
-            <Link href="/sales-leads">
-              <Button
-                variant={isActive('/sales-leads') ? 'secondary' : 'ghost'}
-                size="sm"
-                className="w-full justify-start text-sm"
-              >
-                Sales Leads
-              </Button>
-            </Link>
-            <Link href="/follow-ups">
-              <Button
-                variant={isActive('/follow-ups') ? 'secondary' : 'ghost'}
-                size="sm"
-                className="w-full justify-start text-sm"
-              >
-                Follow-up Queue
-              </Button>
-            </Link>
-          </div>
-        )}
-      </div>
 
       {/* Stuck Items */}
       <Link href="/stuck-items">

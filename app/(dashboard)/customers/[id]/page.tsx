@@ -1,6 +1,6 @@
 'use client'
 
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -8,9 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import {
   useCustomerProfile,
-  useConversationMessages,
-  markConversationAsRead,
-  type CustomerConversation,
 } from '@/lib/hooks/use-customer-profile'
 import { logger } from '@/lib/logger'
 import {
@@ -23,7 +20,6 @@ import {
   DollarSign,
   ExternalLink,
   ArrowRight,
-  ArrowLeft,
   Plus,
   FileText,
   StickyNote,
@@ -48,7 +44,6 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import DOMPurify from 'dompurify'
 import { EmailComposer } from '@/components/email/email-composer'
 import { StatusBadge } from '@/components/custom/status-badge'
 import { Breadcrumbs } from '@/components/ui/breadcrumbs'
@@ -175,145 +170,6 @@ function ProjectCard({ project, customerId }: { project: any; customerId: string
 }
 
 // Conversation Card Component
-function ConversationCard({
-  conversation,
-  onClick,
-}: {
-  conversation: CustomerConversation
-  onClick: () => void
-}) {
-  return (
-    <Card
-      className={`cursor-pointer hover:shadow-md transition-shadow ${
-        conversation.has_unread ? 'border-l-4 border-l-primary' : ''
-      }`}
-      onClick={onClick}
-    >
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex-1 min-w-0">
-            <CardTitle className="text-base line-clamp-1 flex items-center gap-2">
-              {conversation.has_unread && (
-                <div className="h-2 w-2 bg-primary rounded-full shrink-0" />
-              )}
-              {conversation.subject}
-            </CardTitle>
-            {conversation.work_item_title && (
-              <CardDescription className="mt-1">
-                Related to: {conversation.work_item_title}
-              </CardDescription>
-            )}
-          </div>
-          <Badge variant="outline">{conversation.message_count} messages</Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-0">
-        <div className="text-sm text-muted-foreground">
-          <div>
-            Last message from {conversation.last_message_from || 'Unknown'}
-          </div>
-          <div className="text-xs mt-1">
-            {formatDistanceToNow(new Date(conversation.last_message_at), {
-              addSuffix: true,
-            })}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-// Conversation Detail Component with Inline Composer
-function ConversationDetail({
-  conversationId,
-  customerId,
-  customerEmail,
-}: {
-  conversationId: string
-  customerId: string
-  customerEmail: string
-}) {
-  const { data: messages, isLoading } = useConversationMessages(conversationId)
-
-  if (isLoading) {
-    return <div className="p-6">Loading messages...</div>
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Messages */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">{messages?.length || 0} Messages</h3>
-        <div className="space-y-4">
-          {messages?.map((message) => (
-            <Card
-              key={message.id}
-              className={
-                message.direction === 'inbound' ? 'bg-blue-50 border-blue-200' : 'bg-gray-50'
-              }
-            >
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant={message.direction === 'inbound' ? 'default' : 'secondary'}
-                    >
-                      {message.direction === 'inbound' ? 'From Customer' : 'To Customer'}
-                    </Badge>
-                    <span className="text-sm text-muted-foreground">
-                      {message.from_email}
-                    </span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {formatDistanceToNow(new Date(message.received_at), {
-                      addSuffix: true,
-                    })}
-                  </span>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm font-medium mb-2">{message.subject}</div>
-                <div
-                  className="text-sm prose prose-sm max-w-none"
-                  dangerouslySetInnerHTML={{
-                    __html: DOMPurify.sanitize(
-                      message.body_preview || message.body_html || '',
-                      {
-                        ALLOWED_TAGS: [
-                          'p', 'br', 'strong', 'em', 'u', 'a',
-                          'ul', 'ol', 'li', 'h1', 'h2', 'h3',
-                          'div', 'span', 'blockquote', 'table',
-                          'tr', 'td', 'th', 'tbody', 'thead', 'img',
-                        ],
-                        ALLOWED_ATTR: ['href', 'target', 'src', 'alt', 'width', 'height', 'class'],
-                      }
-                    ),
-                  }}
-                />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-
-      {/* Reply Action */}
-      <div className="flex items-center gap-3">
-        <EmailComposer
-          recipientEmail={customerEmail}
-          customerId={customerId}
-          subject={`Re: ${messages?.[0]?.subject || 'Conversation'}`}
-          trigger={
-            <Button>
-              <Mail className="mr-2 h-4 w-4" />
-              Reply to Conversation
-            </Button>
-          }
-        />
-      </div>
-    </div>
-  )
-}
-
 // Shopify Orders Tab is now imported from @/components/shopify/shopify-orders-tab
 
 // Files Tab
@@ -926,8 +782,10 @@ function B2BAccountTab({ retailAccountId }: { retailAccountId: string }) {
 // Main Customer Profile Page
 export default function CustomerProfilePage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const customerId = params.id as string
   const queryClient = useQueryClient()
+  const initialTab = searchParams.get('tab') || 'projects'
   const { data: profileData, isLoading } = useCustomerProfile(customerId)
   const { data: allUsers } = useAllUsers()
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
@@ -999,7 +857,7 @@ export default function CustomerProfilePage() {
     },
     enabled: !!customerId,
   })
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null)
+
 
   if (isLoading) {
     return (
@@ -1033,7 +891,7 @@ export default function CustomerProfilePage() {
     )
   }
 
-  const { customer, retail_account, projects, conversations, stats } = profileData
+  const { customer, retail_account, projects, stats } = profileData
 
   // Derive display names based on customer type
   const isBusinessCustomer = customer.customer_type === 'retailer' || customer.customer_type === 'organization'
@@ -1346,7 +1204,7 @@ export default function CustomerProfilePage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content - 2/3 width on desktop */}
         <div className="lg:col-span-2">
-          <Tabs defaultValue="projects" className="space-y-4">
+          <Tabs defaultValue={initialTab} className="space-y-4">
             <TabsList className="w-full h-auto flex-wrap justify-start p-1 gap-1">
               <TabsTrigger value="projects" className="gap-1.5 sm:gap-2 flex-1 min-w-[85px] sm:min-w-[100px] h-10 sm:h-11 text-sm">
                 <ShoppingBag className="h-4 w-4 flex-shrink-0" />
@@ -1369,6 +1227,10 @@ export default function CustomerProfilePage() {
               <TabsTrigger value="files" className="gap-1.5 sm:gap-2 flex-1 min-w-[85px] sm:min-w-[100px] h-10 sm:h-11 text-sm">
                 <FileText className="h-4 w-4 flex-shrink-0" />
                 <span className="truncate">Files</span>
+              </TabsTrigger>
+              <TabsTrigger value="notes" className="gap-1.5 sm:gap-2 flex-1 min-w-[85px] sm:min-w-[100px] h-10 sm:h-11 text-sm">
+                <StickyNote className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">Notes</span>
               </TabsTrigger>
               {isBusinessCustomer && customer.retail_account_id && (
                 <TabsTrigger value="b2b" className="gap-1.5 sm:gap-2 flex-1 min-w-[85px] sm:min-w-[100px] h-10 sm:h-11 text-sm">
@@ -1450,79 +1312,6 @@ export default function CustomerProfilePage() {
               />
             </TabsContent>
 
-            {/* Old Emails Tab - Remove after testing */}
-            <TabsContent value="emails-old" className="space-y-4">
-              {selectedConversationId ? (
-                <div>
-                  <Button
-                    variant="outline"
-                    onClick={() => setSelectedConversationId(null)}
-                    className="mb-4"
-                  >
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Conversations
-                  </Button>
-                  <ConversationDetail
-                    conversationId={selectedConversationId}
-                    customerId={customerId}
-                    customerEmail={customer.email}
-                  />
-                </div>
-              ) : conversations.length === 0 ? (
-                <Card>
-                  <CardContent className="flex flex-col items-center justify-center py-12">
-                    <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-xl font-semibold mb-2">No Conversations Yet</h3>
-                    <p className="text-muted-foreground mb-4">
-                      This customer hasn't had any email conversations.
-                    </p>
-                    <EmailComposer
-                      recipientEmail={customer.email}
-                      recipientName={customer.display_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || customer.email}
-                      customerId={customerId}
-                      trigger={
-                        <Button>
-                          <Mail className="mr-2 h-4 w-4" />
-                          Send First Email
-                        </Button>
-                      }
-                    />
-                  </CardContent>
-                </Card>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold">{conversations.length} Conversations</h3>
-                    <EmailComposer
-                      recipientEmail={customer.email}
-                      recipientName={customer.display_name || `${customer.first_name || ''} ${customer.last_name || ''}`.trim() || customer.email}
-                      customerId={customerId}
-                      trigger={
-                        <Button size="sm">
-                          <Mail className="mr-2 h-4 w-4" />
-                          New Email
-                        </Button>
-                      }
-                    />
-                  </div>
-                  <div className="space-y-4">
-                    {conversations.map((conversation) => (
-                      <ConversationCard
-                        key={conversation.conversation_id}
-                        conversation={conversation}
-                        onClick={() => {
-                          setSelectedConversationId(conversation.conversation_id)
-                          if (conversation.has_unread) {
-                            markConversationAsRead(conversation.conversation_id)
-                          }
-                        }}
-                      />
-                    ))}
-                  </div>
-                </>
-              )}
-            </TabsContent>
-
             {/* Shopify Orders Tab */}
             {hasShopifyConnection && (
               <TabsContent value="shopify">
@@ -1538,14 +1327,17 @@ export default function CustomerProfilePage() {
               <FilesTab customerId={customerId} />
             </TabsContent>
 
+            {/* Notes Tab */}
+            <TabsContent value="notes">
+              <NotesTab customerId={customerId} />
+            </TabsContent>
+
             {/* B2B Account Tab — only for retailer/org with linked retail account */}
             {isBusinessCustomer && customer.retail_account_id && (
               <TabsContent value="b2b">
                 <B2BAccountTab retailAccountId={customer.retail_account_id} />
               </TabsContent>
             )}
-
-            {/* Notes Tab - Now part of Activity tab */}
           </Tabs>
         </div>
 

@@ -32,22 +32,25 @@ import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 
 // Hook: fetch customers needing my reply (last_inbound_at > last_outbound_at)
+// Note: PostgREST can't compare two columns, so we fetch candidates and filter client-side
 function useNeedsMyReply() {
   return useQuery({
     queryKey: ['morning-briefing', 'needs-my-reply'],
     queryFn: async () => {
       const supabase = createClient()
-      // Customers who sent the last email and we haven't replied
       const { data, error } = await supabase
         .from('customers')
         .select('id, email, first_name, last_name, display_name, organization_name, customer_type, last_inbound_at, last_outbound_at')
         .not('last_inbound_at', 'is', null)
-        .or('last_outbound_at.is.null,last_inbound_at.gt.last_outbound_at')
-        .order('last_inbound_at', { ascending: true }) // oldest unanswered first
-        .limit(10)
+        .order('last_inbound_at', { ascending: true })
+        .limit(200)
 
       if (error) throw error
-      return data || []
+      // Filter client-side: inbound is more recent than outbound (or no outbound at all)
+      return (data || []).filter(c => {
+        if (!c.last_outbound_at) return true
+        return new Date(c.last_inbound_at!) > new Date(c.last_outbound_at)
+      }).slice(0, 10)
     },
     refetchInterval: 5 * 60 * 1000,
   })
@@ -60,18 +63,20 @@ function useWaitingOnCustomer() {
     queryFn: async () => {
       const supabase = createClient()
       const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-      // Customers we emailed but who haven't replied, where our last email was 2+ days ago
       const { data, error } = await supabase
         .from('customers')
         .select('id, email, first_name, last_name, display_name, organization_name, customer_type, last_inbound_at, last_outbound_at')
         .not('last_outbound_at', 'is', null)
         .lt('last_outbound_at', twoDaysAgo)
-        .or('last_inbound_at.is.null,last_outbound_at.gt.last_inbound_at')
-        .order('last_outbound_at', { ascending: true }) // longest wait first
-        .limit(10)
+        .order('last_outbound_at', { ascending: true })
+        .limit(200)
 
       if (error) throw error
-      return data || []
+      // Filter client-side: outbound is more recent than inbound (or no inbound at all)
+      return (data || []).filter(c => {
+        if (!c.last_inbound_at) return true
+        return new Date(c.last_outbound_at!) > new Date(c.last_inbound_at)
+      }).slice(0, 10)
     },
     refetchInterval: 5 * 60 * 1000,
   })
@@ -189,7 +194,7 @@ export default function DashboardPage() {
             {needsReply.map((c) => {
               const days = daysAgo(c.last_inbound_at!)
               return (
-                <Link key={c.id} href={`/customers/${c.id}`}>
+                <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
                   <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="font-medium">{getCustomerDisplayName(c)}</div>
@@ -220,7 +225,7 @@ export default function DashboardPage() {
             {waitingOn.map((c) => {
               const days = daysAgo(c.last_outbound_at!)
               return (
-                <Link key={c.id} href={`/customers/${c.id}`}>
+                <Link key={c.id} href={`/customers/${c.id}?tab=activity`}>
                   <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors flex items-center justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="font-medium">{getCustomerDisplayName(c)}</div>
@@ -427,7 +432,7 @@ export default function DashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-3 space-y-1">
-                {sales.newInquiries.slice(0, 5).map((lead) => (
+                {sales.newInquiries.slice(0, 3).map((lead) => (
                   <Link key={lead.id} href={`/work-items/${lead.id}`}>
                     <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors">
                       <div className="flex items-start justify-between">
@@ -457,10 +462,10 @@ export default function DashboardPage() {
                     </div>
                   </Link>
                 ))}
-                {sales.newInquiries.length > 5 && (
-                  <Link href="/follow-ups">
+                {sales.newInquiries.length > 3 && (
+                  <Link href="/sales-leads">
                     <div className="text-sm text-center font-medium text-muted-foreground hover:text-foreground py-2 hover:underline">
-                      +{sales.newInquiries.length - 5} more inquiries &rarr;
+                      +{sales.newInquiries.length - 3} more inquiries &rarr;
                     </div>
                   </Link>
                 )}
@@ -501,6 +506,13 @@ export default function DashboardPage() {
                     </div>
                   </Link>
                 ))}
+                {sales.highValue.length > 3 && (
+                  <Link href="/sales-leads">
+                    <div className="text-sm text-center font-medium text-muted-foreground hover:text-foreground py-2 hover:underline">
+                      +{sales.highValue.length - 3} more high value &rarr;
+                    </div>
+                  </Link>
+                )}
               </CardContent>
             </Card>
           )}
@@ -540,7 +552,7 @@ export default function DashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-3 space-y-1">
-                {production.needsReview.slice(0, 4).map((project) => (
+                {production.needsReview.slice(0, 5).map((project) => (
                   <Link key={project.id} href={`/work-items/${project.id}`}>
                     <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors">
                       <div className="font-medium">{project.customer_name}</div>
@@ -550,6 +562,13 @@ export default function DashboardPage() {
                     </div>
                   </Link>
                 ))}
+                {production.needsReview.length > 5 && (
+                  <Link href="/customify-orders">
+                    <div className="text-sm text-center font-medium text-muted-foreground hover:text-foreground py-2 hover:underline">
+                      +{production.needsReview.length - 5} more to review &rarr;
+                    </div>
+                  </Link>
+                )}
               </CardContent>
             </Card>
           )}
@@ -605,7 +624,7 @@ export default function DashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-4 pb-3 space-y-1">
-                {production.recentlyShipped.map((project) => (
+                {production.recentlyShipped.slice(0, 3).map((project) => (
                   <Link key={project.id} href={`/work-items/${project.id}`}>
                     <div className="p-2.5 rounded-lg hover:bg-muted cursor-pointer transition-colors">
                       <div className="font-medium">{project.customer_name}</div>
@@ -613,6 +632,13 @@ export default function DashboardPage() {
                     </div>
                   </Link>
                 ))}
+                {production.recentlyShipped.length > 3 && (
+                  <Link href="/work-items">
+                    <div className="text-sm text-center font-medium text-muted-foreground hover:text-foreground py-2 hover:underline">
+                      +{production.recentlyShipped.length - 3} more shipped &rarr;
+                    </div>
+                  </Link>
+                )}
               </CardContent>
             </Card>
           )}
