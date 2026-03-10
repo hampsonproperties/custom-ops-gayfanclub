@@ -19,6 +19,7 @@ import {
   Loader2,
   CheckSquare,
   FolderKanban,
+  AtSign,
 } from 'lucide-react'
 import { formatDistanceToNow, format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -26,10 +27,42 @@ import { toast } from 'sonner'
 import { cleanEmailContent, getEmailPreview } from '@/lib/utils/email-content-cleaner'
 import DOMPurify from 'dompurify'
 import { logger } from '@/lib/logger'
+import { MentionInput } from '@/components/work-items/mention-input'
 import { TaskForm } from '@/components/tasks/task-form'
 import { TaskList } from '@/components/tasks/task-list'
 
 const log = logger('customer-activity-feed')
+
+/** Render note text with @mentions highlighted as blue badges */
+function renderNoteWithMentions(content: string): React.ReactNode {
+  // Match @Name or @First Last (stop at punctuation, newline, or next @)
+  const mentionRegex = /@([\w]+(?:\s[\w]+)?)/g
+  const parts: React.ReactNode[] = []
+  let lastIndex = 0
+  let match
+
+  while ((match = mentionRegex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(content.substring(lastIndex, match.index))
+    }
+    parts.push(
+      <span
+        key={match.index}
+        className="inline-flex items-center gap-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded text-xs font-medium"
+      >
+        <AtSign className="h-3 w-3" />
+        {match[1]}
+      </span>
+    )
+    lastIndex = match.index + match[0].length
+  }
+
+  if (lastIndex < content.length) {
+    parts.push(content.substring(lastIndex))
+  }
+
+  return parts.length > 0 ? parts : content
+}
 
 type ActivityType = 'note' | 'email' | 'task' | 'project_event'
 type FilterType = 'all' | 'starred' | 'note' | 'email' | 'task'
@@ -506,10 +539,11 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
           {/* Note Composer */}
           {activeTab === 'note' && (
             <>
-              <Textarea
-                placeholder="Add a note about this customer..."
+              <MentionInput
+                placeholder="Add a note about this customer... Use @ to mention team members"
                 value={noteContent}
-                onChange={(e) => setNoteContent(e.target.value)}
+                onChange={setNoteContent}
+                rows={4}
                 className="min-h-[120px] resize-none text-base"
               />
               <div className="flex justify-end">
@@ -737,11 +771,17 @@ export function CustomerActivityFeed({ customerId, customerEmail }: CustomerActi
                     )}
                   </div>
                 ) : (
-                  /* Non-email content */
+                  /* Non-email content — render @mentions as highlighted badges for notes */
                   <div className="text-sm whitespace-pre-wrap">
-                    {shouldTruncate && !isExpanded
-                      ? linkifyShopifyRefs(activity.content.substring(0, 300) + '...')
-                      : linkifyShopifyRefs(activity.content)}
+                    {activity.type === 'note'
+                      ? renderNoteWithMentions(
+                          shouldTruncate && !isExpanded
+                            ? activity.content.substring(0, 300) + '...'
+                            : activity.content
+                        )
+                      : shouldTruncate && !isExpanded
+                        ? linkifyShopifyRefs(activity.content.substring(0, 300) + '...')
+                        : linkifyShopifyRefs(activity.content)}
                   </div>
                 )}
 

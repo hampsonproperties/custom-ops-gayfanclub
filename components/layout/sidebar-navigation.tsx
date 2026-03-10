@@ -29,7 +29,7 @@ export function SidebarNavigation() {
   }
 
   // Auto-open sections when a child is active
-  const isSalesChildActive = isActive('/sales-leads') || isActive('/follow-ups') || (pathname === '/customers' && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('type') === 'retailer')
+  const isSalesChildActive = isActive('/sales-leads') || isActive('/follow-ups') || isActive('/retail-accounts')
   const isEmailChildActive = isActive('/inbox') || isActive('/support-queue')
 
   return (
@@ -145,9 +145,9 @@ export function SidebarNavigation() {
                 Action Items
               </Button>
             </Link>
-            <Link href="/customers?type=retailer">
+            <Link href="/retail-accounts">
               <Button
-                variant={'ghost'}
+                variant={isActive('/retail-accounts') ? 'secondary' : 'ghost'}
                 size="sm"
                 className="w-full justify-start text-sm gap-2"
               >

@@ -198,13 +198,13 @@ export default function LeadsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Action Items</h1>
-          <p className="text-sm text-muted-foreground mt-1">Work items that need your attention — overdue follow-ups, rush orders, and pending contacts.</p>
-          <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-            Daily action list — overdue, today, this week, rush, and waiting-on-customer
+          <p className="text-sm text-muted-foreground mt-1">
+            Projects that need your attention — overdue follow-ups, new leads, rush orders, and items waiting on customers.
+            The Dashboard morning briefing shows customer-level check-ins; this page shows every individual project.
           </p>
         </div>
         <Badge variant="secondary" className="text-sm sm:text-lg px-3 sm:px-4 py-1.5 sm:py-2 self-start sm:self-auto">
-          {allLeads.length} total leads
+          {allLeads.length} item{allLeads.length !== 1 ? 's' : ''}
         </Badge>
       </div>
 
@@ -230,7 +230,7 @@ export default function LeadsPage() {
             </div>
             <h3 className="text-lg font-semibold mb-2">All caught up!</h3>
             <p className="text-muted-foreground text-center max-w-md">
-              No sales leads need your attention right now. Great work!
+              No projects need your attention right now. Great work!
             </p>
           </CardContent>
         </Card>
@@ -240,7 +240,7 @@ export default function LeadsPage() {
       {filteredLeads.length === 0 && searchQuery && (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground">No leads match your search.</p>
+            <p className="text-muted-foreground">No action items match your search.</p>
           </CardContent>
         </Card>
       )}
@@ -249,7 +249,7 @@ export default function LeadsPage() {
       {filteredLeads.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>All Leads</CardTitle>
+            <CardTitle>Projects Needing Attention</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             {/* Desktop Table */}
