@@ -37,6 +37,8 @@ import {
   Save,
   Lock,
   Loader2,
+  PackageCheck,
+  RotateCcw,
 } from 'lucide-react'
 import Link from 'next/link'
 import { formatDistanceToNow, format } from 'date-fns'
@@ -1139,6 +1141,18 @@ export default function CustomerProfilePage() {
                     {format(new Date(customer.next_follow_up_at), 'MMM d, yyyy')}
                     {new Date(customer.next_follow_up_at) <= new Date() && ' (overdue)'}
                   </span>
+                  {customer.follow_up_reason === 'post-delivery' && (
+                    <Badge variant="outline" className="text-[11px] gap-0.5 px-1.5 py-0 text-green-700 border-green-300">
+                      <PackageCheck className="h-2.5 w-2.5" />
+                      Post-delivery
+                    </Badge>
+                  )}
+                  {customer.follow_up_reason === 'win-back' && customer.follow_up_touch_number && customer.follow_up_max_touches && (
+                    <Badge variant="outline" className="text-[11px] gap-0.5 px-1.5 py-0 text-orange-700 border-orange-300">
+                      <RotateCcw className="h-2.5 w-2.5" />
+                      Win-back {customer.follow_up_touch_number}/{customer.follow_up_max_touches}
+                    </Badge>
+                  )}
                   <Button variant="ghost" size="sm" className="h-6 px-1.5 text-xs text-muted-foreground" onClick={() => handleSetFollowUp(null)}>
                     Clear
                   </Button>
