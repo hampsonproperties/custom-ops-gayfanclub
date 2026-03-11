@@ -111,11 +111,19 @@ export async function POST(request: NextRequest) {
       if (!customer.last_name && shopifyCustomer.last_name) {
         updates.last_name = shopifyCustomer.last_name
       }
-      if (!customer.display_name && (shopifyCustomer.first_name || shopifyCustomer.last_name)) {
-        updates.display_name = [shopifyCustomer.first_name, shopifyCustomer.last_name].filter(Boolean).join(' ')
+      // Backfill display_name if missing OR if it's just the email address
+      const shopifyFullName = [shopifyCustomer.first_name, shopifyCustomer.last_name].filter(Boolean).join(' ')
+      const displayNameIsEmail = customer.display_name && customer.display_name === customer.email
+      if ((!customer.display_name || displayNameIsEmail) && shopifyFullName) {
+        updates.display_name = shopifyFullName
       }
       if (!customer.phone && shopifyCustomer.phone) {
         updates.phone = shopifyCustomer.phone
+      }
+      // Backfill company/organization from Shopify default address
+      const shopifyCompany = shopifyCustomer.default_address?.company
+      if (shopifyCompany) {
+        updates.organization_name = shopifyCompany
       }
 
       const { error } = await supabase
