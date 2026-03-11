@@ -107,7 +107,7 @@ export default function CustomifyOrdersPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: order.customer_email,
+          to: (order as any).customer?.email || order.customer_email,
           subject: `Design Fix Needed — Order #${order.shopify_order_number || order.id.slice(0, 8)}`,
           body: reviewNotes,
           projectId: order.id,
@@ -221,14 +221,14 @@ export default function CustomifyOrdersPage() {
                       <div className="flex items-start justify-between">
                         <div>
                           <h3 className="font-semibold text-lg">
-                            {order.customer_name || order.title || 'Unknown Customer'}
+                            {(order as any).customer?.display_name || order.customer_name || order.title || 'Unknown Customer'}
                           </h3>
                           <p className="text-sm text-muted-foreground">
                             {order.shopify_order_number ? (
                               <Link href={`/work-items/${order.id}`} className="hover:underline hover:text-foreground transition-colors">
                                 Order #{order.shopify_order_number}
                               </Link>
-                            ) : order.customer_email}
+                            ) : ((order as any).customer?.email || order.customer_email)}
                           </p>
                         </div>
                         <SLAIndicator
@@ -299,7 +299,7 @@ export default function CustomifyOrdersPage() {
           {selectedOrderData && (
             <>
               <DialogHeader>
-                <DialogTitle>Review: {selectedOrderData.title || selectedOrderData.customer_name}</DialogTitle>
+                <DialogTitle>Review: {selectedOrderData.title || (selectedOrderData as any).customer?.display_name || selectedOrderData.customer_name}</DialogTitle>
                 <DialogDescription className="flex items-center gap-3">
                   <span>Complete the checklist, then approve or request a fix</span>
                   <span className="flex items-center gap-2">

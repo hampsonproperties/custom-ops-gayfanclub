@@ -32,7 +32,7 @@ export function InlineEmailComposer({
   defaultSubject = '',
   onSendSuccess,
 }: InlineEmailComposerProps) {
-  const [to, setTo] = useState(defaultTo || workItem.customer_email || '')
+  const [to, setTo] = useState(defaultTo || (workItem as any).customer?.email || workItem.customer_email || '')
   const [subject, setSubject] = useState(defaultSubject)
   const [body, setBody] = useState('')
 
@@ -148,7 +148,7 @@ export function InlineEmailComposer({
         <div className="space-y-1 min-w-0">
           <h3 className="font-semibold text-base sm:text-lg">Compose New Email</h3>
           <p className="text-sm text-muted-foreground">
-            Send an email to {workItem.customer_name || workItem.customer_email || 'the customer'}
+            Send an email to {(workItem as any).customer?.display_name || workItem.customer_name || (workItem as any).customer?.email || workItem.customer_email || 'the customer'}
           </p>
         </div>
         <TemplateSelector onSelectTemplate={handleSelectTemplate} />

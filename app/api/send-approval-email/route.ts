@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     // Fetch work item details
     const { data: workItem, error: workItemError } = await supabase
       .from('work_items')
-      .select('*')
+      .select('*, customer:customers(display_name, email, organization_name, phone)')
       .eq('id', workItemId)
       .single()
 
@@ -45,7 +45,10 @@ export async function POST(request: NextRequest) {
       return notFound('Work item not found')
     }
 
-    if (!workItem.customer_email) {
+    const customerEmail = workItem.customer?.email || workItem.customer_email
+    const customerName = workItem.customer?.display_name || workItem.customer_name
+
+    if (!customerEmail) {
       return badRequest('Work item has no customer email')
     }
 
@@ -131,7 +134,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { subject, body } = renderTemplate(template, {
-      customerName: workItem.customer_name || 'there',
+      customerName: customerName || 'there',
       orderNumber: workItem.shopify_order_number || workItem.id,
       proofImageUrl,
       approveLink,
@@ -169,7 +172,7 @@ export async function POST(request: NextRequest) {
           toRecipients: [
             {
               emailAddress: {
-                address: workItem.customer_email,
+                address: customerEmail,
               },
             },
           ],
@@ -208,7 +211,7 @@ export async function POST(request: NextRequest) {
         work_item_id: workItemId,
         direction: 'outbound',
         from_email: mailboxEmail,
-        to_emails: [workItem.customer_email],
+        to_emails: [customerEmail],
         subject,
         body_html: body,
         body_preview: subject,

@@ -14,6 +14,7 @@ import Link from 'next/link'
 import { Breadcrumbs } from '@/components/ui/breadcrumbs'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import { findOrCreateCustomerByEmail } from '@/lib/utils/find-or-create-customer'
 import { formatDistanceToNow } from 'date-fns'
 import { logger } from '@/lib/logger'
 
@@ -102,14 +103,20 @@ export default function NewLeadPage() {
       // Get current user for assignment
       const { data: { user } } = await supabase.auth.getUser()
 
+      // Find or create customer record first — customer is the source of truth
+      const customerId = await findOrCreateCustomerByEmail(
+        supabase,
+        email.toLowerCase().trim(),
+        customerName.trim(),
+        { phone: phone.trim() || null, organizationName: companyName.trim() || null }
+      )
+
       const leadData = {
         type: 'assisted_project' as const,
         source: 'manual' as const,
         status: 'new_inquiry' as const,
-        customer_email: email.toLowerCase().trim(),
-        customer_name: customerName.trim(),
+        customer_id: customerId,
         phone_number: phone.trim() || null,
-        company_name: companyName.trim() || null,
         lead_source: leadSource,
         estimated_value: estimatedValue ? parseFloat(estimatedValue) : null,
         event_date: eventDate || null,

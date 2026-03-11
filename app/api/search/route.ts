@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
         .limit(10),
       supabase
         .from('work_items')
-        .select('id, title, customer_name, status, type')
+        .select('id, title, customer_name, status, type, customer:customers(display_name, email)')
         .or(`title.ilike.${searchQuery},customer_name.ilike.${searchQuery}`)
         .limit(10),
       supabase
@@ -84,11 +84,12 @@ export async function GET(request: NextRequest) {
     // Process work items
     if (!workItemsResult.error && workItemsResult.data) {
       for (const item of workItemsResult.data) {
+        const customerName = (item as any).customer?.display_name || item.customer_name
         results.push({
           id: item.id,
           type: 'work_item',
-          title: item.title || `${item.type} - ${item.customer_name || 'Unknown'}`,
-          subtitle: `${item.status} • ${item.customer_name || 'Unknown customer'}`,
+          title: item.title || `${item.type} - ${customerName || 'Unknown'}`,
+          subtitle: `${item.status} • ${customerName || 'Unknown customer'}`,
           url: `/work-items/${item.id}`,
         })
       }

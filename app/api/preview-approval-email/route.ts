@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     // Fetch work item details
     const { data: workItem, error: workItemError } = await supabase
       .from('work_items')
-      .select('*')
+      .select('*, customer:customers(display_name, email, organization_name, phone)')
       .eq('id', workItemId)
       .single()
 
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
     const rejectLink = `${baseUrl}/request-changes?token=PREVIEW_REJECT_TOKEN`
 
     const { subject, body } = renderTemplate(template, {
-      customerName: workItem.customer_name || 'there',
+      customerName: workItem.customer?.display_name || workItem.customer_name || 'there',
       orderNumber: workItem.shopify_order_number || workItem.id,
       proofImageUrl,
       approveLink,

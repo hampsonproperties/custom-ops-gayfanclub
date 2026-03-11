@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +16,8 @@ import {
 import { useUpdateWorkItem } from '@/lib/hooks/use-work-items'
 import { Edit2, Check, X, Plus, Trash2, Building2, Phone, Globe, MapPin, Users } from 'lucide-react'
 import { toast } from 'sonner'
+import { createClient } from '@/lib/supabase/client'
+import { useQueryClient } from '@tanstack/react-query'
 
 type WorkItem = any
 
@@ -28,12 +30,22 @@ interface SecondaryContact {
 
 export function CustomerDetailsEditor({ workItem }: { workItem: WorkItem }) {
   const updateWorkItem = useUpdateWorkItem()
+  const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+
+  // Resolve customer data: prefer joined customer, fall back to work item fields
+  const customer = workItem.customer
+  const resolvedName = customer?.display_name || workItem.customer_name || ''
+  const resolvedEmail = customer?.email || workItem.customer_email || ''
+  const resolvedCompany = customer?.organization_name || workItem.company_name || ''
+  const resolvedPhone = customer?.phone || workItem.phone_number || ''
+
   const [formData, setFormData] = useState({
-    customer_name: workItem.customer_name || '',
-    customer_email: workItem.customer_email || '',
-    company_name: workItem.company_name || '',
-    phone_number: workItem.phone_number || '',
+    customer_name: resolvedName,
+    customer_email: resolvedEmail,
+    company_name: resolvedCompany,
+    phone_number: resolvedPhone,
     address: workItem.address || '',
     website: workItem.website || '',
     lead_source: workItem.lead_source || '',
@@ -44,28 +56,84 @@ export function CustomerDetailsEditor({ workItem }: { workItem: WorkItem }) {
     workItem.secondary_contacts || []
   )
 
+  // Keep form data in sync when workItem changes
+  useEffect(() => {
+    const c = workItem.customer
+    setFormData({
+      customer_name: c?.display_name || workItem.customer_name || '',
+      customer_email: c?.email || workItem.customer_email || '',
+      company_name: c?.organization_name || workItem.company_name || '',
+      phone_number: c?.phone || workItem.phone_number || '',
+      address: workItem.address || '',
+      website: workItem.website || '',
+      lead_source: workItem.lead_source || '',
+      industry: workItem.industry || '',
+      company_size: workItem.company_size || '',
+    })
+  }, [workItem])
+
   const handleSave = async () => {
     try {
+      setIsSaving(true)
+
+      // If work item has a linked customer, update the customer record
+      if (workItem.customer_id) {
+        const supabase = createClient()
+
+        // Parse name into first/last
+        const nameParts = formData.customer_name.trim().split(/\s+/)
+        const firstName = nameParts[0] || null
+        const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : null
+
+        const { error: customerError } = await supabase
+          .from('customers')
+          .update({
+            display_name: formData.customer_name.trim() || null,
+            first_name: firstName,
+            last_name: lastName,
+            email: formData.customer_email.trim().toLowerCase() || null,
+            organization_name: formData.company_name.trim() || null,
+            phone: formData.phone_number.trim() || null,
+          })
+          .eq('id', workItem.customer_id)
+
+        if (customerError) throw customerError
+      }
+
+      // Update work-item-specific fields (not customer data)
       await updateWorkItem.mutateAsync({
         id: workItem.id,
         updates: {
-          ...formData,
+          phone_number: formData.phone_number.trim() || null,
+          address: formData.address.trim() || null,
+          website: formData.website.trim() || null,
+          lead_source: formData.lead_source || null,
+          industry: formData.industry.trim() || null,
+          company_size: formData.company_size || null,
           secondary_contacts: secondaryContacts,
         } as any,
       })
+
+      // Invalidate queries to refresh customer data
+      queryClient.invalidateQueries({ queryKey: ['work-item'] })
+      queryClient.invalidateQueries({ queryKey: ['customers'] })
+
       toast.success('Customer details updated')
       setIsEditing(false)
     } catch (error) {
       toast.error('Failed to update details')
+    } finally {
+      setIsSaving(false)
     }
   }
 
   const handleCancel = () => {
+    const c = workItem.customer
     setFormData({
-      customer_name: workItem.customer_name || '',
-      customer_email: workItem.customer_email || '',
-      company_name: workItem.company_name || '',
-      phone_number: workItem.phone_number || '',
+      customer_name: c?.display_name || workItem.customer_name || '',
+      customer_email: c?.email || workItem.customer_email || '',
+      company_name: c?.organization_name || workItem.company_name || '',
+      phone_number: c?.phone || workItem.phone_number || '',
       address: workItem.address || '',
       website: workItem.website || '',
       lead_source: workItem.lead_source || '',
@@ -110,15 +178,15 @@ export function CustomerDetailsEditor({ workItem }: { workItem: WorkItem }) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-xs text-muted-foreground">Name</Label>
-                <p className="font-medium">{formData.customer_name || '-'}</p>
+                <p className="font-medium">{resolvedName || '-'}</p>
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Email</Label>
-                <p className="font-medium">{formData.customer_email || '-'}</p>
+                <p className="font-medium">{resolvedEmail || '-'}</p>
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Phone</Label>
-                <p className="font-medium">{formData.phone_number || '-'}</p>
+                <p className="font-medium">{resolvedPhone || '-'}</p>
               </div>
             </div>
           </div>
@@ -132,7 +200,7 @@ export function CustomerDetailsEditor({ workItem }: { workItem: WorkItem }) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-xs text-muted-foreground">Company Name</Label>
-                <p className="font-medium">{formData.company_name || '-'}</p>
+                <p className="font-medium">{resolvedCompany || '-'}</p>
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground">Industry</Label>
@@ -224,7 +292,7 @@ export function CustomerDetailsEditor({ workItem }: { workItem: WorkItem }) {
             <X className="h-4 w-4 mr-2" />
             Cancel
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={updateWorkItem.isPending}>
+          <Button size="sm" onClick={handleSave} disabled={isSaving}>
             <Check className="h-4 w-4 mr-2" />
             Save
           </Button>
@@ -324,7 +392,7 @@ export function CustomerDetailsEditor({ workItem }: { workItem: WorkItem }) {
           <Textarea
             value={formData.address}
             onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-            placeholder="123 Main St&#10;Suite 100&#10;City, State 12345"
+            placeholder={"123 Main St\nSuite 100\nCity, State 12345"}
             rows={3}
           />
         </div>

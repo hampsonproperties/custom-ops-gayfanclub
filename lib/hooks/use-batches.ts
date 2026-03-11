@@ -50,6 +50,7 @@ export function useBatch(id: string) {
           *,
           work_item:work_items(
             *,
+            customer:customers(display_name, email, organization_name),
             files(*)
           )
         `)

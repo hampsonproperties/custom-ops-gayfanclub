@@ -163,7 +163,7 @@ export function SendApprovalDialog({
         <DialogHeader>
           <DialogTitle>Send Approval Email</DialogTitle>
           <DialogDescription>
-            Select a proof file to send to {workItem.customer_name || 'the customer'} for
+            Select a proof file to send to {(workItem as any).customer?.display_name || workItem.customer_name || 'the customer'} for
             approval.
           </DialogDescription>
         </DialogHeader>
@@ -173,11 +173,11 @@ export function SendApprovalDialog({
           <div className="bg-muted/50 rounded-lg p-4 space-y-1">
             <div className="text-sm">
               <span className="font-medium">Customer:</span>{' '}
-              {workItem.customer_name || 'Unknown'}
+              {(workItem as any).customer?.display_name || workItem.customer_name || 'Unknown'}
             </div>
             <div className="text-sm">
               <span className="font-medium">Email:</span>{' '}
-              {workItem.customer_email || 'No email on file'}
+              {(workItem as any).customer?.email || workItem.customer_email || 'No email on file'}
             </div>
             <div className="text-sm">
               <span className="font-medium">Order:</span>{' '}
@@ -322,7 +322,7 @@ export function SendApprovalDialog({
           </Button>
           <Button
             onClick={handleSend}
-            disabled={!selectedFileId || sending || !workItem.customer_email}
+            disabled={!selectedFileId || sending || !((workItem as any).customer?.email || workItem.customer_email)}
           >
             {sending ? 'Sending...' : 'Send Approval Email'}
           </Button>

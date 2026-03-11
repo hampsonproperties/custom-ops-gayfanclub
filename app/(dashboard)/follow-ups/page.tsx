@@ -280,11 +280,11 @@ export default function LeadsPage() {
                             href={`/work-items/${item.id}`}
                             className="font-medium hover:underline flex items-center gap-1.5"
                           >
-                            {item.customer_name || 'Unnamed Customer'}
+                            {item.customer?.display_name || item.customer_name || 'Unnamed Customer'}
                             <ExternalLink className="h-3 w-3 text-muted-foreground" />
                           </Link>
                           <div className="text-xs text-muted-foreground truncate">
-                            {item.customer_email}
+                            {item.customer?.email || item.customer_email}
                           </div>
                           {priorityBadge && (
                             <div className="flex gap-1 flex-wrap pt-0.5">
@@ -385,10 +385,10 @@ export default function LeadsPage() {
                           href={`/work-items/${item.id}`}
                           className="font-medium text-base hover:underline"
                         >
-                          {item.customer_name || 'Unnamed Customer'}
+                          {item.customer?.display_name || item.customer_name || 'Unnamed Customer'}
                         </Link>
                         <div className="text-sm text-muted-foreground truncate mt-0.5">
-                          {item.customer_email}
+                          {item.customer?.email || item.customer_email}
                         </div>
                       </div>
                       {priorityBadge}

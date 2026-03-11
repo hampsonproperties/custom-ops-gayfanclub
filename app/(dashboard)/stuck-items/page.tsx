@@ -112,7 +112,7 @@ function StuckItemCard({ item }: { item: StuckItem }) {
                 {item.title || item.item_type || 'Untitled Item'}
               </CardTitle>
               <CardDescription className="mt-1">
-                {item.customer_name || item.customer_email || 'No customer'}
+{(item as any).customer?.display_name || item.customer_name || (item as any).customer?.email || item.customer_email || 'No customer'}
               </CardDescription>
             </div>
             <div className="text-right">

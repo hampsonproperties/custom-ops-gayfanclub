@@ -26,7 +26,7 @@ export async function GET(
     // Get batch items with work item details
     const { data: items, error: itemsError } = await supabase
       .from('batch_items')
-      .select('*, work_item:work_items(*)')
+      .select('*, work_item:work_items(*, customer:customers(display_name, email, organization_name, phone))')
       .eq('batch_id', id)
       .order('position', { ascending: true })
 
@@ -55,7 +55,7 @@ export async function GET(
       },
       workItems: items.map((item: any) => ({
         id: item.work_item.id,
-        customer_name: item.work_item.customer_name,
+        customer_name: item.work_item.customer?.display_name || item.work_item.customer_name,
       })),
       allFiles: allFiles?.map((f: any) => ({
         id: f.id,

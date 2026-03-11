@@ -11,12 +11,21 @@ export type LeadStatus =
   | 'closed_lost'
   | 'closed_event_cancelled'
 
+export interface LeadCustomer {
+  display_name: string | null
+  email: string | null
+  organization_name: string | null
+  phone: string | null
+}
+
 export interface Lead {
   id: string
+  customer_id: string | null
   customer_name: string | null
   customer_email: string | null
   company_name: string | null
   phone_number: string | null
+  customer: LeadCustomer | null
   status: LeadStatus
   estimated_value: number | null
   actual_value: number | null
@@ -61,7 +70,7 @@ export function useLeads(filters: LeadsFilters = {}) {
 
       let query = supabase
         .from('work_items')
-        .select('*', isPaginated ? { count: 'exact' } : {})
+        .select('*, customer:customers(display_name, email, organization_name, phone)', isPaginated ? { count: 'exact' } : {})
         .eq('type', 'assisted_project')
         .in('status', [
           'new_inquiry',

@@ -27,7 +27,7 @@ export async function GET(
     // Get batch items with work item details
     const { data: items, error: itemsError } = await supabase
       .from('batch_items')
-      .select('*, work_item:work_items(*)')
+      .select('*, work_item:work_items(*, customer:customers(display_name, email, organization_name, phone))')
       .eq('batch_id', id)
       .order('position', { ascending: true })
 
@@ -71,6 +71,7 @@ export async function GET(
 
     const rows = items.map((item: any, index: number) => {
       const workItem = item.work_item
+      const customerName = workItem.customer?.display_name || workItem.customer_name
 
       // Determine payment status
       let paymentStatus = 'Unpaid'
@@ -94,12 +95,12 @@ export async function GET(
             extension = pathExtension
           }
         }
-        fileName = `${index + 1}_${workItem.customer_name?.replace(/[^a-z0-9]/gi, '_') || 'design'}.${extension}`
+        fileName = `${index + 1}_${customerName?.replace(/[^a-z0-9]/gi, '_') || 'design'}.${extension}`
       }
 
       return [
         item.position,
-        workItem.customer_name || '',
+        customerName || '',
         workItem.design_notes || workItem.title || '',
         workItem.quantity || 0,
         workItem.grip_color || '',
@@ -137,11 +138,12 @@ export async function GET(
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
       const workItem = item.work_item
+      const itemCustomerName = workItem.customer?.display_name || workItem.customer_name
       const designFile = files?.find((f: any) => f.work_item_id === workItem.id)
 
       if (designFile && designsFolder) {
         try {
-          log.info('Downloading file', { customerName: workItem.customer_name, storagePath: designFile.storage_path })
+          log.info('Downloading file', { customerName: itemCustomerName, storagePath: designFile.storage_path })
 
           // Check if storage_path is a URL or a Supabase path
           let fileData: ArrayBuffer
@@ -177,14 +179,14 @@ export async function GET(
             }
           }
 
-          const fileName = `${i + 1}_${workItem.customer_name?.replace(/[^a-z0-9]/gi, '_') || 'design'}.${extension}`
+          const fileName = `${i + 1}_${itemCustomerName?.replace(/[^a-z0-9]/gi, '_') || 'design'}.${extension}`
           designsFolder.file(fileName, fileData)
           log.info('Added file to zip', { fileName, bytes: fileData.byteLength })
         } catch (error) {
-          log.error('Failed to download file', { customerName: workItem.customer_name, error })
+          log.error('Failed to download file', { customerName: itemCustomerName, error })
         }
       } else {
-        log.info('No design file found', { customerName: workItem.customer_name })
+        log.info('No design file found', { customerName: itemCustomerName })
       }
     }
 

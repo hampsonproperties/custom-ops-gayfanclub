@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     // Fetch work item to get customer details
     const { data: workItem, error: workItemError } = await supabase
       .from('work_items')
-      .select('type, status, customer_name, customer_email')
+      .select('type, status, customer_name, customer_email, customer:customers(display_name, email, organization_name, phone)')
       .eq('id', workItemId)
       .single()
 
@@ -92,15 +92,18 @@ export async function POST(request: NextRequest) {
       return notFound('Work item not found')
     }
 
+    const customerEmail = (workItem as any).customer?.email || workItem.customer_email
+    const customerName = (workItem as any).customer?.display_name || workItem.customer_name
+
     // Store feedback as a communication record
     const { error: commError } = await supabase
       .from('communications')
       .insert({
         work_item_id: workItemId,
         direction: 'inbound',
-        from_email: workItem.customer_email || 'customer@unknown.com',
+        from_email: customerEmail || 'customer@unknown.com',
         to_emails: ['sales@thegayfanclub.com'],
-        subject: `Design Changes Requested - ${workItem.customer_name || 'Customer'}`,
+        subject: `Design Changes Requested - ${customerName || 'Customer'}`,
         body_html: `<p><strong>Customer Feedback:</strong></p><p>${escapeHtml(feedback).replace(/\n/g, '<br>')}</p>`,
         body_preview: feedback.slice(0, 200),
         received_at: new Date().toISOString(),

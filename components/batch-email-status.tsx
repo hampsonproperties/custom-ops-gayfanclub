@@ -102,8 +102,8 @@ export function BatchEmailStatus({ batchId }: BatchEmailStatusProps) {
         {data.emails.map((emailStatus) => (
           <div key={emailStatus.work_item_id} className="border border-gray-200 rounded-lg p-4">
             <div className="mb-4">
-              <h4 className="font-medium text-gray-900">{emailStatus.customer_name || 'Unknown Customer'}</h4>
-              <p className="text-sm text-gray-500">{emailStatus.customer_email}</p>
+              <h4 className="font-medium text-gray-900">{(emailStatus as any).customer?.display_name || emailStatus.customer_name || 'Unknown Customer'}</h4>
+              <p className="text-sm text-gray-500">{(emailStatus as any).customer?.email || emailStatus.customer_email}</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

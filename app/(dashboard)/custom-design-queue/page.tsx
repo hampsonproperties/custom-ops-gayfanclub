@@ -106,7 +106,7 @@ export default function CustomDesignQueuePage() {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <CardTitle className="text-base">
-                        {item.customer_name || item.customer_email}
+                        {item.customer?.display_name || item.customer_name || item.customer?.email || item.customer_email}
                       </CardTitle>
                       <p className="text-sm text-muted-foreground mt-1">
                         {item.title || 'Custom Design Project'}
@@ -189,7 +189,7 @@ export default function CustomDesignQueuePage() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <CardTitle className="text-base">
-                          {item.customer_name || item.customer_email}
+                          {item.customer?.display_name || item.customer_name || item.customer?.email || item.customer_email}
                         </CardTitle>
                         <p className="text-sm text-muted-foreground mt-1">
                           {item.title || 'Custom Design Project'}
@@ -272,7 +272,7 @@ export default function CustomDesignQueuePage() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <CardTitle className="text-base">
-                          {item.customer_name || item.customer_email}
+                          {item.customer?.display_name || item.customer_name || item.customer?.email || item.customer_email}
                         </CardTitle>
                         <p className="text-sm text-muted-foreground mt-1">
                           {item.title || 'Custom Design Project'}

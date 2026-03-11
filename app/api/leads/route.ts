@@ -52,14 +52,13 @@ export async function POST(request: NextRequest) {
     })
 
     // Insert work item with customer linkage and audit trail
+    // Customer data (name, email, company) lives on the customer record — not duplicated here
     const { data, error } = await supabase
       .from('work_items')
       .insert({
         type: body.type || 'assisted_project',
         source: body.source,
         status: body.status || 'new_inquiry',
-        customer_name: body.customer_name,
-        customer_email: body.customer_email,
         customer_id: customerId,
         created_by_user_id: auth.user.id,
         title: body.title,

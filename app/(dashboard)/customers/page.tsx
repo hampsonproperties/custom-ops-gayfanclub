@@ -130,17 +130,32 @@ function CustomersPageContent() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const shouldOpenNew = searchParams.get('new') === 'true'
+  const navFilter = searchParams.get('filter') // from sidebar: leads, retailers, organizations, individuals
   const [view, setView] = useState<'pipeline' | 'list'>('list')
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'with_projects' | 'no_projects'>('all')
   const [sourceFilter, setSourceFilter] = useState<'all' | 'shopify' | 'email_import' | 'unclaimed'>('all')
-  const [typeFilter, setTypeFilter] = useState<'all' | 'individual' | 'retailer' | 'organization'>('all')
+  const [typeFilter, setTypeFilter] = useState<'all' | 'individual' | 'retailer' | 'organization'>(() => {
+    if (navFilter === 'retailers') return 'retailer'
+    if (navFilter === 'organizations') return 'organization'
+    if (navFilter === 'individuals') return 'individual'
+    return 'all'
+  })
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 25
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [bulkLoading, setBulkLoading] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+
+  // Sync type filter when sidebar nav filter changes
+  useEffect(() => {
+    if (navFilter === 'retailers') setTypeFilter('retailer')
+    else if (navFilter === 'organizations') setTypeFilter('organization')
+    else if (navFilter === 'individuals') setTypeFilter('individual')
+    else if (navFilter === 'leads' || !navFilter) setTypeFilter('all')
+    setPage(1)
+  }, [navFilter])
 
   // Fetch current user for "Claim" button
   useEffect(() => {
@@ -231,7 +246,7 @@ function CustomersPageContent() {
 
   // Fetch customers with stats
   const { data: customersData, isLoading, refetch } = useQuery({
-    queryKey: ['customers', searchQuery, filterStatus, sourceFilter, typeFilter, isPaginated ? page : 'all', isPaginated ? PAGE_SIZE : 'all'],
+    queryKey: ['customers', searchQuery, filterStatus, sourceFilter, typeFilter, navFilter, isPaginated ? page : 'all', isPaginated ? PAGE_SIZE : 'all'],
     queryFn: async () => {
       const supabase = createClient()
 
@@ -267,6 +282,11 @@ function CustomersPageContent() {
       // Apply type filter
       if (typeFilter !== 'all') {
         query = query.eq('customer_type', typeFilter)
+      }
+
+      // Apply "leads" nav filter — show customers in early sales pipeline stages
+      if (navFilter === 'leads') {
+        query = query.in('sales_stage', ['new_lead', 'contacted', 'in_discussion', 'quoted', 'negotiating'])
       }
 
       // Apply search filter
@@ -388,9 +408,11 @@ function CustomersPageContent() {
       {/* Header */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <h1 className="text-3xl font-bold tracking-tight">Customers</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {navFilter === 'leads' ? 'Leads' : navFilter === 'retailers' ? 'Retailers' : navFilter === 'organizations' ? 'Organizations' : navFilter === 'individuals' ? 'Individuals' : 'Contacts'}
+          </h1>
           <p className="text-muted-foreground mt-1">
-            Manage your customer relationships and project history
+            {navFilter === 'leads' ? 'Customers in the sales pipeline' : 'Manage your customer relationships and project history'}
           </p>
         </div>
         <CreateCustomerDialog

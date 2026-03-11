@@ -24,7 +24,7 @@ export function useTimeline(workItemId: string) {
       // Get work item creation
       const { data: workItem } = await supabase
         .from('work_items')
-        .select('created_at, type, source, customer_name, created_by_user_id, created_by:users!work_items_created_by_user_id_fkey(full_name, email)')
+        .select('created_at, type, source, customer_name, created_by_user_id, created_by:users!work_items_created_by_user_id_fkey(full_name, email), customer:customers(display_name, email, organization_name, phone)')
         .eq('id', workItemId)
         .single()
 

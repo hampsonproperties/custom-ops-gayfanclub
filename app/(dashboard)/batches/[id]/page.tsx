@@ -206,7 +206,7 @@ export default function BatchDetailPage({ params }: { params: Promise<{ id: stri
                         href={`/work-items/${workItem.id}`}
                         className="font-medium hover:underline"
                       >
-                        {workItem.customer_name || workItem.customer_email}
+                        {workItem.customer?.display_name || workItem.customer_name || workItem.customer?.email || workItem.customer_email}
                       </Link>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <span>{workItem.quantity || 0} units</span>

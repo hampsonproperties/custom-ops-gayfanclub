@@ -43,7 +43,7 @@ export async function getWorkItemRecipients(workItemId: string): Promise<{
 
   const { data: workItem } = await supabase
     .from('work_items')
-    .select('customer_email, alternate_emails, customer_name')
+    .select('customer_email, alternate_emails, customer_name, customer:customers(display_name, email)')
     .eq('id', workItemId)
     .single()
 
@@ -52,9 +52,9 @@ export async function getWorkItemRecipients(workItemId: string): Promise<{
   }
 
   return {
-    primaryEmail: workItem.customer_email,
+    primaryEmail: (workItem as any).customer?.email || workItem.customer_email,
     alternateEmails: workItem.alternate_emails || [],
-    customerName: workItem.customer_name,
+    customerName: (workItem as any).customer?.display_name || workItem.customer_name,
   }
 }
 
@@ -78,14 +78,14 @@ export async function getBatchWorkItemRecipients(
 
   const { data: workItems } = await supabase
     .from('work_items')
-    .select('id, customer_email, alternate_emails, customer_name')
+    .select('id, customer_email, alternate_emails, customer_name, customer:customers(display_name, email)')
     .in('id', workItemIds)
 
   for (const item of workItems || []) {
     result.set(item.id, {
-      primaryEmail: item.customer_email,
+      primaryEmail: (item as any).customer?.email || item.customer_email,
       alternateEmails: item.alternate_emails || [],
-      customerName: item.customer_name,
+      customerName: (item as any).customer?.display_name || item.customer_name,
     })
   }
 
@@ -281,7 +281,7 @@ export async function sendBatchEmail(params: SendBatchEmailParams): Promise<{
     // Get work item for merge fields
     const { data: workItem } = await supabase
       .from('work_items')
-      .select('customer_name, customer_email, shopify_order_number')
+      .select('customer_name, customer_email, shopify_order_number, customer:customers(display_name, email)')
       .eq('id', params.workItemId)
       .single()
 
@@ -289,8 +289,9 @@ export async function sendBatchEmail(params: SendBatchEmailParams): Promise<{
       return { success: false, error: 'Work item not found' }
     }
 
-    // Get first name from customer name
-    const firstName = workItem.customer_name?.split(' ')[0] || 'there'
+    // Get first name from customer name (prefer joined customer data)
+    const customerName = (workItem as any).customer?.display_name || workItem.customer_name
+    const firstName = customerName?.split(' ')[0] || 'there'
 
     // Render template
     const templateKey = getTemplateKeyForEmailType(params.emailType)

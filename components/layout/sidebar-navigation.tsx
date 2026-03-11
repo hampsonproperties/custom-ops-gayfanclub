@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import {
   LayoutDashboard,
   Users,
+  User,
   FolderKanban,
   Package,
   Settings,
@@ -16,20 +17,31 @@ import {
   AlertTriangle,
   Inbox,
   Store,
+  Building2,
+  Target,
 } from 'lucide-react'
 
 export function SidebarNavigation() {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [projectsOpen, setProjectsOpen] = useState(true)
   const [salesOpen, setSalesOpen] = useState(false)
   const [emailOpen, setEmailOpen] = useState(false)
+  const [contactsOpen, setContactsOpen] = useState(true)
 
   const isActive = (path: string) => {
     return pathname === path || pathname.startsWith(path + '/')
   }
 
+  const isContactFilterActive = (filter: string | null) => {
+    if (!isActive('/customers')) return false
+    const currentFilter = searchParams.get('filter')
+    return filter === null ? currentFilter === null : currentFilter === filter
+  }
+
   // Auto-open sections when a child is active
-  const isSalesChildActive = isActive('/sales-leads') || isActive('/follow-ups') || isActive('/retail-accounts')
+  const isContactsChildActive = isActive('/customers')
+  const isSalesChildActive = isActive('/follow-ups')
   const isEmailChildActive = isActive('/inbox') || isActive('/support-queue')
 
   return (
@@ -46,17 +58,77 @@ export function SidebarNavigation() {
         </Button>
       </Link>
 
-      {/* Customers - Primary customer-centric view */}
-      <Link href="/customers">
+      {/* Contacts Section */}
+      <div className="pt-2">
         <Button
-          variant={isActive('/customers') ? 'secondary' : 'ghost'}
+          variant="ghost"
           size="sm"
-          className="w-full justify-start gap-3"
+          className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
+          onClick={() => setContactsOpen(!contactsOpen)}
         >
+          {contactsOpen || isContactsChildActive ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
           <Users className="h-4 w-4" />
-          Customers
+          <span className="font-semibold">Contacts</span>
         </Button>
-      </Link>
+
+        {(contactsOpen || isContactsChildActive) && (
+          <div className="ml-6 mt-1 space-y-1">
+            <Link href="/customers">
+              <Button
+                variant={isContactFilterActive(null) ? 'secondary' : 'ghost'}
+                size="sm"
+                className="w-full justify-start text-sm"
+              >
+                All Contacts
+              </Button>
+            </Link>
+            <Link href="/customers?filter=leads">
+              <Button
+                variant={isContactFilterActive('leads') ? 'secondary' : 'ghost'}
+                size="sm"
+                className="w-full justify-start text-sm gap-2"
+              >
+                <Target className="h-3.5 w-3.5" />
+                Leads
+              </Button>
+            </Link>
+            <Link href="/customers?filter=retailers">
+              <Button
+                variant={isContactFilterActive('retailers') ? 'secondary' : 'ghost'}
+                size="sm"
+                className="w-full justify-start text-sm gap-2"
+              >
+                <Store className="h-3.5 w-3.5" />
+                Retailers
+              </Button>
+            </Link>
+            <Link href="/customers?filter=organizations">
+              <Button
+                variant={isContactFilterActive('organizations') ? 'secondary' : 'ghost'}
+                size="sm"
+                className="w-full justify-start text-sm gap-2"
+              >
+                <Building2 className="h-3.5 w-3.5" />
+                Organizations
+              </Button>
+            </Link>
+            <Link href="/customers?filter=individuals">
+              <Button
+                variant={isContactFilterActive('individuals') ? 'secondary' : 'ghost'}
+                size="sm"
+                className="w-full justify-start text-sm gap-2"
+              >
+                <User className="h-3.5 w-3.5" />
+                Individuals
+              </Button>
+            </Link>
+          </div>
+        )}
+      </div>
 
       {/* Email Section */}
       <div className="pt-2">
@@ -127,15 +199,6 @@ export function SidebarNavigation() {
 
         {(salesOpen || isSalesChildActive) && (
           <div className="ml-6 mt-1 space-y-1">
-            <Link href="/sales-leads">
-              <Button
-                variant={isActive('/sales-leads') ? 'secondary' : 'ghost'}
-                size="sm"
-                className="w-full justify-start text-sm"
-              >
-                Sales Leads
-              </Button>
-            </Link>
             <Link href="/follow-ups">
               <Button
                 variant={isActive('/follow-ups') ? 'secondary' : 'ghost'}
@@ -143,16 +206,6 @@ export function SidebarNavigation() {
                 className="w-full justify-start text-sm"
               >
                 Action Items
-              </Button>
-            </Link>
-            <Link href="/retail-accounts">
-              <Button
-                variant={isActive('/retail-accounts') ? 'secondary' : 'ghost'}
-                size="sm"
-                className="w-full justify-start text-sm gap-2"
-              >
-                <Store className="h-3.5 w-3.5" />
-                Retailers
               </Button>
             </Link>
           </div>

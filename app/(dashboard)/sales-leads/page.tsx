@@ -296,17 +296,17 @@ export default function SalesLeadsPage() {
                       return (
                         <tr key={lead.id} className="border-b hover:bg-muted/30 transition-colors">
                           <td className="px-4 py-3">
-                            <Link href={`/work-items/${lead.id}`} onClick={() => setQueue({ source: 'Sales Leads', type: 'work-item', ids: activeLeads.map(x => x.id) })}>
+                            <Link href={lead.customer_id ? `/customers/${lead.customer_id}` : `/work-items/${lead.id}`} onClick={() => setQueue({ source: 'Sales Leads', type: lead.customer_id ? 'customer' : 'work-item', ids: activeLeads.map(x => (x as any).customer_id || x.id) })}>
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-9 w-9">
                                   <AvatarFallback className="text-xs bg-muted">
-                                    {getInitials(lead.customer_name, lead.customer_email)}
+                                    {getInitials((lead as any).customer?.display_name || lead.customer_name, (lead as any).customer?.email || lead.customer_email)}
                                   </AvatarFallback>
                                 </Avatar>
                                 <div>
                                   <p className="font-medium text-sm hover:underline flex items-center gap-1.5">
                                     {(() => { const h = scoreLeadHealth(lead as any); return <HealthDot level={h.level} reason={h.reason} /> })()}
-                                    {lead.customer_name || lead.customer_email || 'Unknown'}
+                                    {(lead as any).customer?.display_name || lead.customer_name || (lead as any).customer?.email || lead.customer_email || 'Unknown'}
                                   </p>
                                   <div className="mt-1">
                                     <StatusBadge status={lead.status} />
@@ -317,12 +317,12 @@ export default function SalesLeadsPage() {
                           </td>
                           <td className="px-4 py-3">
                             <span className="text-sm">
-                              {lead.company_name || '-'}
+                              {(lead as any).customer?.organization_name || lead.company_name || '-'}
                             </span>
                           </td>
                           <td className="px-4 py-3">
                             <span className="text-sm">
-                              {lead.customer_email || '-'}
+                              {(lead as any).customer?.email || lead.customer_email || '-'}
                             </span>
                           </td>
                           <td className="px-4 py-3">
@@ -364,7 +364,7 @@ export default function SalesLeadsPage() {
                                 className="h-8 w-8 p-0"
                                 asChild
                               >
-                                <Link href={`/work-items/${lead.id}`}>
+                                <Link href={lead.customer_id ? `/customers/${lead.customer_id}` : `/work-items/${lead.id}`}>
                                   <Mail className="h-4 w-4" />
                                 </Link>
                               </Button>
@@ -374,7 +374,7 @@ export default function SalesLeadsPage() {
                                 className="h-8 w-8 p-0"
                                 asChild
                               >
-                                <Link href={`/work-items/${lead.id}`}>
+                                <Link href={lead.customer_id ? `/customers/${lead.customer_id}` : `/work-items/${lead.id}`}>
                                   <ExternalLink className="h-4 w-4" />
                                 </Link>
                               </Button>
@@ -408,23 +408,23 @@ export default function SalesLeadsPage() {
                           <div className="flex items-start gap-3">
                             <Avatar className="h-12 w-12 shrink-0">
                               <AvatarFallback className="text-sm bg-gradient-to-br from-pink-500 to-purple-600 text-white">
-                                {getInitials(lead.customer_name, lead.customer_email)}
+                                {getInitials((lead as any).customer?.display_name || lead.customer_name, (lead as any).customer?.email || lead.customer_email)}
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex-1 min-w-0">
                               <div className="font-medium text-base mb-1 flex items-center gap-1.5">
                                 {(() => { const h = scoreLeadHealth(lead as any); return <HealthDot level={h.level} reason={h.reason} /> })()}
-                                {lead.customer_name || lead.customer_email || 'Unknown'}
+                                {(lead as any).customer?.display_name || lead.customer_name || (lead as any).customer?.email || lead.customer_email || 'Unknown'}
                               </div>
                               <div className="mb-2">
                                 <StatusBadge status={lead.status} />
                               </div>
                               <div className="space-y-1.5 text-sm text-muted-foreground">
-                                {lead.company_name && (
-                                  <div className="truncate">{lead.company_name}</div>
+                                {((lead as any).customer?.organization_name || lead.company_name) && (
+                                  <div className="truncate">{(lead as any).customer?.organization_name || lead.company_name}</div>
                                 )}
-                                {lead.customer_email && (
-                                  <div className="truncate">{lead.customer_email}</div>
+                                {((lead as any).customer?.email || lead.customer_email) && (
+                                  <div className="truncate">{(lead as any).customer?.email || lead.customer_email}</div>
                                 )}
                                 {extendedLead.estimated_value && (
                                   <div className="font-medium text-foreground">

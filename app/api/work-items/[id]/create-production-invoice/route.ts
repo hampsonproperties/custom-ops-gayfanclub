@@ -27,7 +27,7 @@ export async function POST(
     // Get work item
     const { data: workItem, error: fetchError } = await supabase
       .from('work_items')
-      .select('*')
+      .select('*, customer:customers(display_name, email, organization_name, phone)')
       .eq('id', id)
       .single()
 
@@ -35,7 +35,10 @@ export async function POST(
       return notFound('Work item not found')
     }
 
-    if (!workItem.customer_email) {
+    const customerEmail = workItem.customer?.email || workItem.customer_email
+    const customerName = workItem.customer?.display_name || workItem.customer_name
+
+    if (!customerEmail) {
       return badRequest('Customer email required to create invoice')
     }
 
@@ -56,12 +59,12 @@ export async function POST(
 
     // Create Shopify draft order
     const result = await createProductionInvoice(
-      workItem.customer_email,
-      workItem.customer_name || undefined,
+      customerEmail,
+      customerName || undefined,
       productionTotal,
       designFeeCredit,
       body.productTitle || 'Custom Product Order',
-      `Production invoice for ${workItem.customer_name || workItem.customer_email}`
+      `Production invoice for ${customerName || customerEmail}`
     )
 
     if (!result.success) {

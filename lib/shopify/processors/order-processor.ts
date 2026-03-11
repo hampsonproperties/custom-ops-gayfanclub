@@ -337,8 +337,8 @@ async function updateExistingWorkItem(
   existingWorkItem: any,
   order: any,
   orderType: string,
-  customerName: string | null,
-  customerEmail: string | null,
+  _customerName: string | null,
+  _customerEmail: string | null,
   phoneNumber: string | null,
   companyName: string | null,
   address: string | null,
@@ -349,9 +349,7 @@ async function updateExistingWorkItem(
     shopify_fulfillment_status: order.fulfillment_status,
   }
 
-  // Fill in CRM fields that might be empty
-  if (customerName && !existingWorkItem.customer_name) updateData.customer_name = customerName
-  if (customerEmail && !existingWorkItem.customer_email) updateData.customer_email = customerEmail
+  // Customer data is read via JOIN on customer_id — no longer denormalized onto work items
 
   // Link this order to the work item
   if (orderType === 'custom_bulk_order') {
@@ -477,7 +475,7 @@ async function createNewWorkItem(
   supabase: SupabaseClient,
   order: any,
   orderType: string,
-  customerName: string | null,
+  _customerName: string | null,
   customerEmail: string | null,
   phoneNumber: string | null,
   companyName: string | null,
@@ -499,8 +497,6 @@ async function createNewWorkItem(
     status: workItemStatus,
     shopify_financial_status: order.financial_status,
     shopify_fulfillment_status: order.fulfillment_status,
-    customer_name: customerName,
-    customer_email: customerEmail,
     quantity,
     grip_color: gripColor,
     design_preview_url: designPreviewUrl,

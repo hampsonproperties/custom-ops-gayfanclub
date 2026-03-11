@@ -124,7 +124,7 @@ function useFollowUpsBriefing() {
 
       const { data, error } = await supabase
         .from('work_items')
-        .select('id, title, status, customer_name, customer_email, next_follow_up_at, event_date, estimated_value')
+        .select('id, title, status, customer_name, customer_email, next_follow_up_at, event_date, estimated_value, customer:customers(display_name, email, organization_name)')
         .is('closed_at', null)
         .not('next_follow_up_at', 'is', null)
         .lte('next_follow_up_at', endOfToday)
@@ -648,7 +648,7 @@ export default function DashboardPage() {
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-sm flex items-center gap-1.5">
                             {(() => { const h = scoreLeadHealth(item as any); return <HealthDot level={h.level} reason={h.reason} /> })()}
-                            {item.customer_name || item.customer_email}
+                            {(item as any).customer?.display_name || item.customer_name || (item as any).customer?.email || item.customer_email}
                           </div>
                           <div className="text-xs text-muted-foreground truncate">{item.title}</div>
                         </div>

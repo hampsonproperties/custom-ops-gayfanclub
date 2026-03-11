@@ -17,7 +17,8 @@ const log = logger('find-or-create-customer')
 export async function findOrCreateCustomerByEmail(
   supabase: SupabaseClient,
   email: string | null | undefined,
-  name: string | null | undefined
+  name: string | null | undefined,
+  options?: { phone?: string | null; organizationName?: string | null }
 ): Promise<string | null> {
   if (!email) return null
 
@@ -42,17 +43,22 @@ export async function findOrCreateCustomerByEmail(
     const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : null
     const displayName = name?.trim() || normalizedEmail
 
+    // Create new customer with optional phone and organization
+    const insertData: Record<string, any> = {
+      email: normalizedEmail,
+      first_name: firstName,
+      last_name: lastName,
+      display_name: displayName,
+      customer_type: 'individual',
+      sales_stage: 'new_lead',
+    }
+    if (options?.phone) insertData.phone = options.phone
+    if (options?.organizationName) insertData.organization_name = options.organizationName
+
     // Create new customer
     const { data: newCustomer, error } = await supabase
       .from('customers')
-      .insert({
-        email: normalizedEmail,
-        first_name: firstName,
-        last_name: lastName,
-        display_name: displayName,
-        customer_type: 'individual',
-        sales_stage: 'new_lead',
-      })
+      .insert(insertData)
       .select('id')
       .single()
 

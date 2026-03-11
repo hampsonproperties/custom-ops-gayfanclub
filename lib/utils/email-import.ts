@@ -282,7 +282,8 @@ export async function importEmail(
                 formCustomerId = await findOrCreateCustomerByEmail(
                   supabase,
                   parsedData!.customerEmail,
-                  parsedData!.customerName
+                  parsedData!.customerName,
+                  { phone: parsedData!.customerPhone, organizationName: parsedData!.organization }
                 )
                 log.info('Customer for form lead', { formCustomerId })
               } catch (customerError) {
@@ -301,13 +302,10 @@ export async function importEmail(
                 source: 'form',
                 status: 'new_inquiry',
                 customer_id: formCustomerId,
-                customer_name: parsedData!.customerName || parsedData!.customerEmail,
-                customer_email: parsedData!.customerEmail,
                 title: message.subject || 'Form Inquiry',
                 event_date: parsedData!.eventDate,
                 notes: formNotes,
                 phone_number: parsedData!.customerPhone || null,
-                company_name: parsedData!.organization || null,
                 reason_included: {
                   detected_via: 'form_email_parser',
                   form_provider: fromEmail,

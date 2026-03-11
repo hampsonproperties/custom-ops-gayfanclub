@@ -56,16 +56,16 @@ export function KanbanCard({ item }: KanbanCardProps) {
             <div className="flex items-start gap-2">
               <Avatar className="h-8 w-8 shrink-0">
                 <AvatarFallback className="text-xs bg-gradient-to-br from-pink-500 to-purple-600 text-white">
-                  {getInitials(item.customer_name, item.customer_email)}
+                  {getInitials(extendedItem.customer?.display_name || item.customer_name, extendedItem.customer?.email || item.customer_email)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm truncate">
-                  {item.customer_name || item.customer_email || 'Unknown'}
+                  {extendedItem.customer?.display_name || item.customer_name || extendedItem.customer?.email || item.customer_email || 'Unknown'}
                 </p>
-                {item.customer_email && (
+                {(extendedItem.customer?.email || item.customer_email) && (
                   <p className="text-xs text-muted-foreground truncate">
-                    {item.customer_email}
+                    {extendedItem.customer?.email || item.customer_email}
                   </p>
                 )}
               </div>
@@ -73,10 +73,10 @@ export function KanbanCard({ item }: KanbanCardProps) {
 
             {/* Details */}
             <div className="space-y-1.5 text-xs">
-              {extendedItem.company_name && (
+              {(extendedItem.customer?.organization_name || extendedItem.company_name) && (
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <Building2 className="h-3 w-3 shrink-0" />
-                  <span className="truncate">{extendedItem.company_name}</span>
+                  <span className="truncate">{extendedItem.customer?.organization_name || extendedItem.company_name}</span>
                 </div>
               )}
               {extendedItem.estimated_value && (
