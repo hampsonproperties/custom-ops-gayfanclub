@@ -166,7 +166,7 @@ export async function importEmail(
     // Extract name with priority: subject line → display name → email address
     const displayName = message.from?.emailAddress?.name
     const subjectName = extractNameFromSubject(message.subject || '')
-    const fromName = subjectName || displayName || extractNameFromEmail(fromEmail)
+    let fromName = subjectName || displayName || extractNameFromEmail(fromEmail)
     const toEmails = message.toRecipients?.map((r) => r.emailAddress.address) || []
 
     // Log raw message data to debug sender issues
@@ -269,6 +269,11 @@ export async function importEmail(
           if (isValidFormSubmission(parsedData)) {
             log.info('Valid form data, creating work item', { customerEmail: parsedData!.customerEmail })
 
+            // Override fromName so the inbox shows the real customer name, not "No Reply"
+            if (parsedData!.customerName) {
+              fromName = parsedData!.customerName
+            }
+
             // Find or create customer record first
             let formCustomerId: string | null = null
             if (parsedData!.customerEmail) {
@@ -285,6 +290,9 @@ export async function importEmail(
               }
             }
 
+            // Use full form content for notes (not just projectDetails which may be truncated)
+            const formNotes = parsedData!.fullFormContent || parsedData!.projectDetails
+
             // Create work item from form submission
             const { data: newWorkItem, error: workItemError } = await supabase
               .from('work_items')
@@ -297,7 +305,9 @@ export async function importEmail(
                 customer_email: parsedData!.customerEmail,
                 title: message.subject || 'Form Inquiry',
                 event_date: parsedData!.eventDate,
-                notes: parsedData!.projectDetails,
+                notes: formNotes,
+                phone_number: parsedData!.customerPhone || null,
+                company_name: parsedData!.organization || null,
                 reason_included: {
                   detected_via: 'form_email_parser',
                   form_provider: fromEmail,

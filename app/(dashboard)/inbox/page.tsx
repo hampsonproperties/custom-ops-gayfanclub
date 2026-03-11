@@ -76,6 +76,8 @@ import { TemplateSelector } from '@/components/email/template-selector'
 import type { SelectedTemplate } from '@/components/email/template-selector'
 import { useMyEmailSignature, buildSignaturePlainText } from '@/lib/hooks/use-email-signature'
 import { Sparkles, Loader2 as Loader2Icon } from 'lucide-react'
+import { isFormSubmissionEmail, parseFormEmail, isValidFormSubmission } from '@/lib/utils/form-email-parser'
+import { htmlToPlainText } from '@/lib/utils/html-entities'
 
 type EmailCategory = 'primary' | 'promotional' | 'spam' | 'notifications'
 type EmailTab = EmailCategory | 'support'  // Support is a tab, not a category
@@ -602,12 +604,41 @@ export default function EmailIntakePage() {
 
   const openCreateLeadDialog = (email: Email) => {
     setSelectedEmail(email)
+
+    // Try to parse form emails to extract real customer data
+    const isForm = isFormSubmissionEmail(email.from_email, email.subject || '')
+    if (isForm) {
+      // Parse the full email body to get actual customer info
+      const bodyText = email.body_html ? htmlToPlainText(email.body_html) : (email.body_preview || '')
+      const parsed = parseFormEmail(email.from_email, email.subject || '', bodyText, email.body_html)
+
+      if (parsed && isValidFormSubmission(parsed)) {
+        setLeadForm({
+          customerName: parsed.customerName || '',
+          customerEmail: parsed.customerEmail || '',
+          title: email.subject || '',
+          eventDate: parsed.eventDate || '',
+          notes: parsed.fullFormContent || bodyText || '',
+        })
+        setShowCreateLeadDialog(true)
+        return
+      }
+    }
+
+    // Non-form email: use from_name (display name) instead of splitting email address
+    const customerName = email.from_name && !email.from_name.includes('noreply') && !email.from_name.includes('no-reply')
+      ? email.from_name
+      : email.from_email.split('@')[0] || ''
+
+    // Use full body text for notes, not the truncated preview
+    const fullNotes = email.body_html ? htmlToPlainText(email.body_html) : (email.body_preview || '')
+
     setLeadForm({
-      customerName: email.from_email.split('@')[0] || '',
+      customerName,
       customerEmail: email.from_email,
       title: email.subject || '',
       eventDate: '',
-      notes: email.body_preview || '',
+      notes: fullNotes,
     })
     setShowCreateLeadDialog(true)
   }
