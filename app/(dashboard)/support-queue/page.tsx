@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useFlaggedSupportEmails, useTriageEmail } from '@/lib/hooks/use-communications'
-import { useCreateWorkItem } from '@/lib/hooks/use-work-items'
+import { useCreateLead } from '@/lib/hooks/use-work-items'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -19,7 +19,7 @@ export default function SupportQueuePage() {
   const { data: supportResult, isLoading } = useFlaggedSupportEmails()
   const supportEmails = supportResult?.items ?? []
   const triageEmail = useTriageEmail()
-  const createWorkItem = useCreateWorkItem()
+  const createLead = useCreateLead()
 
   const [selectedEmail, setSelectedEmail] = useState<any>(null)
   const [showReplyDialog, setShowReplyDialog] = useState(false)
@@ -103,7 +103,7 @@ export default function SupportQueuePage() {
     if (!selectedEmail) return
 
     try {
-      const { data: workItem } = await createWorkItem.mutateAsync({
+      const workItem = await createLead.mutateAsync({
         type: 'assisted_project',
         source: 'email',
         status: 'new_inquiry',

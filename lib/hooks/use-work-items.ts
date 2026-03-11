@@ -169,6 +169,39 @@ export function useCreateWorkItem() {
   })
 }
 
+/**
+ * Create a lead from an email via the /api/leads endpoint.
+ * Unlike useCreateWorkItem (which inserts directly), this:
+ *   - Finds or creates a customer record (links lead to CRM)
+ *   - Records who created the lead (created_by_user_id for timeline)
+ */
+export function useCreateLead() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (workItem: WorkItemInsert) => {
+      const response = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(workItem),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to create lead')
+      }
+
+      const result = await response.json()
+      return result.data as WorkItem
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['work-items'] })
+      queryClient.invalidateQueries({ queryKey: ['customers'] })
+      queryClient.invalidateQueries({ queryKey: ['morning-briefing'] })
+    },
+  })
+}
+
 export function useUpdateWorkItem() {
   const queryClient = useQueryClient()
   const supabase = createClient()

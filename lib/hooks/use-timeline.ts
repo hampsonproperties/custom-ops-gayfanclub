@@ -24,18 +24,26 @@ export function useTimeline(workItemId: string) {
       // Get work item creation
       const { data: workItem } = await supabase
         .from('work_items')
-        .select('created_at, type, source, customer_name')
+        .select('created_at, type, source, customer_name, created_by_user_id, created_by:users!work_items_created_by_user_id_fkey(full_name, email)')
         .eq('id', workItemId)
         .single()
 
       if (workItem) {
+        const createdBy = (workItem as any).created_by as { full_name: string | null; email: string | null } | null
+        const creatorName = createdBy?.full_name || createdBy?.email?.split('@')[0] || null
+        const sourceLabel = workItem.source === 'form' ? 'form submission' : workItem.source
+        const description = creatorName
+          ? `Created by ${creatorName} from ${sourceLabel}`
+          : `${workItem.type === 'customify_order' ? 'Customify order' : 'Custom design project'} created from ${sourceLabel}`
+
         events.push({
           id: `created-${workItemId}`,
           type: 'work_item_created',
           timestamp: workItem.created_at,
           title: 'Work Item Created',
-          description: `${workItem.type === 'customify_order' ? 'Customify order' : 'Custom design project'} created from ${workItem.source}`,
+          description,
           metadata: { source: workItem.source, type: workItem.type },
+          user: creatorName || (workItem.source === 'shopify' ? 'Shopify' : workItem.source === 'form' ? 'Form Submission' : undefined),
         })
       }
 

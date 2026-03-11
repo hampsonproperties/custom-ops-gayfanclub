@@ -2078,6 +2078,7 @@ export type Database = {
           close_reason: string | null
           closed_at: string | null
           created_at: string | null
+          created_by_user_id: string | null
           customer_email: string | null
           customer_id: string | null
           customer_name: string | null
@@ -2128,6 +2129,7 @@ export type Database = {
           close_reason?: string | null
           closed_at?: string | null
           created_at?: string | null
+          created_by_user_id?: string | null
           customer_email?: string | null
           customer_id?: string | null
           customer_name?: string | null
@@ -2178,6 +2180,7 @@ export type Database = {
           close_reason?: string | null
           closed_at?: string | null
           created_at?: string | null
+          created_by_user_id?: string | null
           customer_email?: string | null
           customer_id?: string | null
           customer_name?: string | null
@@ -2227,6 +2230,13 @@ export type Database = {
           {
             foreignKeyName: "work_items_assigned_to_user_id_fkey"
             columns: ["assigned_to_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_items_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]

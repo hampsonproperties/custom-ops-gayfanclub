@@ -42,7 +42,7 @@ import {
   useMoveEmailToCategory,
   useFlaggedSupportEmails,
 } from '@/lib/hooks/use-communications'
-import { useCreateWorkItem, useWorkItem } from '@/lib/hooks/use-work-items'
+import { useCreateLead, useWorkItem } from '@/lib/hooks/use-work-items'
 import { EmailCategoryMenu } from '@/components/emails/email-category-menu'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -340,7 +340,7 @@ export default function EmailIntakePage() {
 
   const { data: categoryCounts } = useEmailCategoryCounts('untriaged')
   const triageEmail = useTriageEmail()
-  const createWorkItem = useCreateWorkItem()
+  const createLead = useCreateLead()
   const sendEmail = useSendEmail()
   const markAsRead = useMarkEmailAsRead()
   const moveToCategory = useMoveEmailToCategory()
@@ -443,7 +443,7 @@ export default function EmailIntakePage() {
     if (!selectedEmail) return
 
     try {
-      const { data: workItem } = await createWorkItem.mutateAsync({
+      const workItem = await createLead.mutateAsync({
         type: 'assisted_project',
         source: 'email',
         status: 'new_inquiry',

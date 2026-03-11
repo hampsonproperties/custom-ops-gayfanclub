@@ -287,6 +287,27 @@ export async function importEmail(
             triageStatus = 'created_lead'
             log.info('Auto-created work item from form submission', { workItemId })
 
+            // Find or create customer record and link to work item
+            if (parsedData!.customerEmail) {
+              try {
+                const { findOrCreateCustomerByEmail } = await import('@/lib/utils/find-or-create-customer')
+                const formCustomerId = await findOrCreateCustomerByEmail(
+                  supabase,
+                  parsedData!.customerEmail,
+                  parsedData!.customerName
+                )
+                if (formCustomerId) {
+                  await supabase
+                    .from('work_items')
+                    .update({ customer_id: formCustomerId })
+                    .eq('id', newWorkItem.id)
+                  log.info('Linked customer to form-created lead', { customerId: formCustomerId, workItemId: newWorkItem.id })
+                }
+              } catch (customerError) {
+                log.error('Error creating customer for form lead', { error: customerError })
+              }
+            }
+
             // Calculate initial follow-up date
             try {
               const { data: nextFollowUp } = await supabase
