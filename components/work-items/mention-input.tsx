@@ -3,16 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Textarea } from '@/components/ui/textarea'
-import { createClient } from '@/lib/supabase/client'
-import { logger } from '@/lib/logger'
-
-const log = logger('mention-input')
-
-interface User {
-  id: string
-  email: string
-  full_name: string | null
-}
+import { useActiveUsers } from '@/lib/hooks/use-users'
 
 interface MentionInputProps {
   value: string
@@ -33,34 +24,14 @@ export function MentionInput({
 }: MentionInputProps) {
   const [showMentions, setShowMentions] = useState(false)
   const [mentionSearch, setMentionSearch] = useState('')
-  const [users, setUsers] = useState<User[]>([])
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [cursorPosition, setCursorPosition] = useState(0)
   const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Pre-fetch users on mount so the list is ready when @ is typed
-  useEffect(() => {
-    async function fetchUsers() {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, email, full_name')
-        .order('full_name')
-
-      if (error) {
-        log.error('Failed to fetch users for mentions', { error })
-        return
-      }
-
-      if (data && data.length > 0) {
-        setUsers(data as User[])
-      }
-    }
-
-    fetchUsers()
-  }, [])
+  // Use the shared hook — handles auth, caching, and retries
+  const { data: users = [] } = useActiveUsers()
 
   // Position the dropdown using a portal to avoid overflow clipping
   const updateDropdownPosition = useCallback(() => {
@@ -116,7 +87,7 @@ export function MentionInput({
     }
   }
 
-  const insertMention = (user: User) => {
+  const insertMention = (user: typeof users[number]) => {
     const textBeforeCursor = value.substring(0, cursorPosition)
     const textAfterCursor = value.substring(cursorPosition)
     const lastAtIndex = textBeforeCursor.lastIndexOf('@')
