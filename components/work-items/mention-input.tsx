@@ -1,8 +1,12 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { Textarea } from '@/components/ui/textarea'
 import { createClient } from '@/lib/supabase/client'
+import { logger } from '@/lib/logger'
+
+const log = logger('mention-input')
 
 interface User {
   id: string
@@ -32,29 +36,52 @@ export function MentionInput({
   const [users, setUsers] = useState<User[]>([])
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [cursorPosition, setCursorPosition] = useState(0)
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
-  // Fetch users when @ is typed
+  // Pre-fetch users on mount so the list is ready when @ is typed
   useEffect(() => {
     async function fetchUsers() {
-      if (!showMentions) return
-
       const supabase = createClient()
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('users')
         .select('id, email, full_name')
         .order('full_name')
 
-      if (data) {
+      if (error) {
+        log.error('Failed to fetch users for mentions', { error })
+        return
+      }
+
+      if (data && data.length > 0) {
         setUsers(data as User[])
       }
     }
 
     fetchUsers()
-  }, [showMentions])
+  }, [])
+
+  // Position the dropdown using a portal to avoid overflow clipping
+  const updateDropdownPosition = useCallback(() => {
+    if (!containerRef.current) return
+    const rect = containerRef.current.getBoundingClientRect()
+    setDropdownPos({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: Math.min(rect.width, 280),
+    })
+  }, [])
+
+  useEffect(() => {
+    if (showMentions) {
+      updateDropdownPosition()
+    }
+  }, [showMentions, updateDropdownPosition])
 
   // Filter users based on search
   const filteredUsers = users.filter(user => {
+    if (!mentionSearch) return true
     const search = mentionSearch.toLowerCase()
     return (
       user.full_name?.toLowerCase().includes(search) ||
@@ -76,8 +103,8 @@ export function MentionInput({
     if (lastAtIndex !== -1) {
       const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1)
 
-      // Show mentions if @ is at start of word
-      if (lastAtIndex === 0 || /\s/.test(textBeforeCursor[lastAtIndex - 1])) {
+      // Only show if there's no space in the text after @ (still typing the name)
+      if ((lastAtIndex === 0 || /\s/.test(textBeforeCursor[lastAtIndex - 1])) && !/\s/.test(textAfterAt)) {
         setShowMentions(true)
         setMentionSearch(textAfterAt)
         setSelectedIndex(0)
@@ -132,8 +159,53 @@ export function MentionInput({
     }
   }
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    if (!showMentions) return
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowMentions(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [showMentions])
+
+  const dropdown = showMentions && filteredUsers.length > 0 && dropdownPos && createPortal(
+    <div
+      className="bg-popover border rounded-lg shadow-lg max-h-48 overflow-y-auto"
+      style={{
+        position: 'fixed',
+        top: dropdownPos.top,
+        left: dropdownPos.left,
+        width: dropdownPos.width,
+        zIndex: 9999,
+      }}
+    >
+      {filteredUsers.map((user, index) => (
+        <button
+          key={user.id}
+          type="button"
+          className={`w-full text-left px-3 py-2 hover:bg-accent transition-colors ${
+            index === selectedIndex ? 'bg-accent' : ''
+          }`}
+          onMouseDown={(e) => { e.preventDefault(); insertMention(user) }}
+          onMouseEnter={() => setSelectedIndex(index)}
+        >
+          <div className="font-medium text-sm">
+            {user.full_name || 'No name'}
+          </div>
+          <div className="text-xs text-muted-foreground">{user.email}</div>
+        </button>
+      ))}
+    </div>,
+    document.body
+  )
+
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       <Textarea
         ref={textareaRef}
         value={value}
@@ -144,27 +216,7 @@ export function MentionInput({
         className={className}
       />
 
-      {/* Mentions Dropdown */}
-      {showMentions && filteredUsers.length > 0 && (
-        <div className="absolute left-0 right-0 sm:right-auto sm:w-64 top-full mt-1 bg-popover border rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
-          {filteredUsers.map((user, index) => (
-            <button
-              key={user.id}
-              type="button"
-              className={`w-full text-left px-3 py-2 hover:bg-accent transition-colors ${
-                index === selectedIndex ? 'bg-accent' : ''
-              }`}
-              onMouseDown={(e) => { e.preventDefault(); insertMention(user) }}
-              onMouseEnter={() => setSelectedIndex(index)}
-            >
-              <div className="font-medium text-sm">
-                {user.full_name || 'No name'}
-              </div>
-              <div className="text-xs text-muted-foreground">{user.email}</div>
-            </button>
-          ))}
-        </div>
-      )}
+      {dropdown}
 
       {/* Helper Text */}
       <p className="text-xs text-muted-foreground mt-1">
