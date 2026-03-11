@@ -294,7 +294,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
                   <SelectTrigger className="h-7 w-auto gap-1 text-xs px-2 border-dashed">
                     <span>Move to...</span>
                   </SelectTrigger>
-                  <SelectContent className="max-h-[300px] overflow-y-auto">
+                  <SelectContent>
                     {getValidStatusesForWorkItem(workItem.type as WorkItemType).map((s) => (
                       <SelectItem key={s} value={s} disabled={s === workItem.status}>
                         {getStatusLabel(s)}
