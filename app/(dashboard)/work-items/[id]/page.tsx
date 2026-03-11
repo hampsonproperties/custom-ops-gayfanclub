@@ -195,8 +195,14 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <div className="flex-1 min-w-0 space-y-2">
               <Breadcrumbs
-                items={[{ label: 'Projects', href: '/work-items' }]}
-                current={displayName}
+                items={workItem.customer_id
+                  ? [
+                      { label: 'Projects', href: '/work-items' },
+                      { label: customer?.display_name || workItem.customer_name || 'Customer', href: `/customers/${workItem.customer_id}` },
+                    ]
+                  : [{ label: 'Projects', href: '/work-items' }]
+                }
+                current={workItem.title || workItem.shopify_order_number || 'Project'}
               />
               {queue.hasQueue && (
                 <QueueNavigator
@@ -243,23 +249,28 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
                   )}
                 </h1>
                 <div className="flex items-center gap-2 sm:gap-4 mt-2 text-sm text-muted-foreground flex-wrap">
+                  {(customer?.organization_name || workItem.company_name) && (
+                    <span className="flex items-center gap-1.5 font-medium text-foreground">
+                      <Building2 className="h-4 w-4" />
+                      {customer?.organization_name || workItem.company_name}
+                    </span>
+                  )}
                   {workItem.customer_email && (
                     <span className="flex items-center gap-1.5">
                       <Mail className="h-4 w-4" />
                       {workItem.customer_email}
                     </span>
                   )}
-                  {workItem.phone_number && (
+                  {(customer?.phone || workItem.phone_number) && (
                     <span className="flex items-center gap-1.5">
                       <Phone className="h-4 w-4" />
-                      {workItem.phone_number}
+                      {customer?.phone || workItem.phone_number}
                     </span>
                   )}
-                  {workItem.company_name && (
-                    <span className="flex items-center gap-1.5">
-                      <Building2 className="h-4 w-4" />
-                      {workItem.company_name}
-                    </span>
+                  {customer?.customer_type && customer.customer_type !== 'individual' && (
+                    <Badge variant="outline" className="text-xs">
+                      {customer.customer_type === 'organization' ? 'Organization' : 'Retailer'}
+                    </Badge>
                   )}
                 </div>
               </div>
@@ -283,7 +294,7 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
                   <SelectTrigger className="h-7 w-auto gap-1 text-xs px-2 border-dashed">
                     <span>Move to...</span>
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-[300px] overflow-y-auto">
                     {getValidStatusesForWorkItem(workItem.type as WorkItemType).map((s) => (
                       <SelectItem key={s} value={s} disabled={s === workItem.status}>
                         {getStatusLabel(s)}
