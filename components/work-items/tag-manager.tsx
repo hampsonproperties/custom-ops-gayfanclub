@@ -21,9 +21,16 @@ export function TagManager({ workItemId }: { workItemId: string }) {
   const currentTagIds = workItemTags?.map((wt) => wt.tag_id) || []
   const availableTags = allTags?.filter((t) => !currentTagIds.includes(t.id)) || []
 
+  const syncTagsToShopify = () => {
+    fetch(`/api/work-items/${workItemId}/sync-tags-to-shopify`, { method: 'POST' }).catch(() => {
+      // Best-effort — tag is already saved locally
+    })
+  }
+
   const handleAddTag = async (tagId: string) => {
     try {
       await addTag.mutateAsync({ workItemId, tagId })
+      syncTagsToShopify()
       toast.success('Tag added')
     } catch (error) {
       toast.error('Failed to add tag')
@@ -33,6 +40,7 @@ export function TagManager({ workItemId }: { workItemId: string }) {
   const handleRemoveTag = async (tagId: string) => {
     try {
       await removeTag.mutateAsync({ workItemId, tagId })
+      syncTagsToShopify()
       toast.success('Tag removed')
     } catch (error) {
       toast.error('Failed to remove tag')

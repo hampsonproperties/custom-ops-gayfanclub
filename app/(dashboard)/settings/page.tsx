@@ -59,7 +59,7 @@ import { DataHealthSection } from '@/components/data-health/data-health-section'
 import { toast } from 'sonner'
 import {
   Loader2, Check, Clock, Pause, CalendarDays,
-  Plus, Pencil, Trash2, FileText, Mail, Upload, BookOpen, Megaphone, Settings, PenLine, Image, Link2,
+  Plus, Pencil, Trash2, FileText, Mail, Upload, BookOpen, Megaphone, Settings, PenLine, Image, Link2, Tag,
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1603,6 +1603,8 @@ function EmailSignatureSection() {
 function ShopifyIntegrationCard() {
   const [isLinking, setIsLinking] = useState(false)
   const [linkResult, setLinkResult] = useState<{ linked: number; total: number } | null>(null)
+  const [isImportingTags, setIsImportingTags] = useState(false)
+  const [tagResult, setTagResult] = useState<{ tagsLinked: number; tagsCreated: number; workItemsProcessed: number } | null>(null)
 
   const handleBulkLink = async () => {
     setIsLinking(true)
@@ -1620,6 +1622,29 @@ function ShopifyIntegrationCard() {
       toast.error('Failed to link customers')
     } finally {
       setIsLinking(false)
+    }
+  }
+
+  const handleImportTags = async () => {
+    setIsImportingTags(true)
+    setTagResult(null)
+    try {
+      const resp = await fetch('/api/shopify/import-tags', { method: 'POST' })
+      const data = await resp.json()
+      if (data.success) {
+        setTagResult({
+          tagsLinked: data.tagsLinked,
+          tagsCreated: data.tagsCreated,
+          workItemsProcessed: data.workItemsProcessed,
+        })
+        toast.success(`Imported tags: ${data.tagsLinked} linked, ${data.tagsCreated} new tags created`)
+      } else {
+        toast.error('Failed to import tags')
+      }
+    } catch {
+      toast.error('Failed to import tags')
+    } finally {
+      setIsImportingTags(false)
     }
   }
 
@@ -1646,10 +1671,27 @@ function ShopifyIntegrationCard() {
               <><Link2 className="h-3.5 w-3.5 mr-1.5" />Link Customers to Shopify</>
             )}
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleImportTags}
+            disabled={isImportingTags}
+          >
+            {isImportingTags ? (
+              <><Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />Importing Tags...</>
+            ) : (
+              <><Tag className="h-3.5 w-3.5 mr-1.5" />Import Shopify Tags</>
+            )}
+          </Button>
         </div>
         {linkResult && (
           <p className="text-xs text-muted-foreground mt-2">
             Linked {linkResult.linked} of {linkResult.total} unlinked customers
+          </p>
+        )}
+        {tagResult && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Tags imported: {tagResult.tagsLinked} linked to {tagResult.workItemsProcessed} work items, {tagResult.tagsCreated} new tags created
           </p>
         )}
       </CardContent>
