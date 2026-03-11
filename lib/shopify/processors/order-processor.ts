@@ -539,6 +539,12 @@ async function createNewWorkItem(
     insertData.requires_initial_contact = !existingCommunications || existingCommunications.length === 0
   }
 
+  // Find or create customer record BEFORE inserting work item so customer_id is set
+  const customerId = await findOrCreateCustomer(supabase, order.customer)
+  if (customerId) {
+    insertData.customer_id = customerId
+  }
+
   // Insert work item
   const { data: newWorkItem, error: insertError } = await supabase
     .from('work_items')

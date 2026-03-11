@@ -236,120 +236,129 @@ export async function importEmail(
 
     if (!skipEnrichment) {
       // Use enhanced auto-linking (5 strategies: thread, order#, email, title, subject)
-      workItemId = await autoLinkEmailToWorkItem(supabase, {
-        id: message.id,
-        subject: message.subject,
-        body: plainText,
-        conversationId: message.conversationId,
-        from: {
-          emailAddress: {
-            address: fromEmail
-          }
-        },
-        toRecipients: message.toRecipients
-      })
+      try {
+        workItemId = await autoLinkEmailToWorkItem(supabase, {
+          id: message.id,
+          subject: message.subject,
+          body: plainText,
+          conversationId: message.conversationId,
+          from: {
+            emailAddress: {
+              address: fromEmail
+            }
+          },
+          toRecipients: message.toRecipients
+        })
+      } catch (autoLinkError) {
+        log.error('Auto-link failed (continuing to form detection)', { error: autoLinkError, fromEmail })
+        workItemId = null
+      }
 
       // Strategy: Form submission auto-create lead
       // Detect form submissions and auto-create work items with parsed data
-      if (!workItemId && !isOutbound && isFormSubmissionEmail(fromEmail, message.subject || '')) {
-        log.info('Detected form submission', { fromEmail })
+      const isForm = isFormSubmissionEmail(fromEmail, message.subject || '')
+      log.info('Form detection check', { fromEmail, isForm, isOutbound, hasWorkItemId: !!workItemId })
 
-        const parsedData = parseFormEmail(fromEmail, message.subject || '', plainText, bodyContent)
+      if (!workItemId && !isOutbound && isForm) {
+        log.info('Detected form submission — creating lead', { fromEmail })
 
-        if (isValidFormSubmission(parsedData)) {
-          log.info('Parsed form data', { parsedData })
+        try {
+          const parsedData = parseFormEmail(fromEmail, message.subject || '', plainText, bodyContent)
+          log.info('Form parse result', { parsedData, plainTextLength: plainText.length })
 
-          // Create work item from form submission
-          const { data: newWorkItem, error: workItemError } = await supabase
-            .from('work_items')
-            .insert({
-              type: 'assisted_project',
-              source: 'form',
-              status: 'new_inquiry',
-              customer_name: parsedData!.customerName || parsedData!.customerEmail,
-              customer_email: parsedData!.customerEmail,
-              title: message.subject || 'Form Inquiry',
-              event_date: parsedData!.eventDate,
-              notes: parsedData!.projectDetails,
-              reason_included: {
-                detected_via: 'form_email_parser',
-                form_provider: fromEmail,
-                parsed_fields: Object.keys(parsedData!.additionalFields),
-              },
-            })
-            .select('id')
-            .single()
+          if (isValidFormSubmission(parsedData)) {
+            log.info('Valid form data, creating work item', { customerEmail: parsedData!.customerEmail })
 
-          if (workItemError) {
-            log.error('Failed to create work item from form', { error: workItemError })
-          } else if (newWorkItem) {
-            workItemId = newWorkItem.id
-            triageStatus = 'created_lead'
-            log.info('Auto-created work item from form submission', { workItemId })
-
-            // Find or create customer record and link to work item
+            // Find or create customer record first
+            let formCustomerId: string | null = null
             if (parsedData!.customerEmail) {
               try {
                 const { findOrCreateCustomerByEmail } = await import('@/lib/utils/find-or-create-customer')
-                const formCustomerId = await findOrCreateCustomerByEmail(
+                formCustomerId = await findOrCreateCustomerByEmail(
                   supabase,
                   parsedData!.customerEmail,
                   parsedData!.customerName
                 )
-                if (formCustomerId) {
-                  await supabase
-                    .from('work_items')
-                    .update({ customer_id: formCustomerId })
-                    .eq('id', newWorkItem.id)
-                  log.info('Linked customer to form-created lead', { customerId: formCustomerId, workItemId: newWorkItem.id })
-                }
+                log.info('Customer for form lead', { formCustomerId })
               } catch (customerError) {
                 log.error('Error creating customer for form lead', { error: customerError })
               }
             }
 
-            // Calculate initial follow-up date
-            try {
-              const { data: nextFollowUp } = await supabase
-                .rpc('calculate_next_follow_up', { work_item_id: newWorkItem.id })
+            // Create work item from form submission
+            const { data: newWorkItem, error: workItemError } = await supabase
+              .from('work_items')
+              .insert({
+                type: 'assisted_project',
+                source: 'form',
+                status: 'new_inquiry',
+                customer_id: formCustomerId,
+                customer_name: parsedData!.customerName || parsedData!.customerEmail,
+                customer_email: parsedData!.customerEmail,
+                title: message.subject || 'Form Inquiry',
+                event_date: parsedData!.eventDate,
+                notes: parsedData!.projectDetails,
+                reason_included: {
+                  detected_via: 'form_email_parser',
+                  form_provider: fromEmail,
+                  parsed_fields: Object.keys(parsedData!.additionalFields),
+                },
+              })
+              .select('id')
+              .single()
 
-              if (nextFollowUp !== undefined) {
-                await supabase
-                  .from('work_items')
-                  .update({ next_follow_up_at: nextFollowUp })
-                  .eq('id', newWorkItem.id)
+            if (workItemError) {
+              log.error('Failed to create work item from form', { error: workItemError })
+            } else if (newWorkItem) {
+              workItemId = newWorkItem.id
+              triageStatus = 'created_lead'
+              log.info('Auto-created work item from form submission', { workItemId, customerId: formCustomerId })
+
+              // Calculate initial follow-up date
+              try {
+                const { data: nextFollowUp } = await supabase
+                  .rpc('calculate_next_follow_up', { work_item_id: newWorkItem.id })
+
+                if (nextFollowUp !== undefined) {
+                  await supabase
+                    .from('work_items')
+                    .update({ next_follow_up_at: nextFollowUp })
+                    .eq('id', newWorkItem.id)
+                }
+              } catch (followUpError) {
+                log.error('Error calculating follow-up', { error: followUpError })
               }
-            } catch (followUpError) {
-              log.error('Error calculating follow-up', { error: followUpError })
-            }
 
-            // Try to link recent emails from the customer email (not the form sender)
-            if (parsedData!.customerEmail) {
-              const { data: recentEmails } = await supabase
-                .from('communications')
-                .select('id')
-                .eq('from_email', parsedData!.customerEmail)
-                .is('work_item_id', null)
-                .gte('received_at', lookbackDate.toISOString())
-
-              if (recentEmails && recentEmails.length > 0) {
-                await supabase
+              // Try to link recent emails from the customer email (not the form sender)
+              if (parsedData!.customerEmail) {
+                const { data: recentEmails } = await supabase
                   .from('communications')
-                  .update({
-                    work_item_id: newWorkItem.id,
-                    triage_status: 'attached',
-                  })
-                  .in(
-                    'id',
-                    recentEmails.map((e: any) => e.id)
-                  )
+                  .select('id')
+                  .eq('from_email', parsedData!.customerEmail)
+                  .is('work_item_id', null)
+                  .gte('received_at', lookbackDate.toISOString())
 
-                log.info('Auto-linked emails from customer to new work item', { count: recentEmails.length, workItemId: newWorkItem.id })
+                if (recentEmails && recentEmails.length > 0) {
+                  await supabase
+                    .from('communications')
+                    .update({
+                      work_item_id: newWorkItem.id,
+                      triage_status: 'attached',
+                    })
+                    .in(
+                      'id',
+                      recentEmails.map((e: any) => e.id)
+                    )
+
+                  log.info('Auto-linked emails from customer to new work item', { count: recentEmails.length, workItemId: newWorkItem.id })
+                }
               }
             }
+          } else {
+            log.info('Form submission parsing failed or invalid data', { parsedData })
           }
-        } else {
-          log.info('Form submission parsing failed or invalid data')
+        } catch (formError) {
+          log.error('Form detection crashed — email will still be imported', { error: formError, fromEmail, subject: message.subject })
         }
       }
 
