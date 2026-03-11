@@ -22,7 +22,7 @@ import { useCommunications } from '@/lib/hooks/use-communications'
 import { useFiles, useUploadFile, useDeleteFile, getFileUrl } from '@/lib/hooks/use-files'
 import { useTimeline, useToggleTimelineStar } from '@/lib/hooks/use-timeline'
 import { useCreateNote } from '@/lib/hooks/use-notes'
-import { ArrowLeft, Mail, FileText, Upload, File as FileIcon, Trash2, Download, Image as ImageIcon, Clock, CheckCircle, Activity, ExternalLink, Phone, Building2, Calendar, DollarSign, User, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Mail, FileText, Upload, File as FileIcon, Trash2, Download, Image as ImageIcon, Clock, CheckCircle, Activity, ExternalLink, Phone, Building2, Calendar, DollarSign, User, ChevronDown, RefreshCw } from 'lucide-react'
 import type { Database } from '@/types/database'
 import { InternalNotes } from '@/components/work-items/internal-notes'
 import { AssignmentManager } from '@/components/work-items/assignment-manager'
@@ -96,7 +96,28 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
   const [showStatusDialog, setShowStatusDialog] = useState(false)
   const [showApprovalDialog, setShowApprovalDialog] = useState(false)
   const [showCloseDialog, setShowCloseDialog] = useState(false)
+  const [isSyncingShopify, setIsSyncingShopify] = useState(false)
   const queryClient = useQueryClient()
+
+  const handleSyncShopify = async () => {
+    setIsSyncingShopify(true)
+    try {
+      const response = await fetch(`/api/work-items/${id}/sync-shopify`, { method: 'POST' })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Sync failed')
+      if (data.synced > 0) {
+        toast.success(`Synced ${data.synced} new comment${data.synced === 1 ? '' : 's'} from Shopify`)
+        queryClient.invalidateQueries({ queryKey: ['timeline', id] })
+        queryClient.invalidateQueries({ queryKey: ['work-item', id] })
+      } else {
+        toast.info('Already up to date — no new comments')
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to sync from Shopify')
+    } finally {
+      setIsSyncingShopify(false)
+    }
+  }
 
   const handleDirectStatusChange = async (newStatus: string) => {
     if (!newStatus || newStatus === workItem?.status) return
@@ -595,6 +616,19 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
 
           {/* Shopify Orders Tab */}
           <TabsContent value="orders">
+            {(workItem.shopify_order_id || workItem.design_fee_order_id) && (
+              <div className="flex justify-end mb-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSyncShopify}
+                  disabled={isSyncingShopify}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isSyncingShopify ? 'animate-spin' : ''}`} />
+                  {isSyncingShopify ? 'Syncing...' : 'Sync from Shopify'}
+                </Button>
+              </div>
+            )}
             <ShopifyInfo workItem={workItem} />
             {workItem.type === 'assisted_project' && !workItem.closed_at && (
               <div className="mt-4">

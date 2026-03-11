@@ -377,6 +377,21 @@ async function updateExistingWorkItem(
     updateData.shopify_order_number = order.name
   }
 
+  // Fulfillment status override: if Shopify shows fulfilled, move to shipped
+  // Only for customify_orders (assisted_projects don't have a shipped status)
+  const isCustomifyOrder = existingWorkItem.type === 'customify_order'
+  const isFulfilled = order.fulfillment_status === 'fulfilled'
+  const alreadyShippedOrClosed = ['shipped', 'closed'].includes(existingWorkItem.status)
+
+  if (isCustomifyOrder && isFulfilled && !alreadyShippedOrClosed) {
+    updateData.status = 'shipped'
+    log.info('Order fulfilled — transitioning to shipped', {
+      workItemId: existingWorkItem.id,
+      orderNumber: order.name,
+      previousStatus: existingWorkItem.status,
+    })
+  }
+
   // Extract payment history
   const paymentHistory = extractPaymentHistory(order)
   if (paymentHistory.length > 0) {
@@ -400,6 +415,46 @@ async function updateExistingWorkItem(
     to_status: updateData.status || existingWorkItem.status,
     note: `Updated via Shopify order ${order.name} (${orderType})`,
   })
+
+  // If we just transitioned to shipped, recalculate follow-ups and set post-delivery check-in
+  if (updateData.status === 'shipped') {
+    try {
+      const { data: nextFollowUp } = await supabase
+        .rpc('calculate_next_follow_up', { work_item_id: existingWorkItem.id })
+
+      if (nextFollowUp !== undefined) {
+        await supabase
+          .from('work_items')
+          .update({ next_follow_up_at: nextFollowUp })
+          .eq('id', existingWorkItem.id)
+      }
+    } catch (followUpError) {
+      log.error('Error calculating follow-up after ship', { error: followUpError })
+    }
+
+    // Auto-schedule 5-day post-delivery follow-up on the customer
+    if (existingWorkItem.customer_id) {
+      try {
+        const fiveDaysOut = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()
+        await supabase
+          .from('customers')
+          .update({
+            next_follow_up_at: fiveDaysOut,
+            follow_up_reason: 'post-delivery',
+            follow_up_touch_number: null,
+            follow_up_max_touches: null,
+          })
+          .eq('id', existingWorkItem.customer_id)
+
+        log.info('Post-delivery follow-up set via order update', {
+          customerId: existingWorkItem.customer_id,
+          followUpDate: fiveDaysOut,
+        })
+      } catch (followUpSetError) {
+        log.error('Error setting post-delivery follow-up', { error: followUpSetError })
+      }
+    }
+  }
 
   // Import Customify files for existing work item
   const customifyFiles = extractCustomifyFiles(order.line_items || [])
