@@ -744,7 +744,7 @@ function WorkItemsPageContent() {
                           <td className="p-3">
                             <Link href={`/work-items/${item.id}`} className="hover:underline">
                               <p className="font-medium text-sm">
-                                {item.title || `Project for ${item.customer_name || item.customer_email}`}
+                                {item.title || `Project for ${extendedItem.customer?.display_name || item.customer_name || extendedItem.customer?.email || item.customer_email}`}
                               </p>
                             </Link>
                           </td>
@@ -755,10 +755,10 @@ function WorkItemsPageContent() {
                               <Link href={`/customers/${item.customer_id}`} className="flex items-center gap-2 hover:underline">
                                 <Avatar className="h-6 w-6">
                                   <AvatarFallback className="text-xs bg-primary/10">
-                                    {getInitials(item.customer_name, item.customer_email)}
+                                    {getInitials(extendedItem.customer?.display_name || item.customer_name, extendedItem.customer?.email || item.customer_email)}
                                   </AvatarFallback>
                                 </Avatar>
-                                <span className="text-sm">{item.customer_name || item.customer_email}</span>
+                                <span className="text-sm">{extendedItem.customer?.display_name || item.customer_name || extendedItem.customer?.email || item.customer_email}</span>
                               </Link>
                             ) : (
                               <div className="flex items-center gap-2">
@@ -887,12 +887,12 @@ function WorkItemsPageContent() {
                           <div className="flex items-start gap-3">
                             <Avatar className="h-12 w-12 shrink-0">
                               <AvatarFallback className="text-sm bg-gradient-to-br from-pink-500 to-purple-600 text-white">
-                                {getInitials(item.customer_name, item.customer_email)}
+                                {getInitials(extendedItem.customer?.display_name || item.customer_name, extendedItem.customer?.email || item.customer_email)}
                               </AvatarFallback>
                             </Avatar>
                             <div className="flex-1 min-w-0">
                               <div className="font-medium text-base mb-1">
-                                {item.customer_name || item.customer_email || 'Unknown'}
+                                {extendedItem.customer?.display_name || item.customer_name || extendedItem.customer?.email || item.customer_email || 'Unknown'}
                               </div>
                               <div className="mb-2" onClick={(e) => e.preventDefault()}>
                                 <DropdownMenu>
@@ -937,10 +937,10 @@ function WorkItemsPageContent() {
                                     <span className="truncate">{extendedItem.company_name}</span>
                                   </div>
                                 )}
-                                {item.customer_email && (
+                                {(extendedItem.customer?.email || item.customer_email) && (
                                   <div className="flex items-center gap-2">
                                     <Mail className="h-3.5 w-3.5" />
-                                    <span className="truncate">{item.customer_email}</span>
+                                    <span className="truncate">{extendedItem.customer?.email || item.customer_email}</span>
                                   </div>
                                 )}
                                 {extendedItem.phone_number && (

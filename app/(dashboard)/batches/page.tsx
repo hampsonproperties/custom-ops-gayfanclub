@@ -164,7 +164,7 @@ export default function BatchesPage() {
                       href={`/work-items/${item.id}`}
                       className="font-medium hover:underline block mb-1"
                     >
-                      {item.customer_name || item.customer_email}
+                      {(item as any).customer?.display_name || item.customer_name || (item as any).customer?.email || item.customer_email}
                     </Link>
                     <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                       <span>{item.quantity || 0} units</span>
@@ -306,7 +306,7 @@ export default function BatchesPage() {
                       />
                     </div>
                     <div className="flex-1 text-sm min-w-0">
-                      <p className="font-medium truncate">{item.customer_name || item.customer_email}</p>
+                      <p className="font-medium truncate">{(item as any).customer?.display_name || item.customer_name || (item as any).customer?.email || item.customer_email}</p>
                       <p className="text-muted-foreground">
                         {item.quantity || 0} units • {item.shopify_order_number}
                       </p>
