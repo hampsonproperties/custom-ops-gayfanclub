@@ -159,7 +159,12 @@ export function ProjectDetailView({ projectId, customerId, customerName }: Proje
                     <span>${project.estimated_value.toLocaleString()}</span>
                   </div>
                 )}
-                {project.assigned_to && (
+                {project.type === 'customify_order' ? (
+                  <div className="flex items-center gap-1.5">
+                    <UserIcon className="h-4 w-4 text-purple-600" />
+                    <span className="text-purple-600 font-medium">Customify (Self-Designed)</span>
+                  </div>
+                ) : project.assigned_to && (
                   <div className="flex items-center gap-1.5">
                     <UserIcon className="h-4 w-4" />
                     <span>Assigned to: {project.assigned_to.full_name || project.assigned_to.email}</span>
@@ -187,13 +192,15 @@ export function ProjectDetailView({ projectId, customerId, customerName }: Proje
                   queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] })
                 }}
               />
-              <AssignDesignerDialog
-                projectId={projectId}
-                currentDesignerId={project.assigned_to_user_id}
-                onAssigned={() => {
-                  queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] })
-                }}
-              />
+              {project.type !== 'customify_order' && (
+                <AssignDesignerDialog
+                  projectId={projectId}
+                  currentDesignerId={project.assigned_to_user_id}
+                  onAssigned={() => {
+                    queryClient.invalidateQueries({ queryKey: ['project-detail', projectId] })
+                  }}
+                />
+              )}
               <EmailComposer
                 recipientEmail={project.customer?.email || ''}
                 recipientName={project.customer?.display_name || customerName}

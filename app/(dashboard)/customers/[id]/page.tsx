@@ -1124,17 +1124,19 @@ export default function CustomerProfilePage() {
                 <>
                   <span className="text-muted-foreground">Assigned to:</span>
                   <span className="font-medium">
-                    {allUsers?.find((u) => u.id === customer.assigned_to_user_id)?.full_name || 'Unknown'}
+                    {allUsers?.find((u) => u.id === customer.assigned_to_user_id)?.full_name || 'Loading...'}
                   </span>
-                  <select
-                    className="ml-2 text-xs border rounded px-1.5 py-0.5 bg-background text-foreground"
-                    value={customer.assigned_to_user_id}
-                    onChange={(e) => handleReassignCustomer(e.target.value)}
-                  >
-                    {allUsers?.map((u) => (
-                      <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
-                    ))}
-                  </select>
+                  {allUsers && allUsers.length > 0 && (
+                    <select
+                      className="ml-2 text-xs border rounded px-1.5 py-0.5 bg-background text-foreground cursor-pointer"
+                      value={customer.assigned_to_user_id}
+                      onChange={(e) => handleReassignCustomer(e.target.value)}
+                    >
+                      {allUsers.map((u) => (
+                        <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
+                      ))}
+                    </select>
+                  )}
                 </>
               ) : (
                 <>

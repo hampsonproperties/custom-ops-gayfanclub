@@ -774,7 +774,9 @@ function WorkItemsPageContent() {
 
                           {/* Designer */}
                           <td className="p-3">
-                            {extendedItem.assigned_to ? (
+                            {item.type === 'customify_order' ? (
+                              <span className="text-xs text-purple-600 font-medium bg-purple-50 px-2 py-1 rounded-full">Customify (Self-Designed)</span>
+                            ) : extendedItem.assigned_to ? (
                               <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2">
                                   <Avatar className="h-6 w-6">
