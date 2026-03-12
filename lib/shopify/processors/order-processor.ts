@@ -80,8 +80,22 @@ export async function processOrder(
   order: any,
   webhookEventId: string
 ): Promise<void> {
-  const orderType = detectOrderType(order)
+  let orderType = detectOrderType(order)
   const { customerName, customerEmail, phoneNumber, companyName, address } = extractCustomerData(order)
+
+  // Double-check with Customify API if tag-based detection says it's a customify order
+  // The Customify API is the source of truth — if it doesn't have the order, it's stock
+  if (orderType === 'customify_order') {
+    const { isCustomifyOrder } = await import('@/lib/customify/api')
+    const isRealCustomify = await isCustomifyOrder(order.id.toString())
+    if (!isRealCustomify) {
+      log.info('Order detected as customify by tags but NOT in Customify API — treating as stock', {
+        orderNumber: order.name,
+        orderId: order.id,
+      })
+      orderType = null
+    }
+  }
 
   // Stock order — no custom products detected
   if (orderType === null) {

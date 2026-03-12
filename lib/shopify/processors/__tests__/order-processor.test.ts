@@ -69,6 +69,10 @@ vi.mock('@/lib/shopify/customer-orders', () => ({
   findOrCreateCustomer: vi.fn(() => 'cust-uuid-123'),
 }))
 
+vi.mock('@/lib/customify/api', () => ({
+  isCustomifyOrder: vi.fn(() => true),
+}))
+
 vi.mock('@/lib/logger', () => ({
   logger: () => ({
     info: vi.fn(),
