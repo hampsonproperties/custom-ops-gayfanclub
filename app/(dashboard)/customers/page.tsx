@@ -74,6 +74,8 @@ interface Customer {
   updated_at: string
   // Computed fields
   project_count?: number
+  active_projects?: number
+  closed_projects?: number
   last_contact?: string
   total_spent?: number
 }
@@ -259,6 +261,7 @@ function CustomersPageContent() {
           work_items${joinType} (
             id,
             status,
+            closed_at,
             created_at,
             updated_at
           ),
@@ -308,9 +311,13 @@ function CustomersPageContent() {
       // Process data to add computed fields
       const processed = (data || []).map((customer: any) => {
         const projects = customer.work_items || []
+        const activeProjects = projects.filter((p: any) => !p.closed_at)
+        const closedProjects = projects.filter((p: any) => p.closed_at)
         return {
           ...customer,
           project_count: projects.length,
+          active_projects: activeProjects.length,
+          closed_projects: closedProjects.length,
           last_contact: projects[0]?.updated_at || customer.created_at,
           total_spent: customer.total_spent ?? 0,
         }
@@ -658,10 +665,23 @@ function CustomersPageContent() {
                         </TableCell>
 
                         {/* Projects Count */}
-                        <TableCell className="text-center">
-                          <Badge variant={customer.project_count ? 'default' : 'secondary'}>
-                            {customer.project_count || 0}
-                          </Badge>
+                        <TableCell>
+                          {customer.project_count ? (
+                            <div className="flex items-center gap-1.5">
+                              {(customer.active_projects || 0) > 0 && (
+                                <Badge variant="default" className="text-xs">
+                                  {customer.active_projects} active
+                                </Badge>
+                              )}
+                              {(customer.closed_projects || 0) > 0 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {customer.closed_projects} closed
+                                </Badge>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">None</span>
+                          )}
                         </TableCell>
 
                         {/* Estimated Value */}
@@ -762,9 +782,22 @@ function CustomersPageContent() {
 
                             {/* Badges Row */}
                             <div className="flex items-center gap-2 flex-wrap mb-2">
-                              <Badge variant={customer.project_count ? 'default' : 'secondary'} className="text-xs">
-                                {customer.project_count || 0} projects
-                              </Badge>
+                              {customer.project_count ? (
+                                <>
+                                  {(customer.active_projects || 0) > 0 && (
+                                    <Badge variant="default" className="text-xs">
+                                      {customer.active_projects} active
+                                    </Badge>
+                                  )}
+                                  {(customer.closed_projects || 0) > 0 && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      {customer.closed_projects} closed
+                                    </Badge>
+                                  )}
+                                </>
+                              ) : (
+                                <Badge variant="secondary" className="text-xs">No projects</Badge>
+                              )}
                               <ResponseBadge customer={customer} />
                               {(() => { const h = scoreCustomerHealth(customer as any); return <HealthDot level={h.level} reason={h.reason} /> })()}
                               {(customer as any).estimated_value && (
