@@ -20,38 +20,42 @@ export async function findOrCreateCustomerByEmail(
   name: string | null | undefined,
   options?: { phone?: string | null; organizationName?: string | null }
 ): Promise<string | null> {
-  if (!email) return null
+  const normalizedEmail = email?.toLowerCase().trim() || null
+  const trimmedName = name?.trim() || null
 
-  const normalizedEmail = email.toLowerCase().trim()
+  // Need at least an email or a name to create a customer
+  if (!normalizedEmail && !trimmedName) return null
 
   try {
-    // Try to find existing customer by email
-    const { data: existing } = await supabase
-      .from('customers')
-      .select('id')
-      .ilike('email', normalizedEmail)
-      .maybeSingle()
+    // Try to find existing customer by email first
+    if (normalizedEmail) {
+      const { data: existing } = await supabase
+        .from('customers')
+        .select('id')
+        .ilike('email', normalizedEmail)
+        .maybeSingle()
 
-    if (existing) {
-      log.info('Found existing customer', { email: normalizedEmail, customerId: existing.id })
-      return existing.id
+      if (existing) {
+        log.info('Found existing customer', { email: normalizedEmail, customerId: existing.id })
+        return existing.id
+      }
     }
 
     // Parse name into first/last
-    const nameParts = (name || '').trim().split(/\s+/)
+    const nameParts = (trimmedName || '').split(/\s+/)
     const firstName = nameParts[0] || null
     const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : null
-    const displayName = name?.trim() || normalizedEmail
+    const displayName = trimmedName || normalizedEmail!
 
     // Create new customer with optional phone and organization
     const insertData: Record<string, any> = {
-      email: normalizedEmail,
       first_name: firstName,
       last_name: lastName,
       display_name: displayName,
       customer_type: 'individual',
       sales_stage: 'new_lead',
     }
+    if (normalizedEmail) insertData.email = normalizedEmail
     if (options?.phone) insertData.phone = options.phone
     if (options?.organizationName) insertData.organization_name = options.organizationName
 
@@ -64,7 +68,7 @@ export async function findOrCreateCustomerByEmail(
 
     if (error) {
       // Handle race condition: another process created this customer between our check and insert
-      if (error.code === '23505') {
+      if (error.code === '23505' && normalizedEmail) {
         log.info('Race condition: customer created by another process, re-fetching', { email: normalizedEmail })
         const { data: retried } = await supabase
           .from('customers')
@@ -73,11 +77,11 @@ export async function findOrCreateCustomerByEmail(
           .maybeSingle()
         return retried?.id || null
       }
-      log.error('Failed to create customer', { error, email: normalizedEmail })
+      log.error('Failed to create customer', { error, email: normalizedEmail, name: trimmedName })
       return null
     }
 
-    log.info('Created new customer', { email: normalizedEmail, customerId: newCustomer.id })
+    log.info('Created new customer', { email: normalizedEmail, name: trimmedName, customerId: newCustomer.id })
     return newCustomer.id
   } catch (error) {
     log.error('Error in findOrCreateCustomerByEmail', { error, email: normalizedEmail })
