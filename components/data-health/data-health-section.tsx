@@ -10,6 +10,7 @@ import {
   useRelinkOrders,
   useRelinkEmails,
   useBulkShopifyLink,
+  useBackfillFiles,
   type DataHealthDiagnostics,
 } from '@/lib/hooks/use-data-health'
 import { toast } from 'sonner'
@@ -91,6 +92,7 @@ export function DataHealthSection() {
   const relinkOrders = useRelinkOrders()
   const relinkEmails = useRelinkEmails()
   const bulkLink = useBulkShopifyLink()
+  const backfillFiles = useBackfillFiles()
 
   const [fixResults, setFixResults] = useState<Record<string, string>>({})
   const [hasRun, setHasRun] = useState(false)
@@ -274,6 +276,42 @@ export function DataHealthSection() {
             />
           </div>
         )}
+
+        {/* Customify File Backfill */}
+        <div className="mt-4 p-4 border rounded-lg bg-muted/30">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Re-import Design Files from Customify</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Replace old Shopify-parsed files with clean, labeled files from the Customify API
+              </p>
+              {fixResults.backfill && (
+                <p className="text-xs text-green-600 mt-1">{fixResults.backfill}</p>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                backfillFiles.mutate({ dryRun: false }, {
+                  onSuccess: (data) => {
+                    setFixResults(prev => ({ ...prev, backfill: `Updated ${data.updated} orders, ${data.no_customify_data} not in Customify, ${data.failed} failed` }))
+                    toast.success(`Backfilled files for ${data.updated} orders`)
+                  },
+                  onError: (err) => toast.error(err.message),
+                })
+              }}
+              disabled={backfillFiles.isPending}
+              className="shrink-0"
+            >
+              {backfillFiles.isPending ? (
+                <><Loader2 className="h-3 w-3 animate-spin mr-1" />Importing...</>
+              ) : (
+                <>Re-import Files</>
+              )}
+            </Button>
+          </div>
+        </div>
 
         {diagnostics && diagnostics.aggregate_mismatches > 0 && diagnostics.aggregate_details.length > 0 && (
           <div className="mt-4">

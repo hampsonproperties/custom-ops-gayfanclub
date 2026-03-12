@@ -115,6 +115,30 @@ export function useRelinkEmails() {
 }
 
 /**
+ * Backfill design files from Customify API (replace old Shopify-parsed files)
+ */
+export function useBackfillFiles() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ dryRun = false }: { dryRun?: boolean } = {}) => {
+      const url = dryRun
+        ? '/api/data-health/backfill-files?dry_run=true'
+        : '/api/data-health/backfill-files'
+      const resp = await fetch(url, { method: 'POST' })
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: 'Failed to backfill files' }))
+        throw new Error(err.error || 'Failed to backfill files')
+      }
+      return resp.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['data-health'] })
+    },
+  })
+}
+
+/**
  * Bulk link customers to Shopify (existing route, reused here)
  */
 export function useBulkShopifyLink() {
