@@ -234,13 +234,13 @@ $$ LANGUAGE plpgsql;
 -- 3. SALES PIPELINE VIEW — Join customers
 -- ============================================================================
 
-DROP VIEW IF EXISTS sales_pipeline;
+DROP VIEW IF EXISTS sales_pipeline CASCADE;
 CREATE VIEW sales_pipeline AS
 SELECT
   wi.*,
   COALESCE(c.display_name, wi.customer_name) AS resolved_customer_name,
   COALESCE(c.email, wi.customer_email) AS resolved_customer_email,
-  COALESCE(c.organization_name, wi.company_name) AS resolved_company_name,
+  c.organization_name AS resolved_company_name,
   -- Computed flags
   CASE
     WHEN wi.next_follow_up_at IS NOT NULL AND wi.next_follow_up_at < NOW() THEN true
@@ -270,7 +270,7 @@ GROUP BY wi.id, c.display_name, c.email, c.organization_name;
 -- 4. PRODUCTION PIPELINE VIEW — Join customers
 -- ============================================================================
 
-DROP VIEW IF EXISTS production_pipeline;
+DROP VIEW IF EXISTS production_pipeline CASCADE;
 CREATE VIEW production_pipeline AS
 SELECT
   wi.*,

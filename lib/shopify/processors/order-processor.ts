@@ -25,7 +25,7 @@ import { detectOrderType } from '@/lib/shopify/detect-order-type'
 import { syncCustomerTags } from '@/lib/shopify/sync-customer-tags'
 import { createCustomerOrder, findOrCreateCustomer } from '@/lib/shopify/customer-orders'
 import { extractCustomerData, extractLineItemData, extractPaymentHistory, determineStatus } from './data-extractors'
-import { extractCustomifyFiles, importCustomifyFiles } from './file-downloader'
+import { importDesignFiles } from './file-downloader'
 import { autoLinkEmails } from './email-auto-linker'
 import { syncOrderComments } from './comment-sync'
 import { logger } from '@/lib/logger'
@@ -510,11 +510,8 @@ async function updateExistingWorkItem(
     }
   }
 
-  // Import Customify files for existing work item
-  const customifyFiles = extractCustomifyFiles(order.line_items || [])
-  if (customifyFiles.length > 0) {
-    await importCustomifyFiles(supabase, existingWorkItem.id, customifyFiles, 'Imported from Customify via webhook update')
-  }
+  // Import design files (Customify API first, Shopify properties as fallback)
+  await importDesignFiles(supabase, existingWorkItem.id, order.id.toString(), order.line_items || [], 'Imported via webhook update')
 
   // Sync comments
   await syncOrderComments(supabase, order.id.toString(), existingWorkItem.id)
@@ -539,7 +536,6 @@ async function createNewWorkItem(
   webhookEventId: string
 ): Promise<void> {
   const { quantity, gripColor, designPreviewUrl, designDownloadUrl } = extractLineItemData(order.line_items)
-  const customifyFiles = extractCustomifyFiles(order.line_items || [])
 
   const workItemType = (orderType === 'custom_design_service' || orderType === 'custom_bulk_order')
     ? 'assisted_project'
@@ -667,10 +663,8 @@ async function createNewWorkItem(
   // Sync order comments (batch operation — N+1 fixed)
   await syncOrderComments(supabase, order.id.toString(), newWorkItem.id)
 
-  // Import Customify files
-  if (customifyFiles.length > 0) {
-    await importCustomifyFiles(supabase, newWorkItem.id, customifyFiles)
-  }
+  // Import design files (Customify API first, Shopify properties as fallback)
+  await importDesignFiles(supabase, newWorkItem.id, order.id.toString(), order.line_items || [])
 
   // Auto-link recent emails
   if (customerEmail) {

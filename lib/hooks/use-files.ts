@@ -89,6 +89,7 @@ export function useUploadFile() {
         size_bytes: file.size,
         uploaded_by_user_id: user?.id || null,
         note: note || null,
+        source: 'manual_upload',
       }
 
       const { data, error } = await supabase

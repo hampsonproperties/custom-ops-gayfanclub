@@ -48,8 +48,7 @@ vi.mock('../data-extractors', () => ({
 
 // Mock other helpers — no-ops to prevent real calls
 vi.mock('../file-downloader', () => ({
-  extractCustomifyFiles: vi.fn(() => []),
-  importCustomifyFiles: vi.fn(),
+  importDesignFiles: vi.fn(),
 }))
 
 vi.mock('../email-auto-linker', () => ({

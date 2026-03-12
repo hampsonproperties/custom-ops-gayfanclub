@@ -99,7 +99,8 @@ export async function POST(request: NextRequest) {
         mime_type: file.type,
         size_bytes: file.size,
         kind: 'design_file',
-        uploaded_by_user_id: user.id
+        uploaded_by_user_id: user.id,
+        source: 'manual_upload'
       })
       .select()
       .single()

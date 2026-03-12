@@ -17,6 +17,18 @@ interface FileItem {
   mime_type?: string
   size_bytes?: number
   kind?: string
+  source?: string | null
+  note?: string | null
+}
+
+function getSourceLabel(file: FileItem): { text: string; color: string } | null {
+  if (file.source === 'customify_api') return { text: 'Customify', color: 'bg-purple-100 text-purple-700' }
+  if (file.source === 'shopify_property') return { text: 'Shopify Import', color: 'bg-blue-100 text-blue-700' }
+  if (file.source === 'manual_upload') return { text: 'Uploaded', color: 'bg-green-100 text-green-700' }
+  if (file.source === 'email_attachment') return { text: 'Email', color: 'bg-amber-100 text-amber-700' }
+  // Infer from data if source column not yet populated
+  if (file.storage_bucket === 'customify') return { text: 'Customify', color: 'bg-purple-100 text-purple-700' }
+  return null
 }
 
 function getFileUrl(file: FileItem): string | null {
@@ -100,9 +112,25 @@ export function FileGallery({ files, className }: FileGalleryProps) {
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <Maximize2 className="h-6 w-6 text-white" />
                 </div>
+                {/* Source badge */}
+                {getSourceLabel(file) && (
+                  <div className="absolute top-1.5 left-1.5">
+                    <span className={cn("text-[10px] font-medium px-1.5 py-0.5 rounded-full", getSourceLabel(file)!.color)}>
+                      {getSourceLabel(file)!.text}
+                    </span>
+                  </div>
+                )}
+                {/* Kind badge */}
+                {file.kind && (
+                  <div className="absolute top-1.5 right-1.5">
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-black/60 text-white">
+                      {file.kind === 'design' ? 'Customer Design' : file.kind === 'preview' ? 'Mockup' : file.kind}
+                    </span>
+                  </div>
+                )}
                 {/* Filename overlay */}
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <p className="text-white text-xs truncate">{file.original_filename}</p>
+                  <p className="text-white text-xs truncate">{file.note || file.original_filename}</p>
                 </div>
               </Card>
             ))}
@@ -125,8 +153,13 @@ export function FileGallery({ files, className }: FileGalleryProps) {
                       <File className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{file.original_filename}</p>
+                      <p className="text-sm font-medium truncate">{file.note || file.original_filename}</p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {getSourceLabel(file) && (
+                          <span className={cn("px-1.5 py-0.5 rounded-full text-[10px] font-medium", getSourceLabel(file)!.color)}>
+                            {getSourceLabel(file)!.text}
+                          </span>
+                        )}
                         {file.mime_type && <span>{file.mime_type}</span>}
                         {file.mime_type && file.size_bytes && <span>•</span>}
                         {file.size_bytes && <span>{formatBytes(file.size_bytes)}</span>}

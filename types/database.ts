@@ -1147,6 +1147,7 @@ export type Database = {
           note: string | null
           original_filename: string
           size_bytes: number | null
+          source: string | null
           storage_bucket: string
           storage_path: string
           updated_at: string | null
@@ -1164,6 +1165,7 @@ export type Database = {
           note?: string | null
           original_filename: string
           size_bytes?: number | null
+          source?: string | null
           storage_bucket: string
           storage_path: string
           updated_at?: string | null
@@ -1181,6 +1183,7 @@ export type Database = {
           note?: string | null
           original_filename?: string
           size_bytes?: number | null
+          source?: string | null
           storage_bucket?: string
           storage_path?: string
           updated_at?: string | null
