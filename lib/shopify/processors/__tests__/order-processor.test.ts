@@ -222,6 +222,7 @@ function createMockSupabase(overrides: {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
             maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+            single: vi.fn().mockResolvedValue({ data: { sales_stage: 'new_lead' }, error: null }),
           }),
         }),
         update: vi.fn().mockReturnValue({

@@ -33,6 +33,41 @@ import { logger } from '@/lib/logger'
 const log = logger('shopify-order-processor')
 
 /**
+ * Stages that should be promoted to active_customer when a Shopify order arrives.
+ * Won and active_customer are left alone — they're already past the lead stage.
+ */
+const PROMOTABLE_STAGES = new Set([
+  'new_lead', 'contacted', 'in_discussion', 'quoted', 'negotiating', 'lost',
+])
+
+/**
+ * Promote a customer to active_customer if they're still in a lead/lost stage.
+ * Customers already at won or active_customer are not touched.
+ */
+async function promoteCustomerStage(
+  supabase: SupabaseClient,
+  customerId: string,
+): Promise<void> {
+  const { data: customer } = await supabase
+    .from('customers')
+    .select('sales_stage')
+    .eq('id', customerId)
+    .single()
+
+  if (customer && PROMOTABLE_STAGES.has(customer.sales_stage)) {
+    await supabase
+      .from('customers')
+      .update({ sales_stage: 'active_customer' })
+      .eq('id', customerId)
+
+    log.info('Promoted customer to active_customer', {
+      customerId,
+      previousStage: customer.sales_stage,
+    })
+  }
+}
+
+/**
  * Process a Shopify order webhook (orders/create or orders/updated).
  *
  * Three paths:
@@ -124,6 +159,8 @@ async function handleStockOrder(
         .update({ customer_type: 'retailer', retail_account_id: retailAccountId })
         .eq('id', customerId)
         .is('retail_account_id', null) // Only set if not already linked
+
+      await promoteCustomerStage(supabase, customerId)
     }
 
     const orderTags = order.tags
@@ -351,6 +388,11 @@ async function updateExistingWorkItem(
 
   // Customer data is read via JOIN on customer_id — no longer denormalized onto work items
 
+  // Promote customer to active_customer if they're still in a lead/lost stage
+  if (existingWorkItem.customer_id) {
+    await promoteCustomerStage(supabase, existingWorkItem.customer_id)
+  }
+
   // Link this order to the work item
   if (orderType === 'custom_bulk_order') {
     updateData.shopify_order_id = order.id.toString()
@@ -539,6 +581,7 @@ async function createNewWorkItem(
   const customerId = await findOrCreateCustomer(supabase, order.customer)
   if (customerId) {
     insertData.customer_id = customerId
+    await promoteCustomerStage(supabase, customerId)
   }
 
   // Insert work item
