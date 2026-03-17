@@ -451,15 +451,17 @@ function EmailCard({
             </Button>
           </Link>
         )}
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => onReassign(email)}
-          className="gap-1"
-        >
-          <User className="h-4 w-4" />
-          Reassign
-        </Button>
+        {(email.work_item_id || email.customer_id) && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => onReassign(email)}
+            className="gap-1"
+          >
+            <User className="h-4 w-4" />
+            Reassign
+          </Button>
+        )}
         {email.email_status === 'needs_reply' && (
           <Button
             variant="outline"

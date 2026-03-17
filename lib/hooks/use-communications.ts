@@ -181,9 +181,6 @@ export function useTriageEmail() {
       triageStatus: 'created_lead' | 'attached' | 'flagged_support' | 'archived'
       workItemId?: string
     }) => {
-      // Auto-assign the triaging user as the email owner (feeds priority inbox)
-      const { data: { user } } = await supabase.auth.getUser()
-
       const updates: CommunicationUpdate = {
         triage_status: triageStatus,
       }
@@ -192,8 +189,12 @@ export function useTriageEmail() {
         updates.work_item_id = workItemId
       }
 
-      if (user) {
-        updates.owner_user_id = user.id
+      // Only assign owner when creating a lead — support/archive shouldn't claim ownership
+      if (triageStatus === 'created_lead' || triageStatus === 'attached') {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          updates.owner_user_id = user.id
+        }
       }
 
       const { data, error } = await supabase
