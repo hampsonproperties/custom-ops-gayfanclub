@@ -20,6 +20,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import Link from 'next/link'
+import { setQueue } from '@/lib/hooks/use-queue-navigation'
 import { formatDistanceToNow } from 'date-fns'
 
 const STUCK_REASON_CONFIG = {
@@ -92,6 +93,7 @@ function StuckItemCard({ item }: { item: StuckItem }) {
           ? `/admin/dlq?id=${item.dlq_id}`
           : `/work-items/${item.work_item_id}`
       }
+      onClick={() => item.work_item_id && setQueue({ source: 'Stuck Items', type: 'work-item', ids: [item.work_item_id] })}
     >
       <Card className="hover:shadow-md transition-shadow cursor-pointer">
         <CardHeader className="pb-3">

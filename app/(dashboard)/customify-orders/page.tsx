@@ -31,6 +31,7 @@ import {
 import { formatDistanceToNow } from 'date-fns'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { setQueue } from '@/lib/hooks/use-queue-navigation'
 
 export default function CustomifyOrdersPage() {
   const { data: orders, isLoading } = useDesignReviewQueue()
@@ -225,7 +226,7 @@ export default function CustomifyOrdersPage() {
                           </h3>
                           <p className="text-sm text-muted-foreground">
                             {order.shopify_order_number ? (
-                              <Link href={`/work-items/${order.id}`} className="hover:underline hover:text-foreground transition-colors">
+                              <Link href={`/work-items/${order.id}`} className="hover:underline hover:text-foreground transition-colors" onClick={() => setQueue({ source: 'Design Review', type: 'work-item', ids: (orders || []).map(x => x.id) })}>
                                 Order #{order.shopify_order_number}
                               </Link>
                             ) : ((order as any).customer?.email || order.customer_email)}
@@ -270,7 +271,7 @@ export default function CustomifyOrdersPage() {
 
                     {/* Quick Actions */}
                     <div className="flex-shrink-0 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
-                      <Link href={`/work-items/${order.id}`}>
+                      <Link href={`/work-items/${order.id}`} onClick={() => setQueue({ source: 'Design Review', type: 'work-item', ids: (orders || []).map(x => x.id) })}>
                         <Button variant="outline" size="sm" className="gap-2 w-full">
                           <ExternalLink className="h-4 w-4" />
                           Project
@@ -303,7 +304,7 @@ export default function CustomifyOrdersPage() {
                 <DialogDescription className="flex items-center gap-3">
                   <span>Complete the checklist, then approve or request a fix</span>
                   <span className="flex items-center gap-2">
-                    <Link href={`/work-items/${selectedOrderData.id}`} className="text-primary hover:underline text-xs font-medium">
+                    <Link href={`/work-items/${selectedOrderData.id}`} className="text-primary hover:underline text-xs font-medium" onClick={() => setQueue({ source: 'Design Review', type: 'work-item', ids: (orders || []).map(x => x.id) })}>
                       View Project
                     </Link>
                     {selectedOrderData.customer_id && (

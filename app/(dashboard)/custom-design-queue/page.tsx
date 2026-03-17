@@ -14,6 +14,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { Palette, Clock, DollarSign, ArrowRight, Upload } from 'lucide-react'
 import Link from 'next/link'
+import { setQueue } from '@/lib/hooks/use-queue-navigation'
 import { formatDistanceToNow, format } from 'date-fns'
 import { toast } from 'sonner'
 
@@ -136,7 +137,7 @@ export default function CustomDesignQueuePage() {
                       <span className="hidden sm:inline">Mark as Sent (manual)</span>
                       <span className="sm:hidden">Mark Sent</span>
                     </Button>
-                    <Link href={`/work-items/${item.id}`} className="flex-1">
+                    <Link href={`/work-items/${item.id}`} className="flex-1" onClick={() => setQueue({ source: 'Custom Design Queue', type: 'work-item', ids: [...(designing || []), ...(awaitingApproval || []), ...(awaitingPayment || [])].map(x => x.id) })}>
                       <Button variant="secondary" size="sm" className="w-full h-11 sm:h-9">
                         <ArrowRight className="h-4 w-4 mr-1" />
                         Open
@@ -222,7 +223,7 @@ export default function CustomDesignQueuePage() {
                         <span className="hidden sm:inline">Revise Design</span>
                         <span className="sm:hidden">Revise</span>
                       </Button>
-                      <Link href={`/work-items/${item.id}`} className="flex-1">
+                      <Link href={`/work-items/${item.id}`} className="flex-1" onClick={() => setQueue({ source: 'Custom Design Queue', type: 'work-item', ids: [...(designing || []), ...(awaitingApproval || []), ...(awaitingPayment || [])].map(x => x.id) })}>
                         <Button variant="secondary" size="sm" className="w-full h-11 sm:h-9">
                           <ArrowRight className="h-4 w-4 mr-1" />
                           Open
@@ -303,7 +304,7 @@ export default function CustomDesignQueuePage() {
                       >
                         Mark Paid
                       </Button>
-                      <Link href={`/work-items/${item.id}`} className="flex-1">
+                      <Link href={`/work-items/${item.id}`} className="flex-1" onClick={() => setQueue({ source: 'Custom Design Queue', type: 'work-item', ids: [...(designing || []), ...(awaitingApproval || []), ...(awaitingPayment || [])].map(x => x.id) })}>
                         <Button variant="secondary" size="sm" className="w-full h-11 sm:h-9">
                           <ArrowRight className="h-4 w-4 mr-1" />
                           Open

@@ -201,6 +201,9 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
                     'Sales Leads': { label: 'Sales Leads', href: '/sales-leads' },
                     'Action Items': { label: 'Action Items', href: '/follow-ups' },
                     'Follow-Ups Due': { label: 'Dashboard', href: '/dashboard' },
+                    'Custom Design Queue': { label: 'Custom Design Queue', href: '/custom-design-queue' },
+                    'Design Review': { label: 'Design Review', href: '/customify-orders' },
+                    'Stuck Items': { label: 'Stuck Items', href: '/stuck-items' },
                   }
                   const backLink = (queue.source && sourceMap[queue.source]) || { label: 'Projects', href: '/work-items' }
 
