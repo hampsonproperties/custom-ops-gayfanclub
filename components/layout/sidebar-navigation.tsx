@@ -151,7 +151,7 @@ export function SidebarNavigation() {
           <div className="ml-6 mt-1 space-y-1">
             <Link href="/inbox">
               <Button
-                variant={isActive('/inbox') ? 'secondary' : 'ghost'}
+                variant={pathname === '/inbox' ? 'secondary' : 'ghost'}
                 size="sm"
                 className="w-full justify-start text-sm"
               >
