@@ -42,14 +42,15 @@ import { scoreCustomerHealth, scoreLeadHealth } from '@/lib/utils/health-scoring
 import { setQueue } from '@/lib/hooks/use-queue-navigation'
 import { HealthDot } from '@/components/custom/health-badge'
 
-// Helper: fetch IDs of customers with at least one open work item (not closed)
-// This filters out fulfilled orders, Customify-only auto-orders, and inactive customers
+// Helper: fetch IDs of customers with at least one open assisted project or sales lead
+// Excludes customify orders — those are self-service and don't need email tracking
 async function getCustomersWithOpenProjects(supabase: any): Promise<Set<string>> {
   const { data } = await supabase
     .from('work_items')
     .select('customer_id')
     .is('closed_at', null)
     .not('customer_id', 'is', null)
+    .neq('type', 'customify_order')
   return new Set((data || []).map((w: any) => w.customer_id))
 }
 
