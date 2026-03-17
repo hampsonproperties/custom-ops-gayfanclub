@@ -477,14 +477,14 @@ export function useMyInbox() {
 
       const { data, error } = await supabase
         .from('communications')
-        .select('*, work_items!inner(id, title, status, customer_name, customer:customers(display_name, email, organization_name, phone))')
+        .select('*, work_items(id, title, status, customer_name, customer:customers(display_name, email, organization_name, phone))')
         .eq('owner_user_id', user.id)
         .neq('email_status', 'closed')
         .order('priority', { ascending: false }) // high first
         .order('received_at', { ascending: false })
 
       if (error) throw error
-      return data as (Communication & { work_items: { id: string; title: string | null; status: string; customer_name: string | null; customer: { display_name: string | null; email: string | null; organization_name: string | null; phone: string | null } | null } })[]
+      return data as (Communication & { work_items: { id: string; title: string | null; status: string; customer_name: string | null; customer: { display_name: string | null; email: string | null; organization_name: string | null; phone: string | null } | null } | null })[]
     },
   })
 }
