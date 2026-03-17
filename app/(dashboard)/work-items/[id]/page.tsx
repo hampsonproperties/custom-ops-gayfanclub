@@ -195,13 +195,22 @@ export default function WorkItemDetailPage({ params }: { params: Promise<{ id: s
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
             <div className="flex-1 min-w-0 space-y-2">
               <Breadcrumbs
-                items={workItem.customer_id
-                  ? [
-                      { label: 'Projects', href: '/work-items' },
-                      { label: customer?.display_name || workItem.customer_name || 'Customer', href: `/customers/${workItem.customer_id}` },
-                    ]
-                  : [{ label: 'Projects', href: '/work-items' }]
-                }
+                items={(() => {
+                  // Use queue source to determine the back link
+                  const sourceMap: Record<string, { label: string; href: string }> = {
+                    'Sales Leads': { label: 'Sales Leads', href: '/sales-leads' },
+                    'Action Items': { label: 'Action Items', href: '/follow-ups' },
+                    'Follow-Ups Due': { label: 'Dashboard', href: '/dashboard' },
+                  }
+                  const backLink = (queue.source && sourceMap[queue.source]) || { label: 'Projects', href: '/work-items' }
+
+                  return workItem.customer_id
+                    ? [
+                        backLink,
+                        { label: customer?.display_name || workItem.customer_name || 'Customer', href: `/customers/${workItem.customer_id}` },
+                      ]
+                    : [backLink]
+                })()}
                 current={workItem.title || workItem.shopify_order_number || 'Project'}
               />
               {queue.hasQueue && (
